@@ -15,7 +15,7 @@ export function setVaultPath(path: string): void {
 /** 初始化 vault 目录结构（确保所有子目录存在） */
 export async function ensureVaultDirs(vaultPath: string): Promise<void> {
   await Promise.all([
-    ensureDir(`${vaultPath}/entries`),
+    ensureDir(`${vaultPath}/notes`),
     ensureDir(`${vaultPath}/meta`),
     ensureDir(`${vaultPath}/reflections`),
     ensureDir(`${vaultPath}/indexes`),

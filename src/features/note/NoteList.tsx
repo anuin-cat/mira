@@ -1,8 +1,8 @@
 import { format, isToday, isYesterday } from 'date-fns'
-import type { EntryMeta } from '../../domain/entry'
+import type { NoteMeta } from '../../domain/note'
 
 interface Props {
-  entries: EntryMeta[]
+  notes: NoteMeta[]
   activeId: string | null
   onSelect: (id: string) => void
   onNew: () => void
@@ -17,30 +17,30 @@ function formatDate(dateStr: string): string {
   return format(date, 'M月d日')
 }
 
-/** 左侧 entry 列表侧边栏 */
-export function EntryList({ entries, activeId, onSelect, onNew, onDelete }: Props) {
+/** 左侧 note 列表侧边栏 */
+export function NoteList({ notes, activeId, onSelect, onNew, onDelete }: Props) {
   return (
-    <aside className="entry-list">
-      <div className="entry-list-header">
+    <aside className="note-list">
+      <div className="note-list-header">
         <span className="app-name">Mira</span>
         <button className="btn-new" onClick={onNew} title="新建笔记">
           +
         </button>
       </div>
 
-      <div className="entry-list-items">
-        {entries.length === 0 && (
-          <div className="entry-list-empty">暂无笔记，点击 + 新建</div>
+      <div className="note-list-items">
+        {notes.length === 0 && (
+          <div className="note-list-empty">暂无笔记，点击 + 新建</div>
         )}
-        {entries.map((meta) => (
+        {notes.map((meta) => (
           <div
             key={meta.id}
-            className={`entry-item ${meta.id === activeId ? 'active' : ''}`}
+            className={`note-item ${meta.id === activeId ? 'active' : ''}`}
             onClick={() => onSelect(meta.id)}
           >
-            <div className="entry-item-title">{meta.title}</div>
-            <div className="entry-item-footer">
-              <span className="entry-item-date">{formatDate(meta.createdAt)}</span>
+            <div className="note-item-title">{meta.title}</div>
+            <div className="note-item-footer">
+              <span className="note-item-date">{formatDate(meta.createdAt)}</span>
               <button
                 className="btn-delete"
                 onClick={(e) => {

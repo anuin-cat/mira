@@ -59,7 +59,7 @@
 推荐结构：
 
 vault/
-  entries/
+  notes/
   meta/
   reflections/
   indexes/

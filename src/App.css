@@ -27,7 +27,7 @@ body {
 }
 
 /* ── 左侧边栏 ── */
-.entry-list {
+.note-list {
   width: 240px;
   min-width: 240px;
   background: #f7f7f5;
@@ -37,7 +37,7 @@ body {
   overflow: hidden;
 }
 
-.entry-list-header {
+.note-list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -73,20 +73,20 @@ body {
   color: #1a1a1a;
 }
 
-.entry-list-items {
+.note-list-items {
   flex: 1;
   overflow-y: auto;
   padding: 6px 0;
 }
 
-.entry-list-empty {
+.note-list-empty {
   padding: 24px 12px;
   color: #aaa;
   font-size: 12px;
   text-align: center;
 }
 
-.entry-item {
+.note-item {
   padding: 8px 10px;
   cursor: pointer;
   border-radius: 6px;
@@ -94,15 +94,15 @@ body {
   transition: background 0.1s;
 }
 
-.entry-item:hover {
+.note-item:hover {
   background: #ebebea;
 }
 
-.entry-item.active {
+.note-item.active {
   background: #e3e2df;
 }
 
-.entry-item-title {
+.note-item-title {
   font-size: 13px;
   font-weight: 500;
   color: #1a1a1a;
@@ -112,13 +112,13 @@ body {
   margin-bottom: 3px;
 }
 
-.entry-item-footer {
+.note-item-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.entry-item-date {
+.note-item-date {
   font-size: 11px;
   color: #aaa;
 }
@@ -138,7 +138,7 @@ body {
   line-height: 1;
 }
 
-.entry-item:hover .btn-delete {
+.note-item:hover .btn-delete {
   display: flex;
 }
 
