@@ -166,17 +166,17 @@
 
 /* 4. 行内元素与引用使用更温和的对比，避免工具文档感过强 */
 .mira-mdx-content a {
-  color: #2d5f98;
+  color: #137cee;
   text-decoration: none;
-  border-bottom: 1px solid rgba(45, 95, 152, 0.18);
+  border-bottom: 1px solid rgba(36, 104, 201, 0.22);
   transition:
     color 120ms ease,
     border-color 120ms ease;
 }
 
 .mira-mdx-content a:hover {
-  color: #1d446f;
-  border-bottom-color: rgba(29, 68, 111, 0.35);
+  color: #137cee;
+  border-bottom-color: rgba(27, 86, 173, 0.38);
 }
 
 .mira-mdx-content strong {
