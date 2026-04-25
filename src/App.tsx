@@ -85,7 +85,7 @@ interface EditorTitleProps {
   onRename: (name: string) => Promise<string | null>
 }
 
-/** 编辑器顶部文件名输入框，只重命名文件，不写入 Markdown 正文 */
+/** 编辑器内嵌标题输入框，只重命名文件，不写入 Markdown 正文 */
 function EditorTitle({ activePath, onRename }: EditorTitleProps) {
   const [value, setValue] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -116,30 +116,24 @@ function EditorTitle({ activePath, onRename }: EditorTitleProps) {
     }
   }
 
+  if (!activePath) return null
+
   return (
-    <div className="editor-titlebar">
-      {activePath ? (
-        <>
-          <input
-            value={value}
-            disabled={isSaving}
-            onChange={(event) => setValue(event.target.value)}
-            onBlur={() => void commitRename()}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') event.currentTarget.blur()
-              if (event.key === 'Escape') {
-                setValue(getDisplayName(activePath, 'file'))
-                event.currentTarget.blur()
-              }
-            }}
-            aria-label="文件名"
-          />
-          <span>{getParentPath(activePath) ?? 'Vault 根目录'}</span>
-        </>
-      ) : (
-        <span>未选择文件</span>
-      )}
-    </div>
+    <input
+      className="editor-title-input"
+      value={value}
+      disabled={isSaving}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={() => void commitRename()}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+        if (event.key === 'Escape') {
+          setValue(getDisplayName(activePath, 'file'))
+          event.currentTarget.blur()
+        }
+      }}
+      aria-label="文件名"
+    />
   )
 }
 
@@ -560,12 +554,12 @@ export default function App() {
       />
       <div className="sidebar-resizer" onMouseDown={handleResizerMouseDown} />
       <main className="editor-pane">
-        <EditorTitle activePath={activePath} onRename={handleTitleRename} />
         {activePath ? (
           <MilkdownEditor
             key={activePath}
             initialContent={activeContent}
             onChange={handleContentChange}
+            titleSlot={<EditorTitle activePath={activePath} onRename={handleTitleRename} />}
           />
         ) : (
           <div className="editor-empty">
