@@ -215,7 +215,8 @@ export async function moveEntry(
   targetDir: string | null,
   kind: VaultEntryKind
 ): Promise<string> {
-  const targetPath = normalizeRelativePath(joinRelativePath(targetDir, getBaseName(relativePath)))
+  const baseName = getBaseName(relativePath)
+  const targetPath = normalizeRelativePath(joinRelativePath(targetDir, baseName))
 
   validateUserRelativePath(targetPath, kind)
   if (targetPath === relativePath) return relativePath
@@ -224,10 +225,13 @@ export async function moveEntry(
     throw new Error('不能把文件夹移动到自身内部')
   }
 
-  const targetExists = await pathExists(absoluteVaultPath(vaultPath, targetPath))
+  const targetAbsPath = absoluteVaultPath(vaultPath, targetPath)
+  const sourceAbsPath = absoluteVaultPath(vaultPath, relativePath)
+
+  const targetExists = await pathExists(targetAbsPath)
   if (targetExists) throw new Error('目标位置已有同名文件或文件夹')
 
-  await movePath(absoluteVaultPath(vaultPath, relativePath), absoluteVaultPath(vaultPath, targetPath))
+  await movePath(sourceAbsPath, targetAbsPath)
   return targetPath
 }
 

@@ -1,9 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tree } from 'react-arborist'
-import type { MoveHandler, NodeApi, NodeRendererProps, RenameHandler, TreeApi } from 'react-arborist'
+import type { NodeApi, NodeRendererProps, RenameHandler, TreeApi } from 'react-arborist'
 import type { MouseEvent } from 'react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
+
+const DRAG_THRESHOLD = 5
+const AUTO_SCROLL_SPEED = 12
+const AUTO_SCROLL_ZONE = 40
+const AUTO_OPEN_DELAY = 700
 
 interface ContextMenuState {
   x: number
@@ -25,6 +30,18 @@ interface FileTreeProps {
   style?: React.CSSProperties
 }
 
+interface DragState {
+  sourcePath: string
+  sourceKind: VaultEntryKind
+  sourceEl: HTMLElement
+  startX: number
+  startY: number
+  hasMoved: boolean
+  previewEl: HTMLDivElement
+  autoOpenTimer: ReturnType<typeof setTimeout> | null
+  autoOpenTarget: string | null
+}
+
 interface VaultNodeProps extends NodeRendererProps<VaultTreeNode> {
   onContextMenuOpen: (event: MouseEvent, node: VaultTreeNode) => void
 }
@@ -38,6 +55,37 @@ function hasNode(nodes: VaultTreeNode[], id: string): boolean {
 function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
   return error instanceof Error ? error.message : '操作失败'
+}
+
+/** 判断拖拽节点是否属于 targetDir 的子树（防止自嵌套） */
+function isDescendantOf(sourcePath: string, sourceKind: VaultEntryKind, targetDir: string): boolean {
+  if (sourceKind !== 'directory') return false
+  return sourcePath === targetDir || targetDir.startsWith(`${sourcePath}/`)
+}
+
+/** 创建拖拽预览元素 */
+function createPreviewElement(name: string, kind: VaultEntryKind): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = 'tree-node drag-preview'
+  el.innerHTML = `<span class="tree-node-icon ${kind}"></span><span class="tree-node-name">${name}</span>`
+  el.style.cssText = [
+    'position: fixed',
+    'z-index: 9999',
+    'pointer-events: none',
+    'display: flex',
+    'align-items: center',
+    'height: 30px',
+    'padding: 0 8px 0 4px',
+    'background: rgba(255,255,255,0.92)',
+    'border: 1px solid #d0d0cc',
+    'border-radius: 6px',
+    'box-shadow: 0 4px 16px rgba(0,0,0,0.12)',
+    'font-size: 13px',
+    'color: #2b2b2b',
+    'width: max-content',
+    'min-width: 120px',
+  ].join(';')
+  return el
 }
 
 /** 文件树节点渲染，目录点击展开，文件点击打开 */
@@ -77,12 +125,9 @@ function VaultNode({
     <div
       ref={dragHandle}
       style={style}
-      className={[
-        'tree-node',
-        node.isSelected ? 'active' : '',
-        node.isDragging ? 'dragging' : '',
-        node.willReceiveDrop ? 'drag-target' : '',
-      ].join(' ')}
+      className={['tree-node', node.isSelected ? 'active' : ''].join(' ')}
+      data-path={data.path}
+      data-kind={data.kind}
       onClick={handleNodeClick}
       onContextMenu={(event) => onContextMenuOpen(event, data)}
     >
@@ -139,16 +184,18 @@ export function FileTree({
   const [treeHeight, setTreeHeight] = useState(600)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [pendingEditId, setPendingEditId] = useState<string | null>(null)
-  const dndRootElement = useMemo(
-    () => (typeof document === 'undefined' ? null : document.body),
-    []
-  )
+  const dragRef = useRef<DragState | null>(null)
+  const onMoveEntryRef = useRef(onMoveEntry)
+  onMoveEntryRef.current = onMoveEntry
+  const onExpandedDirsChangeRef = useRef(onExpandedDirsChange)
+  onExpandedDirsChangeRef.current = onExpandedDirsChange
 
   const initialOpenState = useMemo(
     () => Object.fromEntries(expandedDirs.map((path) => [path, true])),
     []
   )
 
+  // 1. 自适应高度
   useEffect(() => {
     function updateHeight() {
       setTreeHeight(bodyRef.current?.clientHeight ?? 600)
@@ -159,6 +206,7 @@ export function FileTree({
     return () => window.removeEventListener('resize', updateHeight)
   }, [])
 
+  // 2. 右键菜单自动关闭
   useEffect(() => {
     if (!contextMenu) return
 
@@ -174,6 +222,7 @@ export function FileTree({
     }
   }, [contextMenu])
 
+  // 3. 新建后触发内联编辑
   useEffect(() => {
     if (!pendingEditId || !hasNode(treeData, pendingEditId)) return
     const editId = pendingEditId
@@ -184,12 +233,216 @@ export function FileTree({
     })
   }, [pendingEditId, treeData])
 
+  // 4. 收集当前已展开目录
   function collectOpenDirs(): string[] {
     const openState = treeRef.current?.openState ?? {}
     return Object.entries(openState)
       .filter(([, isOpen]) => isOpen)
       .map(([path]) => path)
   }
+
+  // ========== 自定义拖拽实现（替换 react-arborist 内置 react-dnd DnD） ==========
+  // 原因：Tauri WKWebView 下 HTML5 dragover/drop 事件不触发，react-dnd-html5-backend 完全失效
+
+  /** 根据鼠标 Y 坐标计算当前悬停的目标节点 */
+  function getTargetNode(clientY: number): NodeApi<VaultTreeNode> | null {
+    const container = bodyRef.current
+    const tree = treeRef.current
+    if (!container || !tree) return null
+
+    const rect = container.getBoundingClientRect()
+    const index = Math.floor((clientY - rect.top + container.scrollTop) / 30)
+    if (index < 0) return null
+    return tree.at(index) ?? null
+  }
+
+  /** 根据目标节点计算目标目录路径 */
+  function resolveTargetDir(targetNode: NodeApi<VaultTreeNode> | null): string | null {
+    if (!targetNode) return null
+    return targetNode.data.kind === 'directory' ? targetNode.data.path : getParentPath(targetNode.data.path)
+  }
+
+  /** 验证拖拽落点是否合法 */
+  function isValidDrop(drag: DragState, targetDir: string | null): boolean {
+    // 已在目标目录中
+    if (getParentPath(drag.sourcePath) === targetDir) return false
+    // 防止目录自嵌套
+    if (targetDir && isDescendantOf(drag.sourcePath, drag.sourceKind, targetDir)) return false
+    return true
+  }
+
+  /** 清理拖拽状态 */
+  function cleanupDrag() {
+    const drag = dragRef.current
+    if (!drag) return
+
+    // 移除 source 拖拽样式
+    drag.sourceEl.classList.remove('dragging')
+
+    // 移除所有 drop target 高亮
+    document.querySelectorAll('.tree-node.drag-target').forEach((el) => {
+      el.classList.remove('drag-target')
+    })
+
+    // 移除预览元素
+    if (drag.previewEl.parentNode) {
+      drag.previewEl.parentNode.removeChild(drag.previewEl)
+    }
+
+    // 清除自动展开定时器
+    if (drag.autoOpenTimer) {
+      clearTimeout(drag.autoOpenTimer)
+    }
+
+    // 恢复 body 样式
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+
+    dragRef.current = null
+  }
+
+  /** document mousemove 处理 */
+  const handleDragMove = useCallback((event: globalThis.MouseEvent) => {
+    const drag = dragRef.current
+    if (!drag) return
+
+    // 4.1 检查拖拽阈值
+    if (!drag.hasMoved) {
+      const dx = event.clientX - drag.startX
+      const dy = event.clientY - drag.startY
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
+      drag.hasMoved = true
+
+      // 首次超过阈值：展示预览，锁定 UI
+      document.body.appendChild(drag.previewEl)
+      document.body.style.cursor = 'grabbing'
+      document.body.style.userSelect = 'none'
+    }
+
+    // 4.2 更新预览位置
+    drag.previewEl.style.left = `${event.clientX + 8}px`
+    drag.previewEl.style.top = `${event.clientY - 15}px`
+
+    // 4.3 自动滚动
+    const container = bodyRef.current
+    if (container) {
+      const rect = container.getBoundingClientRect()
+      const relativeY = event.clientY - rect.top
+      if (relativeY < AUTO_SCROLL_ZONE) {
+        container.scrollTop -= AUTO_SCROLL_SPEED
+      } else if (relativeY > rect.height - AUTO_SCROLL_ZONE) {
+        container.scrollTop += AUTO_SCROLL_SPEED
+      }
+    }
+
+    // 4.4 计算并更新落点高亮
+    const targetNode = getTargetNode(event.clientY)
+    const targetDir = resolveTargetDir(targetNode)
+
+    // 移除旧高亮
+    document.querySelectorAll('.tree-node.drag-target').forEach((el) => {
+      el.classList.remove('drag-target')
+    })
+
+    // 添加新高亮
+    if (targetNode && targetNode.data.kind === 'directory' && isValidDrop(drag, targetDir)) {
+      const container = bodyRef.current
+      const escapedPath = targetNode.data.path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      const el = container?.querySelector(`.tree-node[data-path="${escapedPath}"]`) as HTMLElement | null
+      if (el) el.classList.add('drag-target')
+    }
+
+    // 4.5 自动展开目录
+    const newAutoTarget = targetNode?.data.kind === 'directory' ? targetNode.data.path : null
+    if (newAutoTarget !== drag.autoOpenTarget) {
+      if (drag.autoOpenTimer) {
+        clearTimeout(drag.autoOpenTimer)
+        drag.autoOpenTimer = null
+      }
+      drag.autoOpenTarget = newAutoTarget
+
+      if (newAutoTarget && !treeRef.current?.isOpen(newAutoTarget)) {
+        drag.autoOpenTimer = setTimeout(() => {
+          treeRef.current?.open(newAutoTarget)
+          onExpandedDirsChangeRef.current(collectOpenDirs())
+        }, AUTO_OPEN_DELAY)
+      }
+    }
+  }, [])
+
+  /** document mouseup 处理：执行移动 */
+  const handleDragEnd = useCallback((event: globalThis.MouseEvent) => {
+    const drag = dragRef.current
+    if (!drag) return
+
+    // 移除 document 监听
+    document.removeEventListener('mousemove', handleDragMove)
+    document.removeEventListener('mouseup', handleDragEnd)
+
+    if (!drag.hasMoved) {
+      cleanupDrag()
+      return
+    }
+
+    // 计算最终落点
+    const targetNode = getTargetNode(event.clientY)
+    const targetDir = resolveTargetDir(targetNode)
+
+    // 执行移动
+    if (isValidDrop(drag, targetDir)) {
+      onMoveEntryRef.current(drag.sourcePath, targetDir, drag.sourceKind).catch((error) => {
+        window.alert(getErrorMessage(error))
+      })
+    }
+
+    cleanupDrag()
+  }, [handleDragMove])
+
+  /** tree 容器 mousedown：检测拖拽意图 */
+  function handleTreeMouseDown(event: React.MouseEvent) {
+    // 仅处理左键
+    if (event.button !== 0) return
+
+    // 清理可能残留的拖拽状态（上一次 mouseup 未在 document 内触发时）
+    if (dragRef.current) {
+      cleanupDrag()
+      document.removeEventListener('mousemove', handleDragMove)
+      document.removeEventListener('mouseup', handleDragEnd)
+    }
+
+    // 找到被点击的 tree-node 元素
+    const nodeEl = (event.target as HTMLElement).closest('.tree-node') as HTMLElement | null
+    if (!nodeEl) return
+
+    // 编辑输入框内不触发拖拽
+    if ((event.target as HTMLElement).tagName === 'INPUT') return
+
+    const path = nodeEl.dataset.path
+    const kind = nodeEl.dataset.kind as VaultEntryKind | undefined
+    if (!path || !kind) return
+
+    // 初始化拖拽状态
+    const nameEl = nodeEl.querySelector('.tree-node-name') as HTMLElement | null
+    const displayName = nameEl?.textContent ?? path.split('/').pop() ?? path
+
+    dragRef.current = {
+      sourcePath: path,
+      sourceKind: kind,
+      sourceEl: nodeEl,
+      startX: event.clientX,
+      startY: event.clientY,
+      hasMoved: false,
+      previewEl: createPreviewElement(displayName, kind),
+      autoOpenTimer: null,
+      autoOpenTarget: null,
+    }
+
+    nodeEl.classList.add('dragging')
+    document.addEventListener('mousemove', handleDragMove)
+    document.addEventListener('mouseup', handleDragEnd)
+  }
+
+  // ========== 文件/文件夹操作 ==========
 
   async function handleCreateFile(parentPath: string | null) {
     try {
@@ -214,18 +467,6 @@ export function FileTree({
   const handleRename: RenameHandler<VaultTreeNode> = async ({ node, name }) => {
     try {
       await onRenameEntry(node.data.path, name, node.data.kind)
-    } catch (error) {
-      window.alert(getErrorMessage(error))
-    }
-  }
-
-  const handleMove: MoveHandler<VaultTreeNode> = async ({ dragNodes, parentNode }) => {
-    const targetDir = parentNode && !parentNode.isRoot ? parentNode.data.path : null
-    try {
-      for (const dragNode of dragNodes) {
-        if (getParentPath(dragNode.data.path) === targetDir) continue
-        await onMoveEntry(dragNode.data.path, targetDir, dragNode.data.kind)
-      }
     } catch (error) {
       window.alert(getErrorMessage(error))
     }
@@ -263,6 +504,7 @@ export function FileTree({
       <div
         ref={bodyRef}
         className="file-tree-body"
+        onMouseDown={handleTreeMouseDown}
         onContextMenu={(event) => openContextMenu(event, null)}
       >
         {treeData.length === 0 ? (
@@ -281,22 +523,11 @@ export function FileTree({
             initialOpenState={initialOpenState}
             openByDefault={false}
             disableMultiSelection
-            disableDrop={({ parentNode, dragNodes }) => {
-              if (!parentNode.isRoot && parentNode.data.kind !== 'directory') return true
-              return dragNodes.some((dragNode) => (
-                dragNode.data.kind === 'directory'
-                && !parentNode.isRoot
-                && (
-                  parentNode.data.path === dragNode.data.path
-                  || parentNode.data.path.startsWith(`${dragNode.data.path}/`)
-                )
-              ))
-            }}
-            dndRootElement={dndRootElement}
+            disableDrag
+            disableDrop
             onActivate={(node: NodeApi<VaultTreeNode>) => {
               if (node.data.kind === 'file') void onOpenFile(node.data.path)
             }}
-            onMove={handleMove}
             onRename={handleRename}
             onToggle={() => onExpandedDirsChange(collectOpenDirs())}
           >

@@ -95,6 +95,19 @@ vault/
 * 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复
 * `Mira Map.md` 是普通 Markdown 文件，用于描述目录结构和文件摘要，用户可直接阅读和修改
 
+## 平台限制与解决方案
+
+### WKWebView 不支持 HTML5 拖拽事件
+
+**问题**：Tauri v2 在 macOS 下使用 WKWebView，WKWebView 不会触发 `dragover`、`dragenter`、`drop` 事件（仅 `dragstart` 和 `dragend` 有效）。react-arborist 内置的拖拽依赖 react-dnd-html5-backend，后者依赖 `dragover` 事件来追踪拖拽位置，因此在 WKWebView 中完全失效。
+
+**解决**：`src/features/file-tree/FileTree.tsx` 中使用原生鼠标事件（`mousedown` → `mousemove` → `mouseup`）实现了完整的自定义拖拽：
+
+- `disableDrag` + `disableDrop` 禁用 react-arborist 内置 DnD
+- `data-path` / `data-kind` 属性挂在 DOM 节点上，通过事件委托在容器层统一捕获
+- 拖拽预览、目标高亮、边界自动滚动、悬停自动展开目录均通过直接 DOM 操作实现
+- 落点合法性校验：同目录跳过、禁止目录自嵌套
+
 ## 编码要求
 
 * 优先写清晰的小模块
