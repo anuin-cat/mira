@@ -61,16 +61,16 @@
 }
 
 [data-font-size='medium'] {
-  --mira-editor-body-size: 16px;
+  --mira-editor-body-size: 15px;
   --mira-editor-body-line-height: 1.68;
 }
 
 [data-font-size='large'] {
-  --mira-editor-body-size: 18px;
+  --mira-editor-body-size: 16px;
   --mira-editor-body-line-height: 1.7;
 }
 
 [data-font-size='xlarge'] {
-  --mira-editor-body-size: 20px;
+  --mira-editor-body-size: 18px;
   --mira-editor-body-line-height: 1.72;
 }
