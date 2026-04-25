@@ -46,9 +46,29 @@ const MARKDOWN_PASTE_BLOCK_RE =
   /(?:^|\n)\s{0,3}(?:#{1,6}\s+|>\s+|[-*+]\s+|\d+[.)]\s+|```|~~~|\|.+\|\s*$|(?:[-*_]\s*){3,}$)/m
 const MARKDOWN_PASTE_INLINE_RE =
   /(?:!\[[^\]]*]\([^)]+\)|\[[^\]]+\]\([^)]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`)/
-const BLOCK_TYPE_TRANSLATIONS: Record<string, string> = {
+const TOOLBAR_TRANSLATIONS: Record<string, string> = {
+  'toolbar.bold': '加粗',
+  'toolbar.removeBold': '取消加粗',
+  'toolbar.italic': '斜体',
+  'toolbar.removeItalic': '取消斜体',
+  'toolbar.underline': '下划线',
+  'toolbar.removeUnderline': '取消下划线',
+  'toolbar.inlineCode': '行内代码',
+  'toolbar.removeInlineCode': '取消行内代码',
+  'toolbar.strikethrough': '删除线',
+  'toolbar.removeStrikethrough': '取消删除线',
+  'toolbar.bulletedList': '无序列表',
+  'toolbar.numberedList': '有序列表',
+  'toolbar.checkList': '任务列表',
+  'toolbar.blockTypeSelect.selectBlockTypeTooltip': '选择段落类型',
+  'toolbar.blockTypeSelect.placeholder': '段落类型',
   'toolbar.blockTypes.paragraph': '正文',
   'toolbar.blockTypes.quote': '引用',
+  'toolbar.link': '插入链接',
+  'toolbar.image': '插入图片',
+  'toolbar.table': '插入表格',
+  'toolbar.thematicBreak': '插入分隔线',
+  'toolbar.codeBlock': '插入代码块',
 }
 const TOOLBAR_ACTION_GAP = 6
 const TOOLBAR_LAYOUT_GAP = 6
@@ -177,7 +197,7 @@ function calculateVisibleOverflowActionCount({
   overflowTriggerWidth: number
   fixedControlsWidth: number
 }) {
-  // 1. 从“全部可见”开始回退，直到居中工具组不会撞上右侧固定控制区
+  // 1. 从“全部可见”开始回退，直到居中工具组仍能放进右侧固定按钮左边的可用区域
   for (let visibleCount = actionWidths.length; visibleCount >= 0; visibleCount -= 1) {
     const visibleActionsWidth =
       actionWidths.slice(0, visibleCount).reduce((sum, width) => sum + width, 0) +
@@ -186,7 +206,7 @@ function calculateVisibleOverflowActionCount({
       fixedControlsWidth +
       (visibleCount < actionWidths.length ? overflowTriggerWidth + TOOLBAR_ACTION_GAP : 0)
     const availableWidth = Math.max(
-      layoutWidth - primaryWidth - currentFixedControlsWidth * 2 - TOOLBAR_LAYOUT_GAP * 2,
+      layoutWidth - primaryWidth - currentFixedControlsWidth - TOOLBAR_LAYOUT_GAP,
       0
     )
 
@@ -298,6 +318,13 @@ function MiraToolbar({
   const [isOverflowMenuOpen, setIsOverflowMenuOpen] = useState(false)
   const overflowActions = useMemo<ToolbarOverflowAction[]>(
     () => [
+      { key: 'formatting', render: () => <BoldItalicUnderlineToggles /> },
+      { key: 'inline-code', render: () => <CodeToggle /> },
+      {
+        key: 'strikethrough',
+        render: () => <StrikeThroughSupSubToggles options={['Strikethrough']} />,
+      },
+      { key: 'lists', render: () => <ListsToggle /> },
       { key: 'link', render: () => <CreateLink /> },
       { key: 'image', render: () => <InsertImage /> },
       { key: 'table', render: () => <InsertTable /> },
@@ -401,14 +428,8 @@ function MiraToolbar({
           <div ref={primaryRef} className="mira-toolbar-primary">
             <UndoRedo />
             <Separator />
-            <BoldItalicUnderlineToggles />
-            <CodeToggle />
-            <StrikeThroughSupSubToggles options={['Strikethrough']} />
-            <Separator />
-            <ListsToggle />
-            <Separator />
             <BlockTypeSelect />
-            <Separator />
+            {visibleActions.length > 0 ? <Separator /> : null}
           </div>
           <div className="mira-toolbar-actions">
             {visibleActions.map((action) => (
@@ -657,11 +678,19 @@ export function MdxEditor({ initialContent, isAiSidebarOpen, onChange, onToggleA
           markdown={initialContent}
           plugins={plugins}
           translation={(key, defaultValue, interpolations) => {
+            if (key === 'toolbar.undo') {
+              const shortcut = String(interpolations?.shortcut ?? '')
+              return `撤销 ${shortcut}`.trim()
+            }
+            if (key === 'toolbar.redo') {
+              const shortcut = String(interpolations?.shortcut ?? '')
+              return `重做 ${shortcut}`.trim()
+            }
             if (key === 'toolbar.blockTypes.heading') {
               const level = String(interpolations?.level ?? '')
               return `标题 ${level}`.trim()
             }
-            return BLOCK_TYPE_TRANSLATIONS[key] ?? defaultValue
+            return TOOLBAR_TRANSLATIONS[key] ?? defaultValue
           }}
           placeholder="开始记录..."
           trim={false}

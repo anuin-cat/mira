@@ -83,9 +83,10 @@
 
 .mdx-editor-root .mdxeditor .mira-toolbar-layout {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 6px;
   align-items: center;
-  justify-content: center;
   width: 100%;
   min-width: 0;
   overflow: visible;
@@ -96,6 +97,8 @@
   align-items: center;
   min-width: 0;
   flex-shrink: 0;
+  justify-self: center;
+  max-width: 100%;
 }
 
 .mdx-editor-root .mdxeditor .mira-toolbar-primary {
@@ -121,14 +124,12 @@
 }
 
 .mdx-editor-root .mdxeditor .mira-toolbar-fixed-controls {
-  position: absolute;
-  top: 50%;
-  right: 0;
+  position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   gap: 6px;
-  transform: translateY(-50%);
+  flex-shrink: 0;
 }
 
 .mdx-editor-root .mdxeditor :is(.mira-toolbar-overflow-trigger, .mira-ai-sidebar-toggle) {
