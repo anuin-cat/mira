@@ -171,6 +171,17 @@ function highlightCode(code: string) {
   return html + escapeHtml(code.slice(cursor))
 }
 
+/** 工具栏“更多”菜单图标，使用矢量圆点避免文本省略号显得发飘 */
+function OverflowMenuIcon() {
+  return (
+    <svg className="mira-toolbar-overflow-icon" viewBox="0 0 18 18" aria-hidden="true">
+      <circle cx="4" cy="9" r="1.4" />
+      <circle cx="9" cy="9" r="1.4" />
+      <circle cx="14" cy="9" r="1.4" />
+    </svg>
+  )
+}
+
 /** 轻量代码块编辑器：保留语言和内容编辑，避免拉入完整 CodeMirror 代码块编辑器 */
 function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorProps) {
   // 1. 维护轻量编辑态，并响应 MDXEditor 的聚焦请求
@@ -374,7 +385,7 @@ function MiraToolbar({
               aria-expanded={isOverflowMenuOpen}
               onClick={() => setIsOverflowMenuOpen((value) => !value)}
             >
-              ...
+              <OverflowMenuIcon />
             </button>
           ) : null}
           <button
@@ -422,7 +433,7 @@ function MiraToolbar({
             data-overflow-trigger="true"
             tabIndex={-1}
           >
-            ...
+            <OverflowMenuIcon />
           </button>
         </div>
       </div>
