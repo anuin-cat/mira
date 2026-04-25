@@ -82,6 +82,67 @@
   background: var(--theme-selection);
 }
 
+/* MDXEditor 的弹层 portal 外壳默认 z-index 低于 sticky 工具栏，需抬高外层 stacking context */
+body > .mdxeditor-popup-container.mira-mdx-editor {
+  z-index: 1000;
+}
+
+.mdx-editor-root .mdxeditor :is(
+  [class*='_toolbarNodeKindSelectTrigger_'],
+  [class*='_toolbarButtonSelectTrigger_'],
+  [class*='_selectTrigger_']
+)[data-state='open'] {
+  border-radius: 10px;
+  background: var(--theme-editor-control-bg);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px var(--theme-editor-control-border);
+  filter: none;
+}
+
+body > .mdxeditor-popup-container.mira-mdx-editor :is(
+  [class*='_toolbarNodeKindSelectContainer_'],
+  [class*='_toolbarButtonDropdownContainer_'],
+  [class*='_toolbarCodeBlockLanguageSelectContent_'],
+  [class*='_selectContainer_']
+) {
+  z-index: 30;
+  border: 1px solid var(--theme-editor-control-border);
+  border-radius: 10px;
+  background: var(--theme-editor-control-bg);
+  background-clip: padding-box;
+  color: var(--theme-editor-control-text);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.72) inset;
+}
+
+body [data-radix-popper-content-wrapper]:has(> .mdxeditor-select-content[data-side='bottom']) {
+  z-index: 30 !important;
+  margin-top: 6px !important;
+}
+
+body [data-radix-popper-content-wrapper]:has(> .mdxeditor-select-content[data-side='top']) {
+  z-index: 30 !important;
+  margin-bottom: 6px !important;
+}
+
+body > .mdxeditor-popup-container.mira-mdx-editor
+  :is([class*='_toolbarNodeKindSelectItem_'], [class*='_selectItem_']) {
+  color: var(--theme-editor-control-text);
+}
+
+body > .mdxeditor-popup-container.mira-mdx-editor
+  :is([class*='_toolbarNodeKindSelectItem_'], [class*='_selectItem_'])[data-highlighted] {
+  background-color: var(--theme-editor-control-bg-hover);
+}
+
+body > .mdxeditor-popup-container.mira-mdx-editor
+  :is([class*='_toolbarNodeKindSelectItem_'], [class*='_selectItem_'])[data-state='checked'] {
+  color: var(--theme-editor-control-text);
+  background-color: var(--theme-editor-control-bg-subtle);
+}
+
 .mira-mdx-content {
   width: min(100%, var(--mira-editor-content-max-width));
   min-height: 100%;

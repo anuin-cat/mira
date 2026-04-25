@@ -113,6 +113,10 @@ vault/
 - 拖拽预览、目标高亮、边界自动滚动、悬停自动展开目录均通过直接 DOM 操作实现
 - 落点合法性校验：同目录跳过、禁止目录自嵌套
 
+### MDXEditor 弹层层级注意事项
+
+MDXEditor 的下拉菜单会 portal 到 `body > .mdxeditor-popup-container`，该外壳自身会形成 stacking context。若弹层被 sticky 工具栏遮挡，优先抬高 portal 外壳的 `z-index`，不要只调 Radix 内层 wrapper；视觉上避免把菜单和按钮硬拼接，优先使用独立浮层、完整圆角和少量间距。
+
 ## 编码要求
 
 * 优先写清晰的小模块
