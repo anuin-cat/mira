@@ -1,5 +1,5 @@
 import { ensureDir, pathExists, readFile, selectDirectory, writeFile } from '../tauri/fs'
-import type { VaultState } from '../domain/note'
+import type { FontSize, VaultState } from '../domain/note'
 import { ensureMiraMap } from './noteService'
 import { MIRA_DIR } from './pathUtils'
 
@@ -10,6 +10,12 @@ const DEFAULT_VAULT_STATE: VaultState = {
   version: 1,
   lastOpenedPath: null,
   expandedDirs: [],
+  fontSize: 'medium',
+}
+
+/** 判断配置中的字体大小是否为支持值 */
+function isFontSize(value: unknown): value is FontSize {
+  return value === 'small' || value === 'medium' || value === 'large' || value === 'xlarge'
 }
 
 /** 获取已保存的 vault 路径（来自 localStorage） */
@@ -41,6 +47,7 @@ export async function readVaultState(vaultPath: string): Promise<VaultState> {
       expandedDirs: Array.isArray(parsed.expandedDirs)
         ? parsed.expandedDirs.filter((path): path is string => typeof path === 'string')
         : [],
+      fontSize: isFontSize(parsed.fontSize) ? parsed.fontSize : DEFAULT_VAULT_STATE.fontSize,
     }
   } catch {
     return { ...DEFAULT_VAULT_STATE }

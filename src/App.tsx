@@ -28,7 +28,7 @@ import {
 import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree } from './features/file-tree/FileTree'
 import { MilkdownEditor } from './features/editor/MilkdownEditor'
-import type { VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
+import type { FontSize, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 import './App.css'
 import './styles/editor.css'
 
@@ -40,6 +40,12 @@ const DEFAULT_VAULT_STATE: VaultState = {
   version: 1,
   lastOpenedPath: null,
   expandedDirs: [],
+  fontSize: 'medium',
+}
+
+/** 判断菜单传来的字体大小是否为支持值 */
+function isFontSize(value: unknown): value is FontSize {
+  return value === 'small' || value === 'medium' || value === 'large' || value === 'xlarge'
 }
 
 /** 从未知异常中提取可展示消息 */
@@ -210,11 +216,23 @@ export default function App() {
     const unlistenUpdateMap = listen('menu:update-mira-map', () => {
       void handleUpdateMiraMap()
     })
+    const unlistenFontSize = listen<unknown>('menu:font-size', (event) => {
+      if (isFontSize(event.payload)) handleFontSizeChange(event.payload)
+    })
+    const unlistenFontSmall = listen('menu:font-size-small', () => handleFontSizeChange('small'))
+    const unlistenFontMedium = listen('menu:font-size-medium', () => handleFontSizeChange('medium'))
+    const unlistenFontLarge = listen('menu:font-size-large', () => handleFontSizeChange('large'))
+    const unlistenFontXlarge = listen('menu:font-size-xlarge', () => handleFontSizeChange('xlarge'))
 
     return () => {
       unlistenChangeVault.then((fn) => fn())
       unlistenRefreshVault.then((fn) => fn())
       unlistenUpdateMap.then((fn) => fn())
+      unlistenFontSize.then((fn) => fn())
+      unlistenFontSmall.then((fn) => fn())
+      unlistenFontMedium.then((fn) => fn())
+      unlistenFontLarge.then((fn) => fn())
+      unlistenFontXlarge.then((fn) => fn())
     }
   }, [])
 
@@ -224,11 +242,16 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    document.documentElement.dataset.fontSize = vaultState.fontSize || 'medium'
+
+    return () => {
+      delete document.documentElement.dataset.fontSize
+    }
+  }, [vaultState.fontSize])
+
   /** 持久化 vault 状态，.mira 被删除时会自动重建 */
   function persistVaultState(patch: Partial<VaultState>) {
-    const path = vaultPathRef.current
-    if (!path) return
-
     const nextState: VaultState = {
       ...vaultStateRef.current,
       ...patch,
@@ -237,7 +260,9 @@ export default function App() {
 
     vaultStateRef.current = nextState
     setVaultState(nextState)
-    void writeVaultState(path, nextState)
+
+    const path = vaultPathRef.current
+    if (path) void writeVaultState(path, nextState)
   }
 
   /** 加载指定文件到编辑器 */
@@ -503,6 +528,11 @@ export default function App() {
     }
   }
 
+  /** 菜单：调整字体大小 */
+  function handleFontSizeChange(size: FontSize) {
+    persistVaultState({ fontSize: size })
+  }
+
   /** 编辑器内容变化：debounce 1s 后保存 Markdown 文件 */
   const handleContentChange = useCallback((markdown: string) => {
     const path = vaultPathRef.current
@@ -538,7 +568,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-layout">
+    <div className="app-layout" data-font-size={vaultState.fontSize || 'medium'}>
       <FileTree
         key={vaultPath}
         treeData={treeData}

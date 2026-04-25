@@ -128,3 +128,82 @@
 .milkdown .ProseMirror ::selection {
   background: #b8d4ff;
 }
+
+/* ── 字体大小调整 ── */
+
+/* 小 */
+[data-font-size="small"] .editor-title-input {
+  font-size: 24px;
+}
+
+[data-font-size="small"] .milkdown .ProseMirror {
+  font-size: 13px;
+}
+
+[data-font-size="small"] .milkdown .ProseMirror h1 {
+  font-size: 24px;
+}
+
+[data-font-size="small"] .milkdown .ProseMirror h2 {
+  font-size: 18px;
+}
+
+[data-font-size="small"] .milkdown .ProseMirror h3 {
+  font-size: 15px;
+}
+
+[data-font-size="small"] .milkdown .ProseMirror code {
+  font-size: 12px;
+}
+
+/* 中（默认，已在上面定义） */
+
+/* 大 */
+[data-font-size="large"] .editor-title-input {
+  font-size: 32px;
+}
+
+[data-font-size="large"] .milkdown .ProseMirror {
+  font-size: 17px;
+}
+
+[data-font-size="large"] .milkdown .ProseMirror h1 {
+  font-size: 32px;
+}
+
+[data-font-size="large"] .milkdown .ProseMirror h2 {
+  font-size: 24px;
+}
+
+[data-font-size="large"] .milkdown .ProseMirror h3 {
+  font-size: 19px;
+}
+
+[data-font-size="large"] .milkdown .ProseMirror code {
+  font-size: 14px;
+}
+
+/* 特大 */
+[data-font-size="xlarge"] .editor-title-input {
+  font-size: 36px;
+}
+
+[data-font-size="xlarge"] .milkdown .ProseMirror {
+  font-size: 19px;
+}
+
+[data-font-size="xlarge"] .milkdown .ProseMirror h1 {
+  font-size: 36px;
+}
+
+[data-font-size="xlarge"] .milkdown .ProseMirror h2 {
+  font-size: 27px;
+}
+
+[data-font-size="xlarge"] .milkdown .ProseMirror h3 {
+  font-size: 21px;
+}
+
+[data-font-size="xlarge"] .milkdown .ProseMirror code {
+  font-size: 15px;
+}

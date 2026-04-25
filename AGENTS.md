@@ -47,6 +47,10 @@
   - `File > 更换 Vault...` → `change_vault` → `menu:change-vault`
   - `File > 刷新 Vault` → `refresh_vault` → `menu:refresh-vault`
   - `File > 更新 Mira Map` → `update_mira_map` → `menu:update-mira-map`
+  - `View > 小` → `font_small` → `menu:font-size-small`
+  - `View > 中` → `font_medium` → `menu:font-size-medium`
+  - `View > 大` → `font_large` → `menu:font-size-large`
+  - `View > 特大` → `font_xlarge` → `menu:font-size-xlarge`
 
 ## 依赖选型原则
 

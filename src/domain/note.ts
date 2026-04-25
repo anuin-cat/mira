@@ -23,9 +23,13 @@ export interface Note {
   content: string
 }
 
+/** 字体大小选项 */
+export type FontSize = 'small' | 'medium' | 'large' | 'xlarge'
+
 /** .mira/state.json 中的可丢弃 UI 状态 */
 export interface VaultState {
   version: 1
   lastOpenedPath: string | null
   expandedDirs: string[]
+  fontSize?: FontSize
 }
