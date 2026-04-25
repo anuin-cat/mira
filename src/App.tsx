@@ -30,6 +30,7 @@ import { FileTree } from './features/file-tree/FileTree'
 import { MilkdownEditor } from './features/editor/MilkdownEditor'
 import type { VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 import './App.css'
+import './styles/editor.css'
 
 const SIDEBAR_MIN_WIDTH = 160
 const SIDEBAR_MAX_WIDTH = 480

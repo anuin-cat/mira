@@ -1,0 +1,130 @@
+/* ── Milkdown 编辑器样式 ── */
+
+/* 编辑器容器 */
+.milkdown-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.milkdown {
+  flex: 1;
+}
+
+/* 标题输入框 */
+.milkdown-wrapper .editor-title-input {
+  max-width: 680px;
+  margin: 48px auto 10px;
+  padding: 0 40px;
+}
+
+.editor-title-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #1a1a1a;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0;
+  margin: 0 0 24px 0;
+  letter-spacing: -0.5px;
+}
+
+.editor-title-input:focus {
+  outline: none;
+}
+
+/* ProseMirror 编辑区 */
+.milkdown .ProseMirror {
+  min-height: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 40px 120px;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #1a1a1a;
+}
+
+/* 标题样式 */
+.milkdown .ProseMirror h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 24px 0 10px;
+  letter-spacing: -0.5px;
+}
+
+.milkdown .ProseMirror h2 {
+  font-size: 21px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+}
+
+.milkdown .ProseMirror h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 18px 0 10px;
+}
+
+/* 段落 */
+.milkdown .ProseMirror p {
+  margin: 0 0 2px;
+}
+
+/* 列表 */
+.milkdown .ProseMirror ul,
+.milkdown .ProseMirror ol {
+  padding-left: 24px;
+  margin-bottom: 12px;
+}
+
+.milkdown .ProseMirror li {
+  margin-bottom: 4px;
+}
+
+/* 引用块 */
+.milkdown .ProseMirror blockquote {
+  border-left: 3px solid #e0e0dd;
+  padding-left: 16px;
+  margin: 0 0 12px;
+  color: #777;
+}
+
+/* 行内代码 */
+.milkdown .ProseMirror code {
+  font-family: 'SF Mono', Menlo, 'Cascadia Code', monospace;
+  font-size: 13px;
+  background: #f0f0ee;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* 代码块 */
+.milkdown .ProseMirror pre {
+  background: #f5f5f3;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.milkdown .ProseMirror pre code {
+  background: none;
+  padding: 0;
+}
+
+/* 分隔线 */
+.milkdown .ProseMirror hr {
+  border: none;
+  border-top: 1px solid #e5e5e2;
+  margin: 24px 0;
+}
+
+/* 选中文字高亮 */
+.milkdown .ProseMirror ::selection {
+  background: #b8d4ff;
+}

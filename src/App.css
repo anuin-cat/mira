@@ -214,8 +214,10 @@ body {
   align-items: center;
   height: 30px;
   padding: 0 8px 0 4px;
+  margin: 1px 6px;
   color: #2b2b2b;
   cursor: grab;
+  border-radius: 6px;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -224,7 +226,15 @@ body {
   background: #ebebea;
 }
 
+.tree-node:active {
+  background: #ebebea;
+}
+
 .tree-node.active {
+  background: #e3e2df;
+}
+
+.tree-node.active:hover {
   background: #e3e2df;
 }
 
@@ -241,16 +251,40 @@ body {
 
 .tree-node-toggle {
   width: 18px;
-  height: 22px;
+  height: 18px;
   border: none;
   background: transparent;
-  color: #777;
-  font-size: 16px;
-  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  margin-right: 2px;
+  position: relative;
+  outline: none;
+}
+
+.tree-node-toggle:hover::before {
+  border-color: transparent transparent transparent #555;
+}
+
+.tree-node-toggle:active {
+  transform: none;
+  background: transparent;
+}
+
+.tree-node-toggle::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent #777;
+  transition: transform 0.15s ease;
+}
+
+.tree-node-toggle.open::before {
+  transform: rotate(90deg);
 }
 
 .tree-node-toggle.hidden {
@@ -375,24 +409,6 @@ body {
   background: #fff;
 }
 
-.editor-title-input {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: #1a1a1a;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.2;
-  padding: 0;
-  margin: 0 0 24px 0;
-  letter-spacing: -0.5px;
-}
-
-.editor-title-input:focus {
-  outline: none;
-}
-
 .editor-empty {
   flex: 1;
   display: flex;
@@ -400,113 +416,6 @@ body {
   justify-content: center;
   color: #ccc;
   font-size: 14px;
-}
-
-/* ── Milkdown 编辑器 ── */
-.milkdown-wrapper {
-  flex: 1;
-  overflow-y: auto;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.milkdown {
-  flex: 1;
-}
-
-.milkdown .ProseMirror {
-  min-height: 100%;
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 0 40px 120px;
-  outline: none;
-  font-size: 15px;
-  line-height: 1.75;
-  color: #1a1a1a;
-}
-
-.milkdown-wrapper .editor-title-input {
-  max-width: 680px;
-  margin: 48px auto 0;
-  padding: 0 40px;
-}
-
-.milkdown .ProseMirror h1 {
-  font-size: 28px;
-  font-weight: 700;
-  margin: 40px 0 16px;
-  letter-spacing: -0.5px;
-}
-
-.milkdown .ProseMirror h1:first-child,
-.milkdown .ProseMirror h2:first-child {
-  margin-top: 0;
-}
-
-.milkdown .ProseMirror h2 {
-  font-size: 21px;
-  font-weight: 600;
-  margin: 32px 0 10px;
-}
-
-.milkdown .ProseMirror h3 {
-  font-size: 17px;
-  font-weight: 600;
-  margin: 24px 0 8px;
-}
-
-.milkdown .ProseMirror p {
-  margin-bottom: 12px;
-}
-
-.milkdown .ProseMirror ul,
-.milkdown .ProseMirror ol {
-  padding-left: 24px;
-  margin-bottom: 12px;
-}
-
-.milkdown .ProseMirror li {
-  margin-bottom: 4px;
-}
-
-.milkdown .ProseMirror blockquote {
-  border-left: 3px solid #e0e0dd;
-  padding-left: 16px;
-  margin: 0 0 12px;
-  color: #777;
-}
-
-.milkdown .ProseMirror code {
-  font-family: 'SF Mono', Menlo, 'Cascadia Code', monospace;
-  font-size: 13px;
-  background: #f0f0ee;
-  padding: 1px 5px;
-  border-radius: 3px;
-}
-
-.milkdown .ProseMirror pre {
-  background: #f5f5f3;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 12px;
-  overflow-x: auto;
-}
-
-.milkdown .ProseMirror pre code {
-  background: none;
-  padding: 0;
-}
-
-.milkdown .ProseMirror hr {
-  border: none;
-  border-top: 1px solid #e5e5e2;
-  margin: 24px 0;
-}
-
-/* 选中文字高亮 */
-.milkdown .ProseMirror ::selection {
-  background: #b8d4ff;
 }
 
 /* ── Vault 设置页 ── */

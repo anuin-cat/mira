@@ -135,15 +135,13 @@ function VaultNode({
     >
       <button
         type="button"
-        className={`tree-node-toggle ${isDirectory ? '' : 'hidden'}`}
+        className={`tree-node-toggle ${isDirectory ? '' : 'hidden'} ${node.isOpen ? 'open' : ''}`}
         onClick={(event) => {
           event.stopPropagation()
           node.toggle()
         }}
         tabIndex={-1}
-      >
-        {node.isOpen ? '⌄' : '›'}
-      </button>
+      />
       <span className={`tree-node-icon ${isDirectory ? 'directory' : 'file'}`} />
       {node.isEditing ? (
         <input
@@ -323,6 +321,7 @@ export function FileTree({
       drag.hasMoved = true
 
       // 首次超过阈值：展示预览，锁定 UI
+      drag.sourceEl.classList.add('dragging')
       document.body.appendChild(drag.previewEl)
       document.body.style.cursor = 'grabbing'
       document.body.style.userSelect = 'none'
@@ -446,7 +445,6 @@ export function FileTree({
       autoOpenTarget: null,
     }
 
-    nodeEl.classList.add('dragging')
     document.addEventListener('mousemove', handleDragMove)
     document.addEventListener('mouseup', handleDragEnd)
   }
