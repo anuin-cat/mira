@@ -26,13 +26,18 @@ import {
   toolbarPlugin,
   useCodeBlockEditorContext,
   type CodeBlockEditorProps,
+  type MDXEditorMethods,
   type RealmPlugin,
 } from '@mdxeditor/editor'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type ClipboardEvent as ReactClipboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
 const CODE_TOKEN_RE =
   /(\/\/.*|#.*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b(?:const|let|var|function|return|import|export|from|if|else|for|while|class|interface|type|async|await|true|false|null|undefined)\b)/g
+const MARKDOWN_PASTE_BLOCK_RE =
+  /(?:^|\n)\s{0,3}(?:#{1,6}\s+|>\s+|[-*+]\s+|\d+[.)]\s+|```|~~~|\|.+\|\s*$|(?:[-*_]\s*){3,}$)/m
+const MARKDOWN_PASTE_INLINE_RE =
+  /(?:!\[[^\]]*]\([^)]+\)|\[[^\]]+\]\([^)]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`)/
 const BLOCK_TYPE_TRANSLATIONS: Record<string, string> = {
   'toolbar.blockTypes.paragraph': '正文',
   'toolbar.blockTypes.quote': '引用',
@@ -60,6 +65,33 @@ function getCodeTokenClass(token: string) {
     return 'mira-code-token-string'
   }
   return 'mira-code-token-keyword'
+}
+
+/** 判断一段纯文本是否明显带有 Markdown 语法，避免误伤普通粘贴 */
+function looksLikeMarkdown(text: string) {
+  // 1. 先过滤空白内容，避免无意义的语法判断
+  const normalizedText = text.trim()
+  if (!normalizedText) return false
+
+  // 2. 优先识别标题、列表、引用、代码块、表格等块级语法
+  if (MARKDOWN_PASTE_BLOCK_RE.test(normalizedText)) return true
+
+  // 3. 再补充识别粗体、链接、行内代码等常见行内语法
+  return MARKDOWN_PASTE_INLINE_RE.test(normalizedText)
+}
+
+/** 判断本次粘贴是否应该走 Markdown 导入，而不是按普通文本插入 */
+function shouldImportMarkdownFromPaste(event: ReactClipboardEvent<HTMLDivElement>) {
+  // 1. 输入框和 textarea 里应保留原生粘贴，避免代码块与弹窗输入被自动格式化
+  const targetElement = event.target instanceof HTMLElement ? event.target : null
+  if (targetElement?.closest('input, textarea')) return false
+
+  // 2. 文件/图片粘贴交给编辑器现有逻辑处理，不在这里接管
+  const clipboardData = event.clipboardData
+  if (!clipboardData || clipboardData.files.length > 0) return false
+
+  // 3. 只有纯文本里出现明显 Markdown 语法时，才触发自动导入
+  return looksLikeMarkdown(clipboardData.getData('text/plain'))
 }
 
 /** 给轻量代码块做最小语法高亮，不引入额外高亮库 */
@@ -197,12 +229,27 @@ function createEditorPlugins(): RealmPlugin[] {
 
 /** MDXEditor 富文本 Markdown 编辑器，输入输出均保持 .md 文本内容 */
 export function MdxEditor({ initialContent, onChange }: Props) {
+  const editorRef = useRef<MDXEditorMethods>(null)
   const plugins = useMemo(() => createEditorPlugins(), [])
+
+  /** 捕获粘贴事件，把明显的 Markdown 纯文本按语法导入为富文本块 */
+  function handleEditorPasteCapture(event: ReactClipboardEvent<HTMLDivElement>) {
+    // 1. 先判断当前粘贴是否适合走 Markdown 导入
+    if (!shouldImportMarkdownFromPaste(event)) return
+
+    // 2. 阻止浏览器按普通文本插入，改用 MDXEditor 的 Markdown 解析能力
+    const markdownText = event.clipboardData.getData('text/plain')
+    if (!markdownText) return
+
+    event.preventDefault()
+    editorRef.current?.insertMarkdown(markdownText)
+  }
 
   return (
     <div className="mdx-editor-shell">
-      <div className="mdx-editor-root">
+      <div className="mdx-editor-root" onPasteCapture={handleEditorPasteCapture}>
         <MDXEditor
+          ref={editorRef}
           className="mira-mdx-editor"
           contentEditableClassName="mira-mdx-content"
           markdown={initialContent}
