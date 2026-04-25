@@ -27,7 +27,7 @@ import {
 import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree } from './features/file-tree/FileTree'
 import { MdxEditor } from './features/editor/MdxEditor'
-import type { FontSize, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
+import type { FontSize, Theme, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 import './App.css'
 import './styles/mdx-editor.css'
 
@@ -40,11 +40,17 @@ const DEFAULT_VAULT_STATE: VaultState = {
   lastOpenedPath: null,
   expandedDirs: [],
   fontSize: 'medium',
+  theme: 'default',
 }
 
 /** 判断菜单传来的字体大小是否为支持值 */
 function isFontSize(value: unknown): value is FontSize {
   return value === 'small' || value === 'medium' || value === 'large' || value === 'xlarge'
+}
+
+/** 判断菜单传来的主题是否为支持值 */
+function isTheme(value: unknown): value is Theme {
+  return value === 'default' || value === 'warm-paper' || value === 'twilight' || value === 'forest' || value === 'dark-classic'
 }
 
 /** 从未知异常中提取可展示消息 */
@@ -165,6 +171,11 @@ export default function App() {
     const unlistenFontMedium = listen('menu:font-size-medium', () => handleFontSizeChange('medium'))
     const unlistenFontLarge = listen('menu:font-size-large', () => handleFontSizeChange('large'))
     const unlistenFontXlarge = listen('menu:font-size-xlarge', () => handleFontSizeChange('xlarge'))
+    const unlistenThemeDefault = listen('menu:theme-default', () => handleThemeChange('default'))
+    const unlistenThemeWarmPaper = listen('menu:theme-warm-paper', () => handleThemeChange('warm-paper'))
+    const unlistenThemeTwilight = listen('menu:theme-twilight', () => handleThemeChange('twilight'))
+    const unlistenThemeForest = listen('menu:theme-forest', () => handleThemeChange('forest'))
+    const unlistenThemeDarkClassic = listen('menu:theme-dark-classic', () => handleThemeChange('dark-classic'))
 
     return () => {
       unlistenChangeVault.then((fn) => fn())
@@ -175,6 +186,11 @@ export default function App() {
       unlistenFontMedium.then((fn) => fn())
       unlistenFontLarge.then((fn) => fn())
       unlistenFontXlarge.then((fn) => fn())
+      unlistenThemeDefault.then((fn) => fn())
+      unlistenThemeWarmPaper.then((fn) => fn())
+      unlistenThemeTwilight.then((fn) => fn())
+      unlistenThemeForest.then((fn) => fn())
+      unlistenThemeDarkClassic.then((fn) => fn())
     }
   }, [])
 
@@ -186,11 +202,13 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.fontSize = vaultState.fontSize || 'medium'
+    document.documentElement.dataset.theme = vaultState.theme || 'default'
 
     return () => {
       delete document.documentElement.dataset.fontSize
+      delete document.documentElement.dataset.theme
     }
-  }, [vaultState.fontSize])
+  }, [vaultState.fontSize, vaultState.theme])
 
   /** 持久化 vault 状态，.mira 被删除时会自动重建 */
   function persistVaultState(patch: Partial<VaultState>) {
@@ -468,6 +486,11 @@ export default function App() {
     persistVaultState({ fontSize: size })
   }
 
+  /** 菜单：切换主题 */
+  function handleThemeChange(theme: Theme) {
+    persistVaultState({ theme })
+  }
+
   /** 编辑器内容变化：debounce 1s 后保存 Markdown 文件 */
   const handleContentChange = useCallback((markdown: string) => {
     const path = vaultPathRef.current
@@ -503,7 +526,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-layout" data-font-size={vaultState.fontSize || 'medium'}>
+    <div className="app-layout" data-font-size={vaultState.fontSize || 'medium'} data-theme={vaultState.theme || 'default'}>
       <FileTree
         key={vaultPath}
         treeData={treeData}

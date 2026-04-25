@@ -1,0 +1,89 @@
+/* 默认主题（当前的白色） */
+:root {
+  --theme-bg-primary: #ffffff;
+  --theme-bg-toolbar: rgba(255, 255, 255, 0.96);
+  --theme-bg-sidebar: #f7f7f5;
+  --theme-text-primary: #1a1a1a;
+  --theme-text-secondary: #666666;
+  --theme-text-tertiary: #aaa;
+  --theme-border: #ececea;
+  --theme-border-sidebar: #e5e5e2;
+  --theme-accent: #0066cc;
+  --theme-selection: rgba(0, 102, 204, 0.2);
+  --theme-hover-bg: #ebebea;
+  --theme-active-bg: #e3e2df;
+  --theme-scrollbar: rgba(0, 0, 0, 0.15);
+  --theme-scrollbar-hover: rgba(0, 0, 0, 0.25);
+}
+
+/* 纸质书页主题 */
+[data-theme='warm-paper'] {
+  --theme-bg-primary: #f7f4ed;
+  --theme-bg-toolbar: rgba(247, 244, 237, 0.96);
+  --theme-bg-sidebar: #ede9df;
+  --theme-text-primary: #2d2a24;
+  --theme-text-secondary: #6b6558;
+  --theme-text-tertiary: #9a9388;
+  --theme-border: #e3dfd3;
+  --theme-border-sidebar: #ddd9cd;
+  --theme-accent: #c4956c;
+  --theme-selection: rgba(196, 149, 108, 0.2);
+  --theme-hover-bg: #e3dfd3;
+  --theme-active-bg: #d9d5c9;
+  --theme-scrollbar: rgba(45, 42, 36, 0.15);
+  --theme-scrollbar-hover: rgba(45, 42, 36, 0.25);
+}
+
+/* 暮光蓝主题 */
+[data-theme='twilight'] {
+  --theme-bg-primary: #1a2332;
+  --theme-bg-toolbar: rgba(26, 35, 50, 0.96);
+  --theme-bg-sidebar: #151d2a;
+  --theme-text-primary: #d4dae3;
+  --theme-text-secondary: #8b95a8;
+  --theme-text-tertiary: #5f6b7f;
+  --theme-border: #2d3a4f;
+  --theme-border-sidebar: #1f2937;
+  --theme-accent: #7ba3d0;
+  --theme-selection: rgba(123, 163, 208, 0.2);
+  --theme-hover-bg: #1f2937;
+  --theme-active-bg: #2d3a4f;
+  --theme-scrollbar: rgba(212, 218, 227, 0.15);
+  --theme-scrollbar-hover: rgba(212, 218, 227, 0.25);
+}
+
+/* 森林绿主题 */
+[data-theme='forest'] {
+  --theme-bg-primary: #1e2823;
+  --theme-bg-toolbar: rgba(30, 40, 35, 0.96);
+  --theme-bg-sidebar: #19211d;
+  --theme-text-primary: #d8e5dd;
+  --theme-text-secondary: #8fa399;
+  --theme-text-tertiary: #5f7269;
+  --theme-border: #2f3d36;
+  --theme-border-sidebar: #232d28;
+  --theme-accent: #6fb88f;
+  --theme-selection: rgba(111, 184, 143, 0.2);
+  --theme-hover-bg: #232d28;
+  --theme-active-bg: #2f3d36;
+  --theme-scrollbar: rgba(216, 229, 221, 0.15);
+  --theme-scrollbar-hover: rgba(216, 229, 221, 0.25);
+}
+
+/* 经典深色主题 */
+[data-theme='dark-classic'] {
+  --theme-bg-primary: #1e1e1e;
+  --theme-bg-toolbar: rgba(30, 30, 30, 0.96);
+  --theme-bg-sidebar: #181818;
+  --theme-text-primary: #d4d4d4;
+  --theme-text-secondary: #9d9d9d;
+  --theme-text-tertiary: #6e6e6e;
+  --theme-border: #333333;
+  --theme-border-sidebar: #2a2a2a;
+  --theme-accent: #569cd6;
+  --theme-selection: rgba(86, 156, 214, 0.2);
+  --theme-hover-bg: #2a2a2a;
+  --theme-active-bg: #333333;
+  --theme-scrollbar: rgba(212, 212, 212, 0.15);
+  --theme-scrollbar-hover: rgba(212, 212, 212, 0.25);
+}

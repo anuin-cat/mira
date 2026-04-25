@@ -1,13 +1,14 @@
 @import '@mdxeditor/editor/style.css';
 /* 当前 Markdown 正文主题，后续切换时优先替换这里的主题文件 */
 @import './mdx-editor-theme-typora-compact.css';
+@import './themes.css';
 
 .mdx-editor-shell {
   flex: 1;
   height: 100%;
   min-height: 0;
   overflow-y: auto;
-  background: #fff;
+  background: var(--theme-bg-primary);
   display: flex;
   flex-direction: column;
 }
@@ -23,7 +24,8 @@
 
 .mdx-editor-root .mdxeditor {
   min-height: 100%;
-  background: #fff;
+  background: var(--theme-bg-primary);
+  color: var(--theme-text-primary);
   display: flex;
   flex-direction: column;
 }
@@ -32,12 +34,16 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  border-bottom: 1px solid #ececea;
-  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--theme-border);
+  background: var(--theme-bg-toolbar);
   backdrop-filter: blur(12px);
   justify-content: center;
   flex-wrap: wrap;
   padding-inline: 12px;
+}
+
+.mdx-editor-root .mdxeditor ::selection {
+  background: var(--theme-selection);
 }
 
 .mira-mdx-content {

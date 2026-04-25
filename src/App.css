@@ -15,8 +15,8 @@ body,
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
   font-size: 14px;
-  color: #1a1a1a;
-  background: #fff;
+  color: var(--theme-text-primary);
+  background: var(--theme-bg-primary);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -31,21 +31,21 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--theme-scrollbar);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--theme-scrollbar-hover);
 }
 
 /* 左侧边栏滚动条在灰色背景上 */
 .file-sidebar ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--theme-scrollbar);
 }
 
 .file-sidebar ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--theme-scrollbar-hover);
 }
 
 /* ── 主布局：两栏 ── */
@@ -59,7 +59,7 @@ body {
 .note-list {
   width: 280px;
   min-width: 160px;
-  background: #f7f7f5;
+  background: var(--theme-bg-sidebar);
   border-right: none;
   display: flex;
   flex-direction: column;
@@ -71,14 +71,14 @@ body {
 .sidebar-resizer {
   width: 4px;
   cursor: col-resize;
-  background: #f7f7f5;
-  border-right: 1px solid #e5e5e2;
+  background: var(--theme-bg-sidebar);
+  border-right: 1px solid var(--theme-border-sidebar);
   flex-shrink: 0;
   transition: background 0.15s;
 }
 
 .sidebar-resizer:hover {
-  background: #d0d0cc;
+  background: var(--theme-hover-bg);
 }
 
 .file-sidebar-header,
@@ -87,14 +87,14 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 16px 12px 12px;
-  border-bottom: 1px solid #e5e5e2;
+  border-bottom: 1px solid var(--theme-border-sidebar);
 }
 
 .app-name {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.3px;
-  color: #1a1a1a;
+  color: var(--theme-text-primary);
 }
 
 .btn-new {
@@ -103,7 +103,7 @@ body {
   border: none;
   background: none;
   font-size: 22px;
-  color: #888;
+  color: var(--theme-text-secondary);
   cursor: pointer;
   border-radius: 6px;
   display: flex;
@@ -114,8 +114,8 @@ body {
 }
 
 .btn-new:hover {
-  background: #e5e5e2;
-  color: #1a1a1a;
+  background: var(--theme-hover-bg);
+  color: var(--theme-text-primary);
 }
 
 .file-tree-body,
@@ -143,7 +143,7 @@ body {
 
 .note-list-empty {
   padding: 24px 12px;
-  color: #aaa;
+  color: var(--theme-text-tertiary);
   font-size: 12px;
   text-align: center;
 }
@@ -157,17 +157,17 @@ body {
 }
 
 .note-item:hover {
-  background: #ebebea;
+  background: var(--theme-hover-bg);
 }
 
 .note-item.active {
-  background: #e3e2df;
+  background: var(--theme-active-bg);
 }
 
 .note-item-title {
   font-size: 13px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--theme-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -182,7 +182,7 @@ body {
 
 .note-item-date {
   font-size: 11px;
-  color: #aaa;
+  color: var(--theme-text-tertiary);
 }
 
 .btn-delete {
@@ -215,7 +215,7 @@ body {
   height: 32px;
   padding: 0 8px 0 4px;
   margin: 1px 6px;
-  color: #2b2b2b;
+  color: var(--theme-text-primary);
   cursor: grab;
   border-radius: 6px;
   -webkit-user-select: none;
@@ -223,19 +223,19 @@ body {
 }
 
 .tree-node:hover {
-  background: #ebebea;
+  background: var(--theme-hover-bg);
 }
 
 .tree-node:active {
-  background: #ebebea;
+  background: var(--theme-hover-bg);
 }
 
 .tree-node.active {
-  background: #e3e2df;
+  background: var(--theme-active-bg);
 }
 
 .tree-node.active:hover {
-  background: #e3e2df;
+  background: var(--theme-active-bg);
 }
 
 .tree-node.dragging {
@@ -244,8 +244,8 @@ body {
 }
 
 .tree-node.drag-target {
-  background: #dcdad4;
-  box-shadow: inset 0 0 0 1px #c8c5bd;
+  background: var(--theme-active-bg);
+  box-shadow: inset 0 0 0 1px var(--theme-border);
   cursor: copy;
 }
 
