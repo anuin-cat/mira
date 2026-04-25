@@ -74,6 +74,12 @@
   padding-inline: 12px;
 }
 
+.mdx-editor-root .mdxeditor .mira-toolbar-drag-spacer {
+  flex: 1 1 40px;
+  min-width: 28px;
+  align-self: stretch;
+}
+
 .mdx-editor-root .mdxeditor :where(button, input, select, textarea) {
   color: var(--theme-editor-control-text);
 }

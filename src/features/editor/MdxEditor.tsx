@@ -30,6 +30,7 @@ import {
   type RealmPlugin,
 } from '@mdxeditor/editor'
 import { type ClipboardEvent as ReactClipboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
 const CODE_TOKEN_RE =
@@ -42,6 +43,8 @@ const BLOCK_TYPE_TRANSLATIONS: Record<string, string> = {
   'toolbar.blockTypes.paragraph': '正文',
   'toolbar.blockTypes.quote': '引用',
 }
+const WINDOW_DRAG_IGNORE_SELECTOR =
+  'button, input, textarea, select, a, [role="button"], [contenteditable="true"]'
 
 interface Props {
   initialContent: string
@@ -78,6 +81,11 @@ function looksLikeMarkdown(text: string) {
 
   // 3. 再补充识别粗体、链接、行内代码等常见行内语法
   return MARKDOWN_PASTE_INLINE_RE.test(normalizedText)
+}
+
+/** 判断工具栏点击是否落在按钮、输入框等交互控件上 */
+function isWindowDragIgnoredTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(WINDOW_DRAG_IGNORE_SELECTOR))
 }
 
 /** 判断本次粘贴是否应该走 Markdown 导入，而不是按普通文本插入 */
@@ -171,6 +179,7 @@ function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorP
 function MiraToolbar() {
   return (
     <>
+      <div className="mira-toolbar-drag-spacer" />
       <UndoRedo />
       <Separator />
       <BoldItalicUnderlineToggles />
@@ -188,6 +197,7 @@ function MiraToolbar() {
       <InsertThematicBreak />
       <Separator />
       <InsertCodeBlock />
+      <div className="mira-toolbar-drag-spacer" />
     </>
   )
 }
@@ -237,9 +247,29 @@ export function MdxEditor({ initialContent, onChange }: Props) {
     const toolbarElement = shellRef.current?.querySelector<HTMLElement>('.mira-mdx-toolbar')
     if (!toolbarElement) return
 
-    toolbarElement.setAttribute('data-tauri-drag-region', '')
+    const handleToolbarMouseDown = (event: globalThis.MouseEvent) => {
+      if (event.button !== 0 || event.detail > 1) return
+      if (isWindowDragIgnoredTarget(event.target)) return
+
+      event.preventDefault()
+      void startWindowDrag().catch((error) => {
+        console.warn('窗口拖动启动失败', error)
+      })
+    }
+    const handleToolbarDoubleClick = (event: globalThis.MouseEvent) => {
+      if (isWindowDragIgnoredTarget(event.target)) return
+
+      event.preventDefault()
+      void toggleWindowMaximize().catch((error) => {
+        console.warn('窗口最大化切换失败', error)
+      })
+    }
+
+    toolbarElement.addEventListener('mousedown', handleToolbarMouseDown)
+    toolbarElement.addEventListener('dblclick', handleToolbarDoubleClick)
     return () => {
-      toolbarElement.removeAttribute('data-tauri-drag-region')
+      toolbarElement.removeEventListener('mousedown', handleToolbarMouseDown)
+      toolbarElement.removeEventListener('dblclick', handleToolbarDoubleClick)
     }
   }, [])
 

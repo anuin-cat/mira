@@ -125,11 +125,24 @@ body {
   justify-content: center;
   line-height: 1;
   padding-bottom: 1px;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .btn-new:hover {
   background: var(--theme-hover-bg);
   color: var(--theme-text-primary);
+}
+
+.btn-new:focus,
+.btn-new:focus-visible,
+.btn-new:active {
+  background: none;
+  outline: none;
+}
+
+.btn-new::selection {
+  background: transparent;
 }
 
 .file-tree-body,

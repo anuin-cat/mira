@@ -4,6 +4,7 @@ import type { NodeApi, NodeRendererProps, RenameHandler, TreeApi } from 'react-a
 import type { MouseEvent } from 'react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
+import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
 
 const DRAG_THRESHOLD = 5
 const AUTO_SCROLL_SPEED = 12
@@ -11,6 +12,7 @@ const AUTO_SCROLL_ZONE = 40
 const AUTO_OPEN_DELAY = 700
 const TREE_ROW_HEIGHT = 32
 const TREE_VERTICAL_PADDING = 6
+const WINDOW_DRAG_IGNORE_SELECTOR = 'button, input, textarea, select, a, [role="button"]'
 
 interface ContextMenuState {
   x: number
@@ -57,6 +59,11 @@ function hasNode(nodes: VaultTreeNode[], id: string): boolean {
 function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
   return error instanceof Error ? error.message : '操作失败'
+}
+
+/** 判断标题栏点击是否落在交互控件上 */
+function isWindowDragIgnoredTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(WINDOW_DRAG_IGNORE_SELECTOR))
 }
 
 /** 判断拖拽节点是否属于 targetDir 的子树（防止自嵌套） */
@@ -485,6 +492,27 @@ export function FileTree({
     setContextMenu({ x: event.clientX, y: event.clientY, target })
   }
 
+  /** 顶部空白区域按下鼠标时触发原生窗口拖动 */
+  function handleHeaderMouseDown(event: React.MouseEvent<HTMLElement>) {
+    if (event.button !== 0 || event.detail > 1) return
+    if (isWindowDragIgnoredTarget(event.target)) return
+
+    event.preventDefault()
+    void startWindowDrag().catch((error) => {
+      console.warn('窗口拖动启动失败', error)
+    })
+  }
+
+  /** 顶部空白区域双击时切换窗口最大化 */
+  function handleHeaderDoubleClick(event: React.MouseEvent<HTMLElement>) {
+    if (isWindowDragIgnoredTarget(event.target)) return
+
+    event.preventDefault()
+    void toggleWindowMaximize().catch((error) => {
+      console.warn('窗口最大化切换失败', error)
+    })
+  }
+
   function contextParentPath(): string | null {
     if (!contextMenu?.target) return null
     return contextMenu.target.kind === 'directory'
@@ -497,7 +525,11 @@ export function FileTree({
 
   return (
     <aside className="file-sidebar" style={style}>
-      <div className="file-sidebar-header" data-tauri-drag-region>
+      <div
+        className="file-sidebar-header"
+        onMouseDown={handleHeaderMouseDown}
+        onDoubleClick={handleHeaderDoubleClick}
+      >
         <div className="file-sidebar-header-title" />
         <button
           className="btn-new"
