@@ -7,6 +7,7 @@
 
 :root {
   --mira-window-toolbar-height: 44px;
+  --mira-editor-panel-radius: 22px;
 }
 
 html,
@@ -56,6 +57,7 @@ body {
 .app-layout {
   display: flex;
   height: 100vh;
+  background: var(--theme-bg-sidebar);
 }
 
 /* ── 左侧文件树 ── */
@@ -73,16 +75,18 @@ body {
 
 /* ── 侧边栏拖拽分隔条 ── */
 .sidebar-resizer {
-  width: 4px;
+  width: 8px;
+  margin-left: -4px;
+  margin-right: -4px;
   cursor: col-resize;
-  background: var(--theme-bg-sidebar);
-  border-right: 1px solid var(--theme-border-sidebar);
+  background: transparent;
   flex-shrink: 0;
-  transition: background 0.15s;
+  position: relative;
+  z-index: 3;
 }
 
 .sidebar-resizer:hover {
-  background: var(--theme-hover-bg);
+  background: transparent;
 }
 
 .file-sidebar-header,
@@ -413,10 +417,15 @@ body {
 /* ── 右侧编辑区 ── */
 .editor-pane {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
+  position: relative;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--theme-bg-primary);
+  border-top-left-radius: var(--mira-editor-panel-radius);
+  border-bottom-left-radius: var(--mira-editor-panel-radius);
+  box-shadow: -10px 0 24px rgba(24, 24, 24, 0.04);
 }
 
 .editor-empty {
