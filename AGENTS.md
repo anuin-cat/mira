@@ -28,6 +28,15 @@
 - TypeScript 负责业务逻辑
 - Tauri 负责桌面能力和文件系统访问
 
+## macOS 菜单规范
+
+- 所有全局操作（换 vault、设置、导出等）一律加到原生菜单栏，不在 UI 内另加按钮或工具栏
+- 菜单在 `src-tauri/src/lib.rs` 的 `.setup()` 中用 Tauri 2 `Menu` / `Submenu` / `MenuItem` API 注册
+- 菜单点击通过 `app.emit("menu:<event-id>", ())` 发送事件到前端
+- 前端在 `App.tsx` 的 `useEffect` 中用 `listen("menu:<event-id>", ...)` 监听并响应
+- 新增菜单项时，同步在此处登记：
+  - `File > 更换 Vault...` → `change_vault` → `menu:change-vault`
+
 ## 依赖选型原则
 
 - 能用成熟库解决的问题，不要自己造轮子

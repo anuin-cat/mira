@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getVaultPath, ensureVaultDirs } from './services/vaultService'
+import { listen } from '@tauri-apps/api/event'
+import { getVaultPath, ensureVaultDirs, setupVault } from './services/vaultService'
 import {
   listNotes,
   readNote,
@@ -32,6 +33,12 @@ export default function App() {
     } else {
       setIsLoading(false)
     }
+  }, [])
+
+  // 2. 监听原生菜单「更换 Vault」事件
+  useEffect(() => {
+    const unlisten = listen('menu:change-vault', () => handleChangeVault())
+    return () => { unlisten.then((fn) => fn()) }
   }, [])
 
   /** 初始化 vault（确保目录存在，加载 note 列表，打开第一条） */
@@ -89,6 +96,18 @@ export default function App() {
         setActiveContent('')
       }
     }
+  }
+
+  /** 重新选择 vault 目录，清空当前状态后重新初始化 */
+  async function handleChangeVault() {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    const newPath = await setupVault()
+    if (!newPath) return
+    setActiveId(null)
+    activeIdRef.current = null
+    setActiveContent('')
+    setNotes([])
+    await initVault(newPath)
   }
 
   /** 编辑器内容变化：debounce 1s 后自动保存，更新侧边栏标题 */
