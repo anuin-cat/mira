@@ -5,6 +5,10 @@
   padding: 0;
 }
 
+:root {
+  --mira-window-toolbar-height: 44px;
+}
+
 html,
 body,
 #root {
@@ -86,15 +90,21 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 12px 12px;
+  height: var(--mira-window-toolbar-height);
+  padding: 0 12px;
   border-bottom: 1px solid var(--theme-border-sidebar);
+  flex-shrink: 0;
 }
 
-.app-name {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  color: var(--theme-text-primary);
+.file-sidebar-header-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.app-layout[data-platform='macos'] .file-sidebar-header {
+  padding-left: 78px;
 }
 
 .btn-new {

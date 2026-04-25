@@ -229,8 +229,19 @@ function createEditorPlugins(): RealmPlugin[] {
 
 /** MDXEditor 富文本 Markdown 编辑器，输入输出均保持 .md 文本内容 */
 export function MdxEditor({ initialContent, onChange }: Props) {
+  const shellRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<MDXEditorMethods>(null)
   const plugins = useMemo(() => createEditorPlugins(), [])
+
+  useEffect(() => {
+    const toolbarElement = shellRef.current?.querySelector<HTMLElement>('.mira-mdx-toolbar')
+    if (!toolbarElement) return
+
+    toolbarElement.setAttribute('data-tauri-drag-region', '')
+    return () => {
+      toolbarElement.removeAttribute('data-tauri-drag-region')
+    }
+  }, [])
 
   /** 捕获粘贴事件，把明显的 Markdown 纯文本按语法导入为富文本块 */
   function handleEditorPasteCapture(event: ReactClipboardEvent<HTMLDivElement>) {
@@ -250,7 +261,7 @@ export function MdxEditor({ initialContent, onChange }: Props) {
   }
 
   return (
-    <div className="mdx-editor-shell">
+    <div ref={shellRef} className="mdx-editor-shell">
       <div className="mdx-editor-root" onPasteCapture={handleEditorPasteCapture}>
         <MDXEditor
           ref={editorRef}

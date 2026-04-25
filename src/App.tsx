@@ -48,11 +48,6 @@ function isFontSize(value: unknown): value is FontSize {
   return value === 'small' || value === 'medium' || value === 'large' || value === 'xlarge'
 }
 
-/** 判断菜单传来的主题是否为支持值 */
-function isTheme(value: unknown): value is Theme {
-  return value === 'default' || value === 'warm-paper' || value === 'twilight' || value === 'forest' || value === 'dark-classic'
-}
-
 /** 从未知异常中提取可展示消息 */
 function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
@@ -92,7 +87,13 @@ function collectAncestorDirs(path: string | null): string[] {
   return segments.map((_, index) => segments.slice(0, index + 1).join('/'))
 }
 
+/** 判断当前是否运行在 macOS，用于适配原生窗口按钮位置 */
+function isMacOSPlatform() {
+  return navigator.userAgent.toLowerCase().includes('mac')
+}
+
 export default function App() {
+  const isMacOS = isMacOSPlatform()
   const [vaultPath, setVaultPathState] = useState<string | null>(null)
   const [treeData, setTreeData] = useState<VaultTreeNode[]>([])
   const [vaultState, setVaultState] = useState<VaultState>(DEFAULT_VAULT_STATE)
@@ -526,7 +527,12 @@ export default function App() {
   }
 
   return (
-    <div className="app-layout" data-font-size={vaultState.fontSize || 'medium'} data-theme={vaultState.theme || 'default'}>
+    <div
+      className="app-layout"
+      data-font-size={vaultState.fontSize || 'medium'}
+      data-theme={vaultState.theme || 'default'}
+      data-platform={isMacOS ? 'macos' : 'default'}
+    >
       <FileTree
         key={vaultPath}
         treeData={treeData}

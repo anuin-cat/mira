@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "mira",
+  "productName": "Mira",
   "version": "0.1.0",
   "identifier": "com.neil.mira",
   "build": {
@@ -12,7 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "mira",
+        "title": "Mira",
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay",
+        "trafficLightPosition": {
+          "x": 14,
+          "y": 24
+        },
         "width": 1200,
         "height": 600
       }

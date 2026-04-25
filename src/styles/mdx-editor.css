@@ -34,11 +34,16 @@
   position: sticky;
   top: 0;
   z-index: 5;
+  height: var(--mira-window-toolbar-height);
   border-bottom: 1px solid var(--theme-border);
   background: var(--theme-bg-toolbar);
   backdrop-filter: blur(12px);
+  align-items: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  padding-block: 0;
   padding-inline: 12px;
 }
 

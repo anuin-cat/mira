@@ -497,8 +497,8 @@ export function FileTree({
 
   return (
     <aside className="file-sidebar" style={style}>
-      <div className="file-sidebar-header">
-        <span className="app-name">Mira</span>
+      <div className="file-sidebar-header" data-tauri-drag-region>
+        <div className="file-sidebar-header-title" />
         <button
           className="btn-new"
           onClick={() => handleCreateFile(defaultCreateParent)}
