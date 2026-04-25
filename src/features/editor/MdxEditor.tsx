@@ -237,11 +237,15 @@ export function MdxEditor({ initialContent, onChange }: Props) {
     // 1. 先判断当前粘贴是否适合走 Markdown 导入
     if (!shouldImportMarkdownFromPaste(event)) return
 
-    // 2. 阻止浏览器按普通文本插入，改用 MDXEditor 的 Markdown 解析能力
+    // 2. 阻止浏览器与 Lexical 的默认粘贴链路，避免 Markdown 被插入两次
     const markdownText = event.clipboardData.getData('text/plain')
     if (!markdownText) return
 
     event.preventDefault()
+    event.stopPropagation()
+    event.nativeEvent.stopImmediatePropagation?.()
+
+    // 3. 改用 MDXEditor 的 Markdown 解析能力，把纯文本导入为富文本块
     editorRef.current?.insertMarkdown(markdownText)
   }
 
