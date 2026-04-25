@@ -82,9 +82,10 @@ const BLOCK_TYPE_SELECT_INTERACTION_SELECTOR = [
 const WINDOW_DRAG_IGNORE_SELECTOR =
   'button, input, textarea, select, a, [role="button"], [contenteditable="true"], [data-window-drag-ignore="true"]'
 
-interface ToolbarOverflowAction {
+interface ToolbarOverflowItem {
   key: string
-  render: () => React.ReactNode
+  kind: 'group' | 'separator'
+  render?: () => React.ReactNode
 }
 
 interface Props {
@@ -187,24 +188,27 @@ function shouldImportMarkdownFromPaste(event: ReactClipboardEvent<HTMLDivElement
 function calculateVisibleOverflowActionCount({
   layoutWidth,
   primaryWidth,
-  actionWidths,
+  itemWidths,
+  items,
   overflowTriggerWidth,
   fixedControlsWidth,
 }: {
   layoutWidth: number
   primaryWidth: number
-  actionWidths: number[]
+  itemWidths: number[]
+  items: ToolbarOverflowItem[]
   overflowTriggerWidth: number
   fixedControlsWidth: number
 }) {
   // 1. 从“全部可见”开始回退，直到居中工具组仍能放进右侧固定按钮左边的可用区域
-  for (let visibleCount = actionWidths.length; visibleCount >= 0; visibleCount -= 1) {
+  for (let visibleCount = itemWidths.length; visibleCount >= 0; visibleCount -= 1) {
+    if (visibleCount > 0 && items[visibleCount - 1]?.kind === 'separator') continue
+
     const visibleActionsWidth =
-      actionWidths.slice(0, visibleCount).reduce((sum, width) => sum + width, 0) +
+      itemWidths.slice(0, visibleCount).reduce((sum, width) => sum + width, 0) +
       Math.max(visibleCount - 1, 0) * TOOLBAR_ACTION_GAP
     const currentFixedControlsWidth =
-      fixedControlsWidth +
-      (visibleCount < actionWidths.length ? overflowTriggerWidth + TOOLBAR_ACTION_GAP : 0)
+      fixedControlsWidth + (visibleCount < itemWidths.length ? overflowTriggerWidth + TOOLBAR_ACTION_GAP : 0)
     const availableWidth = Math.max(
       layoutWidth - primaryWidth - currentFixedControlsWidth - TOOLBAR_LAYOUT_GAP,
       0
@@ -216,6 +220,22 @@ function calculateVisibleOverflowActionCount({
 
   // 3. 理论上不会走到这里，兜底返回 0 保证布局稳定
   return 0
+}
+
+/** 判断是否为工具栏分割线项 */
+function isToolbarOverflowSeparator(item: ToolbarOverflowItem | undefined) {
+  return item?.kind === 'separator'
+}
+
+/** 清理隐藏区首尾多余分割线，避免弹层里出现孤立竖线 */
+function trimOverflowBoundarySeparators(items: ToolbarOverflowItem[]) {
+  let startIndex = 0
+  let endIndex = items.length
+
+  while (startIndex < endIndex && isToolbarOverflowSeparator(items[startIndex])) startIndex += 1
+  while (endIndex > startIndex && isToolbarOverflowSeparator(items[endIndex - 1])) endIndex -= 1
+
+  return items.slice(startIndex, endIndex)
 }
 
 /** 给轻量代码块做最小语法高亮，不引入额外高亮库 */
@@ -314,27 +334,50 @@ function MiraToolbar({
   const measureRef = useRef<HTMLDivElement>(null)
   const overflowMenuRef = useRef<HTMLDivElement>(null)
   const overflowTriggerRef = useRef<HTMLButtonElement>(null)
-  const [visibleActionCount, setVisibleActionCount] = useState(0)
+  const [visibleItemCount, setVisibleItemCount] = useState(0)
   const [isOverflowMenuOpen, setIsOverflowMenuOpen] = useState(false)
-  const overflowActions = useMemo<ToolbarOverflowAction[]>(
+  const overflowItems = useMemo<ToolbarOverflowItem[]>(
     () => [
-      { key: 'formatting', render: () => <BoldItalicUnderlineToggles /> },
-      { key: 'inline-code', render: () => <CodeToggle /> },
       {
-        key: 'strikethrough',
-        render: () => <StrikeThroughSupSubToggles options={['Strikethrough']} />,
+        key: 'formatting',
+        kind: 'group',
+        render: () => <BoldItalicUnderlineToggles />,
       },
-      { key: 'lists', render: () => <ListsToggle /> },
-      { key: 'link', render: () => <CreateLink /> },
-      { key: 'image', render: () => <InsertImage /> },
-      { key: 'table', render: () => <InsertTable /> },
-      { key: 'thematic-break', render: () => <InsertThematicBreak /> },
-      { key: 'code-block', render: () => <InsertCodeBlock /> },
+      { key: 'separator-formatting', kind: 'separator' },
+      {
+        key: 'code-tools',
+        kind: 'group',
+        render: () => (
+          <div className="mira-toolbar-code-group">
+            <StrikeThroughSupSubToggles options={['Strikethrough']} />
+            <CodeToggle />
+            <InsertCodeBlock />
+          </div>
+        ),
+      },
+      { key: 'separator-inline', kind: 'separator' },
+      { key: 'lists', kind: 'group', render: () => <ListsToggle /> },
+      { key: 'separator-lists', kind: 'separator' },
+      {
+        key: 'insertions',
+        kind: 'group',
+        render: () => (
+          <>
+            <CreateLink />
+            <InsertImage />
+            <InsertTable />
+            <InsertThematicBreak />
+          </>
+        ),
+      },
     ],
     []
   )
-  const visibleActions = overflowActions.slice(0, visibleActionCount)
-  const hiddenActions = overflowActions.slice(visibleActionCount)
+  const visibleItems = overflowItems.slice(0, visibleItemCount)
+  const hiddenItems = useMemo(
+    () => trimOverflowBoundarySeparators(overflowItems.slice(visibleItemCount)),
+    [overflowItems, visibleItemCount]
+  )
 
   useLayoutEffect(() => {
     const layoutElement = layoutRef.current
@@ -351,7 +394,7 @@ function MiraToolbar({
     /** 重新测量工具栏，并决定中间居中区还能保留几个快捷按钮 */
     const measureToolbarOverflow = () => {
       // 1. 收集当前布局与测量容器的宽度数据
-      const actionWidths = Array.from(
+      const itemWidths = Array.from(
         measureElement.querySelectorAll<HTMLElement>('[data-overflow-item="true"]')
       ).map((element) => element.offsetWidth)
       const overflowTriggerElement = measureElement.querySelector<HTMLElement>(
@@ -362,13 +405,14 @@ function MiraToolbar({
       const nextVisibleCount = calculateVisibleOverflowActionCount({
         layoutWidth: layoutElement.clientWidth,
         primaryWidth: primaryElement.offsetWidth,
-        actionWidths,
+        itemWidths,
+        items: overflowItems,
         overflowTriggerWidth: overflowTriggerElement?.offsetWidth ?? TOOLBAR_OVERFLOW_TRIGGER_FALLBACK_WIDTH,
         fixedControlsWidth: aiSidebarToggleElement.offsetWidth || TOOLBAR_FIXED_CONTROLS_FALLBACK_WIDTH,
       })
 
       // 3. 只有数量真的变化时才更新状态，避免无意义重渲染
-      setVisibleActionCount((currentCount) =>
+      setVisibleItemCount((currentCount) =>
         currentCount === nextVisibleCount ? currentCount : nextVisibleCount
       )
     }
@@ -390,11 +434,11 @@ function MiraToolbar({
       if (frameId) window.cancelAnimationFrame(frameId)
       resizeObserver.disconnect()
     }
-  }, [overflowActions])
+  }, [overflowItems])
 
   useEffect(() => {
-    if (hiddenActions.length === 0 && isOverflowMenuOpen) setIsOverflowMenuOpen(false)
-  }, [hiddenActions.length, isOverflowMenuOpen])
+    if (hiddenItems.length === 0 && isOverflowMenuOpen) setIsOverflowMenuOpen(false)
+  }, [hiddenItems.length, isOverflowMenuOpen])
 
   useEffect(() => {
     if (!isOverflowMenuOpen) return
@@ -429,18 +473,21 @@ function MiraToolbar({
             <UndoRedo />
             <Separator />
             <BlockTypeSelect />
-            {visibleActions.length > 0 ? <Separator /> : null}
+            {visibleItems.length > 0 ? <Separator /> : null}
           </div>
           <div className="mira-toolbar-actions">
-            {visibleActions.map((action) => (
-              <div key={action.key} className="mira-toolbar-action">
-                {action.render()}
+            {visibleItems.map((item) => (
+              <div
+                key={item.key}
+                className={item.kind === 'separator' ? 'mira-toolbar-separator' : 'mira-toolbar-action'}
+              >
+                {item.kind === 'separator' ? <Separator /> : item.render?.()}
               </div>
             ))}
           </div>
         </div>
         <div ref={fixedControlsRef} className="mira-toolbar-fixed-controls">
-          {hiddenActions.length > 0 ? (
+          {hiddenItems.length > 0 ? (
             <button
               ref={overflowTriggerRef}
               type="button"
@@ -467,28 +514,31 @@ function MiraToolbar({
               <span className="mira-ai-sidebar-toggle-divider" />
             </span>
           </button>
-          {isOverflowMenuOpen && hiddenActions.length > 0 ? (
+          {isOverflowMenuOpen && hiddenItems.length > 0 ? (
             <div
               ref={overflowMenuRef}
               className="mira-toolbar-overflow-popover"
               data-window-drag-ignore="true"
             >
-              {hiddenActions.map((action) => (
-                <div key={action.key} className="mira-toolbar-action">
-                  {action.render()}
+              {hiddenItems.map((item) => (
+                <div
+                  key={item.key}
+                  className={item.kind === 'separator' ? 'mira-toolbar-separator' : 'mira-toolbar-action'}
+                >
+                  {item.kind === 'separator' ? <Separator /> : item.render?.()}
                 </div>
               ))}
             </div>
           ) : null}
         </div>
         <div ref={measureRef} className="mira-toolbar-overflow-measure" aria-hidden="true">
-          {overflowActions.map((action) => (
+          {overflowItems.map((item) => (
             <div
-              key={action.key}
-              className="mira-toolbar-action"
+              key={item.key}
+              className={item.kind === 'separator' ? 'mira-toolbar-separator' : 'mira-toolbar-action'}
               data-overflow-item="true"
             >
-              {action.render()}
+              {item.kind === 'separator' ? <Separator /> : item.render?.()}
             </div>
           ))}
           <button

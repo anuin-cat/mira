@@ -123,6 +123,22 @@
   flex-shrink: 0;
 }
 
+.mdx-editor-root .mdxeditor .mira-toolbar-code-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-code-group > * {
+  margin: 0 !important;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-separator {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .mdx-editor-root .mdxeditor .mira-toolbar-fixed-controls {
   position: relative;
   z-index: 1;
