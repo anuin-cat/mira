@@ -135,25 +135,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  position: relative;
   width: 30px;
   height: 30px;
   min-width: 30px;
   border: none;
   border-radius: 9px;
   background: transparent;
-  color: var(--theme-editor-control-text);
+  color: var(--baseTextContrast);
   padding: 0;
   font: inherit;
   cursor: pointer;
   line-height: 0;
-  opacity: 0.78;
   outline: none;
   transition:
-    background-color 0.16s ease,
+    background-color 0.15s ease,
     color 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.15s ease,
     box-shadow 0.18s ease;
 }
 
@@ -165,31 +161,29 @@
   width: 18px;
   height: 18px;
   fill: currentColor;
-  transition: transform 0.16s ease;
 }
 
-.mdx-editor-root .mdxeditor :is(.mira-toolbar-overflow-trigger, .mira-ai-sidebar-toggle):hover {
-  background: color-mix(in srgb, var(--theme-editor-control-text) 10%, transparent);
-  opacity: 1;
-  transform: translateY(-1px);
-}
-
-.mdx-editor-root .mdxeditor :is(.mira-toolbar-overflow-trigger, .mira-ai-sidebar-toggle):active {
-  background: color-mix(in srgb, var(--theme-editor-control-text) 14%, transparent);
-  opacity: 1;
-  transform: scale(0.96);
+@media (hover: hover) {
+  .mdx-editor-root .mdxeditor :is(.mira-toolbar-overflow-trigger, .mira-ai-sidebar-toggle):hover {
+    background-color: var(--baseBgActive);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
 }
 
 .mdx-editor-root .mdxeditor :is(.mira-toolbar-overflow-trigger, .mira-ai-sidebar-toggle):focus-visible {
-  background: color-mix(in srgb, var(--theme-selection) 16%, transparent);
-  opacity: 1;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-selection) 34%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--theme-selection) 28%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.mdx-editor-root .mdxeditor .mira-toolbar-overflow-trigger.active {
+.mdx-editor-root .mdxeditor :is(.mira-toolbar-overflow-trigger, .mira-ai-sidebar-toggle):active {
+  background-color: var(--baseBgActive);
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-overflow-trigger.active,
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active {
   background: color-mix(in srgb, var(--theme-selection) 16%, transparent);
   color: var(--theme-text-primary);
-  opacity: 1;
 }
 
 .mdx-editor-root .mdxeditor .mira-toolbar-overflow-measure {
@@ -211,9 +205,12 @@
   z-index: 25;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+  width: max-content;
   max-width: min(420px, calc(100vw - 32px));
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 8px;
   border: 1px solid var(--theme-editor-control-border);
   border-radius: 12px;
@@ -244,7 +241,6 @@
   background: currentColor;
   opacity: 0.12;
   transition:
-    transform 0.18s ease,
     opacity 0.18s ease,
     background-color 0.18s ease;
 }
@@ -257,21 +253,7 @@
   width: 1.5px;
   border-radius: 999px;
   background: currentColor;
-  transition:
-    transform 0.18s ease,
-    background-color 0.18s ease;
-}
-
-.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle:hover .mira-ai-sidebar-toggle-icon::after,
-.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle:hover .mira-ai-sidebar-toggle-divider,
-.mdx-editor-root .mdxeditor .mira-toolbar-overflow-trigger:hover .mira-toolbar-overflow-icon {
-  transform: scale(1.04);
-}
-
-.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active {
-  color: var(--theme-text-primary);
-  background: color-mix(in srgb, var(--theme-selection) 16%, transparent);
-  opacity: 1;
+  transition: background-color 0.18s ease;
 }
 
 .mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active .mira-ai-sidebar-toggle-icon::after,
@@ -305,42 +287,19 @@
   [class*='_toolbarButtonSelectTrigger_'],
   [class*='_selectTrigger_']
 ) {
-  cursor: pointer;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--theme-editor-control-text);
-  opacity: 0.82;
   outline: none;
-  transition:
-    background-color 0.16s ease,
-    color 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.18s ease;
 }
 
-.mdx-editor-root .mdxeditor [role='toolbar'] :is(
-  [class*='_toolbarToggleItem_'],
-  [class*='_toolbarButton_'],
-  [class*='_toolbarNodeKindSelectTrigger_'],
-  [class*='_toolbarButtonSelectTrigger_'],
-  [class*='_selectTrigger_']
-):hover {
-  background: color-mix(in srgb, var(--theme-editor-control-text) 10%, transparent);
-  opacity: 1;
-  transform: translateY(-1px);
-}
-
-.mdx-editor-root .mdxeditor [role='toolbar'] :is(
-  [class*='_toolbarToggleItem_'],
-  [class*='_toolbarButton_'],
-  [class*='_toolbarNodeKindSelectTrigger_'],
-  [class*='_toolbarButtonSelectTrigger_'],
-  [class*='_selectTrigger_']
-):active {
-  background: color-mix(in srgb, var(--theme-editor-control-text) 14%, transparent);
-  opacity: 1;
-  transform: scale(0.96);
+@media (hover: hover) {
+  .mdx-editor-root .mdxeditor [role='toolbar'] :is(
+    [class*='_toolbarToggleItem_'],
+    [class*='_toolbarButton_'],
+    [class*='_toolbarNodeKindSelectTrigger_'],
+    [class*='_toolbarButtonSelectTrigger_'],
+    [class*='_selectTrigger_']
+  ):hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
 }
 
 .mdx-editor-root .mdxeditor [role='toolbar'] :is(
@@ -350,51 +309,9 @@
   [class*='_toolbarButtonSelectTrigger_'],
   [class*='_selectTrigger_']
 ):focus-visible {
-  background: color-mix(in srgb, var(--theme-selection) 16%, transparent);
-  opacity: 1;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-selection) 34%, transparent);
-}
-
-.mdx-editor-root .mdxeditor [role='toolbar'] :is(
-  [class*='_toolbarToggleItem_'],
-  [class*='_toolbarButton_'],
-  [class*='_toolbarNodeKindSelectTrigger_'],
-  [class*='_toolbarButtonSelectTrigger_'],
-  [class*='_selectTrigger_']
-) svg {
-  transition: transform 0.16s ease;
-}
-
-.mdx-editor-root .mdxeditor [role='toolbar'] :is(
-  [class*='_toolbarToggleItem_'],
-  [class*='_toolbarButton_'],
-  [class*='_toolbarNodeKindSelectTrigger_'],
-  [class*='_toolbarButtonSelectTrigger_'],
-  [class*='_selectTrigger_']
-):hover svg {
-  transform: scale(1.04);
-}
-
-.mdx-editor-root .mdxeditor [role='toolbar'] :is(
-  [class*='_toolbarToggleItem_'][data-state='on'],
-  [class*='_toolbarButton_'][data-state='on'],
-  [class*='_toolbarNodeKindSelectTrigger_'][data-state='open'],
-  [class*='_toolbarButtonSelectTrigger_'][data-state='open'],
-  [class*='_selectTrigger_'][data-state='open']
-) {
-  background: color-mix(in srgb, var(--theme-selection) 16%, transparent);
-  color: var(--theme-text-primary);
-  opacity: 1;
-}
-
-.mdx-editor-root .mdxeditor [role='toolbar'] :is(
-  [class*='_toolbarToggleItem_'][data-disabled],
-  [class*='_toolbarButton_'][data-disabled],
-  [class*='_toolbarNodeKindSelectTrigger_'][data-disabled],
-  [class*='_toolbarButtonSelectTrigger_'][data-disabled],
-  [class*='_selectTrigger_'][data-disabled]
-) {
-  opacity: 0.34;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--theme-selection) 28%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* MDXEditor 的弹层 portal 外壳默认 z-index 低于 sticky 工具栏，需抬高外层 stacking context */
@@ -438,10 +355,7 @@ body
   [class*='_toolbarButtonSelectTrigger_'],
   [class*='_selectTrigger_']
 )[data-state='open'] {
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--theme-selection) 16%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-selection) 22%, transparent);
-  filter: none;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.12));
 }
 
 body > .mdxeditor-popup-container.mira-mdx-editor :is(
