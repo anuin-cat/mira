@@ -121,11 +121,18 @@ body {
 .file-tree-body,
 .note-list-items {
   flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.file-tree-body {
+  overflow: hidden;
+}
+
+.note-list-items {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 6px 0;
-  position: relative;
-  min-height: 0;
 }
 
 .file-tree-body,

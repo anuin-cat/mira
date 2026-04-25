@@ -9,6 +9,8 @@ const DRAG_THRESHOLD = 5
 const AUTO_SCROLL_SPEED = 12
 const AUTO_SCROLL_ZONE = 40
 const AUTO_OPEN_DELAY = 700
+const TREE_ROW_HEIGHT = 30
+const TREE_VERTICAL_PADDING = 6
 
 interface ContextMenuState {
   x: number
@@ -242,16 +244,23 @@ export function FileTree({
   }
 
   // ========== 自定义拖拽实现（替换 react-arborist 内置 react-dnd DnD） ==========
-  // 原因：Tauri WKWebView 下 HTML5 dragover/drop 事件不触发，react-dnd-html5-backend 完全失效
+  // 原因：Tauri macOS 默认拖放处理会影响 HTML5 DnD，react-dnd-html5-backend 不稳定
+
+  /** 获取 react-arborist 实际滚动容器 */
+  function getTreeScrollElement(): HTMLDivElement | null {
+    return treeRef.current?.listEl.current ?? null
+  }
 
   /** 根据鼠标 Y 坐标计算当前悬停的目标节点 */
   function getTargetNode(clientY: number): NodeApi<VaultTreeNode> | null {
-    const container = bodyRef.current
+    const container = getTreeScrollElement()
     const tree = treeRef.current
     if (!container || !tree) return null
 
     const rect = container.getBoundingClientRect()
-    const index = Math.floor((clientY - rect.top + container.scrollTop) / 30)
+    const index = Math.floor(
+      (clientY - rect.top + container.scrollTop - TREE_VERTICAL_PADDING) / TREE_ROW_HEIGHT
+    )
     if (index < 0) return null
     return tree.at(index) ?? null
   }
@@ -324,7 +333,7 @@ export function FileTree({
     drag.previewEl.style.top = `${event.clientY - 15}px`
 
     // 4.3 自动滚动
-    const container = bodyRef.current
+    const container = getTreeScrollElement()
     if (container) {
       const rect = container.getBoundingClientRect()
       const relativeY = event.clientY - rect.top
@@ -346,7 +355,7 @@ export function FileTree({
 
     // 添加新高亮
     if (targetNode && targetNode.data.kind === 'directory' && isValidDrop(drag, targetDir)) {
-      const container = bodyRef.current
+      const container = getTreeScrollElement()
       const escapedPath = targetNode.data.path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
       const el = container?.querySelector(`.tree-node[data-path="${escapedPath}"]`) as HTMLElement | null
       if (el) el.classList.add('drag-target')
@@ -517,8 +526,10 @@ export function FileTree({
             childrenAccessor="children"
             width="100%"
             height={treeHeight}
-            rowHeight={30}
+            rowHeight={TREE_ROW_HEIGHT}
             indent={16}
+            paddingTop={TREE_VERTICAL_PADDING}
+            paddingBottom={TREE_VERTICAL_PADDING}
             selection={activePath ?? undefined}
             initialOpenState={initialOpenState}
             openByDefault={false}
