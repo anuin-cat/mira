@@ -1,0 +1,159 @@
+@import '@mdxeditor/editor/style.css';
+
+.mdx-editor-shell {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdx-editor-root {
+  flex: 1;
+  min-height: 0;
+}
+
+.mdx-editor-root .mdxeditor {
+  min-height: 100%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdx-editor-root .mdxeditor [role='toolbar'] {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 1px solid #ececea;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  flex-wrap: wrap;
+}
+
+.mira-mdx-content {
+  width: min(100%, 760px);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 24px 56px 120px;
+  color: #1a1a1a;
+  font-size: var(--mira-editor-body-size, 16px);
+  line-height: var(--mira-editor-body-line-height, 1.75);
+}
+
+.mira-mdx-content p,
+.mira-mdx-content li,
+.mira-mdx-content blockquote,
+.mira-mdx-content table {
+  font-size: var(--mira-editor-body-size, 16px);
+  line-height: var(--mira-editor-body-line-height, 1.75);
+}
+
+.mira-mdx-content h1,
+.mira-mdx-content h2,
+.mira-mdx-content h3,
+.mira-mdx-content h4,
+.mira-mdx-content h5,
+.mira-mdx-content h6 {
+  letter-spacing: 0;
+}
+
+.mira-code-block {
+  overflow: hidden;
+  margin: 14px 0;
+  border: 1px solid #e3e3df;
+  border-radius: 6px;
+  background: #f6f6f4;
+}
+
+.mira-code-block-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e3e3df;
+  background: #fbfbfa;
+}
+
+.mira-code-block-language {
+  width: 96px;
+  border: 1px solid #deded9;
+  border-radius: 4px;
+  background: #fff;
+  color: #4a4a45;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 3px 6px;
+}
+
+.mira-code-block-toolbar button {
+  border: 1px solid #deded9;
+  border-radius: 4px;
+  background: #fff;
+  color: #4a4a45;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 3px 8px;
+}
+
+.mira-code-block-preview,
+.mira-code-block-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 96px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: #232320;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  padding: 14px 16px;
+  tab-size: 2;
+}
+
+.mira-code-block-preview {
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.mira-code-block-textarea {
+  display: block;
+  resize: vertical;
+  outline: none;
+}
+
+.mira-code-token-comment {
+  color: #8a8a81;
+}
+
+.mira-code-token-string {
+  color: #0f766e;
+}
+
+.mira-code-token-keyword {
+  color: #8b3d8f;
+  font-weight: 600;
+}
+
+[data-font-size='small'] {
+  --mira-editor-body-size: 14px;
+  --mira-editor-body-line-height: 1.7;
+}
+
+[data-font-size='medium'] {
+  --mira-editor-body-size: 16px;
+  --mira-editor-body-line-height: 1.75;
+}
+
+[data-font-size='large'] {
+  --mira-editor-body-size: 18px;
+  --mira-editor-body-line-height: 1.75;
+}
+
+[data-font-size='xlarge'] {
+  --mira-editor-body-size: 20px;
+  --mira-editor-body-line-height: 1.75;
+}

@@ -20,17 +20,16 @@ import {
   updateMiraMap,
 } from './services/noteService'
 import {
-  getDisplayName,
   getParentPath,
   isPathInsideDirectory,
   MIRA_MAP_FILE,
 } from './services/pathUtils'
 import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree } from './features/file-tree/FileTree'
-import { MilkdownEditor } from './features/editor/MilkdownEditor'
+import { MdxEditor } from './features/editor/MdxEditor'
 import type { FontSize, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 import './App.css'
-import './styles/editor.css'
+import './styles/mdx-editor.css'
 
 const SIDEBAR_MIN_WIDTH = 160
 const SIDEBAR_MAX_WIDTH = 480
@@ -85,63 +84,6 @@ function collectAncestorDirs(path: string | null): string[] {
   if (!path) return []
   const segments = path.split('/').filter(Boolean)
   return segments.map((_, index) => segments.slice(0, index + 1).join('/'))
-}
-
-interface EditorTitleProps {
-  activePath: string | null
-  onRename: (name: string) => Promise<string | null>
-}
-
-/** 编辑器内嵌标题输入框，只重命名文件，不写入 Markdown 正文 */
-function EditorTitle({ activePath, onRename }: EditorTitleProps) {
-  const [value, setValue] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    setValue(activePath ? getDisplayName(activePath, 'file') : '')
-  }, [activePath])
-
-  async function commitRename() {
-    if (!activePath || isSaving) return
-    const currentName = getDisplayName(activePath, 'file')
-    const nextName = value.trim()
-
-    if (!nextName || nextName === currentName) {
-      setValue(currentName)
-      return
-    }
-
-    try {
-      setIsSaving(true)
-      const renamedPath = await onRename(nextName)
-      setValue(renamedPath ? getDisplayName(renamedPath, 'file') : currentName)
-    } catch (error) {
-      window.alert(getErrorMessage(error))
-      setValue(currentName)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  if (!activePath) return null
-
-  return (
-    <input
-      className="editor-title-input"
-      value={value}
-      disabled={isSaving}
-      onChange={(event) => setValue(event.target.value)}
-      onBlur={() => void commitRename()}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur()
-        if (event.key === 'Escape') {
-          setValue(getDisplayName(activePath, 'file'))
-          event.currentTarget.blur()
-        }
-      }}
-      aria-label="文件名"
-    />
-  )
 }
 
 export default function App() {
@@ -468,13 +410,6 @@ export default function App() {
     await reloadTree(deletesActiveFile ? null : currentActivePath)
   }
 
-  /** 顶部标题栏重命名当前文件 */
-  async function handleTitleRename(name: string): Promise<string | null> {
-    const currentActivePath = activePathRef.current
-    if (!currentActivePath) return null
-    return await handleRenameEntry(currentActivePath, name, 'file')
-  }
-
   /** 记录文件树展开状态 */
   function handleExpandedDirsChange(paths: string[]) {
     persistVaultState({ expandedDirs: paths })
@@ -586,11 +521,10 @@ export default function App() {
       <div className="sidebar-resizer" onMouseDown={handleResizerMouseDown} />
       <main className="editor-pane">
         {activePath ? (
-          <MilkdownEditor
+          <MdxEditor
             key={activePath}
             initialContent={activeContent}
             onChange={handleContentChange}
-            titleSlot={<EditorTitle activePath={activePath} onRename={handleTitleRename} />}
           />
         ) : (
           <div className="editor-empty">

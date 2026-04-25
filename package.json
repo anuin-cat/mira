@@ -10,11 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@milkdown/core": "^7.20.0",
-    "@milkdown/plugin-history": "^7.20.0",
-    "@milkdown/plugin-listener": "^7.20.0",
-    "@milkdown/preset-commonmark": "^7.20.0",
-    "@milkdown/react": "^7.20.0",
+    "@mdxeditor/editor": "^3.55.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-fs": "^2.5.0",

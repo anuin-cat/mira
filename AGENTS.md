@@ -16,7 +16,7 @@
 - TypeScript
 - Vite
 - pnpm
-- Milkdown（Markdown 富文本编辑器，ProseMirror 底层，输入输出原生 .md 文件）
+- MDXEditor（Markdown/MDX 富文本编辑器，Lexical 底层，输入输出原生 .md 文件）
 - date-fns（日期格式化）
 
 ## 基本原则
