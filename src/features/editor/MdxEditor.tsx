@@ -33,6 +33,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
 const CODE_TOKEN_RE =
   /(\/\/.*|#.*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b(?:const|let|var|function|return|import|export|from|if|else|for|while|class|interface|type|async|await|true|false|null|undefined)\b)/g
+const BLOCK_TYPE_TRANSLATIONS: Record<string, string> = {
+  'toolbar.blockTypes.paragraph': '正文',
+  'toolbar.blockTypes.quote': '引用',
+}
 
 interface Props {
   initialContent: string
@@ -203,6 +207,13 @@ export function MdxEditor({ initialContent, onChange }: Props) {
           contentEditableClassName="mira-mdx-content"
           markdown={initialContent}
           plugins={plugins}
+          translation={(key, defaultValue, interpolations) => {
+            if (key === 'toolbar.blockTypes.heading') {
+              const level = String(interpolations?.level ?? '')
+              return `标题 ${level}`.trim()
+            }
+            return BLOCK_TYPE_TRANSLATIONS[key] ?? defaultValue
+          }}
           placeholder="开始记录..."
           trim={false}
           toMarkdownOptions={{
