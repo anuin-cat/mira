@@ -36,6 +36,8 @@
 - 前端在 `App.tsx` 的 `useEffect` 中用 `listen("menu:<event-id>", ...)` 监听并响应
 - 新增菜单项时，同步在此处登记：
   - `File > 更换 Vault...` → `change_vault` → `menu:change-vault`
+  - `File > 刷新 Vault` → `refresh_vault` → `menu:refresh-vault`
+  - `File > 更新 Mira Map` → `update_mira_map` → `menu:update-mira-map`
 
 ## 依赖选型原则
 
@@ -68,17 +70,20 @@
 推荐结构：
 
 vault/
-  notes/
-  meta/
-  reflections/
-  indexes/
-  attachments/
-  config/
+  Mira Map.md
+  日常/
+    今天想法.md
+  项目/
+    Mira 设计.md
+  .mira/
+    state.json
 
 其中：
 
-* `entries/` 和 `meta/` 是源数据
-* `indexes/` 是可重建缓存
+* 用户可见的目录和 `.md` 文件是唯一主数据，文件名和文件夹名应尽量人类可读
+* `.mira/` 是应用内部目录，只能存放可丢弃、可重建的状态、索引或缓存
+* 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复
+* `Mira Map.md` 是普通 Markdown 文件，用于描述目录结构和文件摘要，用户可直接阅读和修改
 
 ## 编码要求
 

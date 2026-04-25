@@ -21,6 +21,7 @@
     "@tauri-apps/plugin-opener": "^2",
     "date-fns": "^4.1.0",
     "react": "^19.1.0",
+    "react-arborist": "^3.5.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {

@@ -8,27 +8,67 @@
     "opener:default",
     {
       "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
     },
     {
       "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
     },
     {
       "identifier": "fs:allow-read-dir",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
     },
     {
       "identifier": "fs:allow-mkdir",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
     },
     {
       "identifier": "fs:allow-remove",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-rename",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-stat",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
     },
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
     },
     "dialog:default",
     "dialog:allow-open"
