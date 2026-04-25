@@ -97,11 +97,11 @@ vault/
 
 ## 平台限制与解决方案
 
-### WKWebView 不支持 HTML5 拖拽事件
+### Tauri macOS HTML5 拖拽注意事项
 
-**问题**：Tauri v2 在 macOS 下使用 WKWebView，WKWebView 不会触发 `dragover`、`dragenter`、`drop` 事件（仅 `dragstart` 和 `dragend` 有效）。react-arborist 内置的拖拽依赖 react-dnd-html5-backend，后者依赖 `dragover` 事件来追踪拖拽位置，因此在 WKWebView 中完全失效。
+**问题**：在 macOS Tauri 中，如果依赖 HTML5 DnD，可能出现 `dragstart` / `dragend` 有效，但 `dragover`、`dragenter`、`drop` 不稳定或不触发。不要简单归因于 WKWebView 不支持，优先检查 Tauri 默认的 `dragDropEnabled` 原生拖放处理是否拦截了前端拖拽事件。react-arborist 内置拖拽依赖 react-dnd-html5-backend，因此也会受影响。
 
-**解决**：`src/features/file-tree/FileTree.tsx` 中使用原生鼠标事件（`mousedown` → `mousemove` → `mouseup`）实现了完整的自定义拖拽：
+**解决**：如果要使用前端 HTML5 DnD，先确认是否可以关闭 Tauri 原生拖放处理；如果仍不稳定，就避开 HTML5 DnD。`src/features/file-tree/FileTree.tsx` 当前使用原生鼠标事件（`mousedown` → `mousemove` → `mouseup`）实现自定义拖拽：
 
 - `disableDrag` + `disableDrop` 禁用 react-arborist 内置 DnD
 - `data-path` / `data-kind` 属性挂在 DOM 节点上，通过事件委托在容器层统一捕获
