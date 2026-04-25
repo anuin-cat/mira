@@ -182,8 +182,11 @@
 
 .mdx-editor-root .mdxeditor .mira-toolbar-overflow-trigger.active,
 .mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active {
-  background: color-mix(in srgb, var(--theme-selection) 16%, transparent);
-  color: var(--theme-text-primary);
+  background-color: var(--baseBgActive);
+  color: var(--baseTextContrast);
+  box-shadow:
+    inset 0 0 0 1px var(--baseBorderHover),
+    0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .mdx-editor-root .mdxeditor .mira-toolbar-overflow-measure {
@@ -287,7 +290,12 @@
   [class*='_toolbarButtonSelectTrigger_'],
   [class*='_selectTrigger_']
 ) {
+  cursor: pointer;
   outline: none;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-overflow-popover :is(button, [role='button']) {
+  cursor: pointer;
 }
 
 @media (hover: hover) {
