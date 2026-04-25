@@ -9,7 +9,7 @@ const DRAG_THRESHOLD = 5
 const AUTO_SCROLL_SPEED = 12
 const AUTO_SCROLL_ZONE = 40
 const AUTO_OPEN_DELAY = 700
-const TREE_ROW_HEIGHT = 30
+const TREE_ROW_HEIGHT = 32
 const TREE_VERTICAL_PADDING = 6
 
 interface ContextMenuState {
@@ -76,13 +76,13 @@ function createPreviewElement(name: string, kind: VaultEntryKind): HTMLDivElemen
     'pointer-events: none',
     'display: flex',
     'align-items: center',
-    'height: 30px',
+    'height: 32px',
     'padding: 0 8px 0 4px',
     'background: rgba(255,255,255,0.92)',
     'border: 1px solid #d0d0cc',
     'border-radius: 6px',
     'box-shadow: 0 4px 16px rgba(0,0,0,0.12)',
-    'font-size: 13px',
+    'font-size: 14px',
     'color: #2b2b2b',
     'width: max-content',
     'min-width: 120px',
