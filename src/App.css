@@ -425,7 +425,7 @@ body {
   background: var(--theme-bg-primary);
   border-top-left-radius: var(--mira-editor-panel-radius);
   border-bottom-left-radius: var(--mira-editor-panel-radius);
-  box-shadow: -10px 0 24px rgba(24, 24, 24, 0.04);
+  box-shadow: -6px 0 8px rgba(24, 24, 24, 0.02);
 }
 
 .editor-empty {
