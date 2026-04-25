@@ -1,6 +1,6 @@
 /* Typora 风格的紧凑笔记主题：强调中文笔记阅读的连续性与层级感 */
 .mira-mdx-content {
-  color: #1f1f1b;
+  color: var(--theme-text-primary);
   font-family:
     'PingFang SC',
     'SF Pro Text',
@@ -73,7 +73,7 @@
 .mira-mdx-content h5,
 .mira-mdx-content h6 {
   margin: 0;
-  color: #171714;
+  color: var(--theme-text-primary);
   font-weight: 700;
   letter-spacing: -0.015em;
 }
@@ -272,7 +272,7 @@
 }
 
 .mira-mdx-content h6 {
-  color: #66665f;
+  color: var(--theme-text-secondary);
   font-size: 0.94em;
   line-height: 1.45;
 }
@@ -324,44 +324,44 @@
 
 /* 4. 行内元素与引用使用更温和的对比，避免工具文档感过强 */
 .mira-mdx-content a {
-  color: #137cee;
+  color: var(--theme-editor-link);
   text-decoration: none;
-  border-bottom: 1px solid rgba(36, 104, 201, 0.22);
+  border-bottom: 1px solid var(--theme-editor-link-underline);
   transition:
     color 120ms ease,
     border-color 120ms ease;
 }
 
 .mira-mdx-content a:hover {
-  color: #137cee;
-  border-bottom-color: rgba(27, 86, 173, 0.38);
+  color: var(--theme-editor-link-hover);
+  border-bottom-color: var(--theme-editor-link-hover);
 }
 
 .mira-mdx-content strong {
-  color: #141412;
+  color: var(--theme-text-primary);
   font-weight: 680;
 }
 
 .mira-mdx-content em {
-  color: #3f3f3a;
+  color: var(--theme-text-secondary);
 }
 
 .mira-mdx-content :is(p, li, blockquote, h1, h2, h3, h4, h5, h6, th, td) > code {
   padding: 0.1em 0.38em;
-  border: 1px solid #e6dfd4;
+  border: 1px solid var(--theme-editor-inline-code-border);
   border-radius: 6px;
-  background: #f7f2ea;
-  color: #8c4733;
+  background: var(--theme-editor-inline-code-bg);
+  color: var(--theme-editor-inline-code-text);
   font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
   font-size: 0.92em;
 }
 
 .mira-mdx-content blockquote {
   padding: 0.42em 0.92em;
-  border-left: 3px solid #d7d0c4;
+  border-left: 3px solid var(--theme-editor-blockquote-border);
   border-radius: 0 10px 10px 0;
-  background: #faf7f1;
-  color: #4d4c45;
+  background: var(--theme-editor-blockquote-bg);
+  color: var(--theme-text-secondary);
 }
 
 .mira-mdx-content blockquote p + p {
@@ -371,7 +371,7 @@
 .mira-mdx-content hr {
   height: 1px;
   border: 0;
-  background: #e4ddd2;
+  background: var(--theme-border);
 }
 
 .mira-mdx-content img {
@@ -384,22 +384,22 @@
 .mira-mdx-content table {
   width: 100%;
   border-collapse: collapse;
-  border: 1px solid #e7e0d5;
+  border: 1px solid var(--theme-border);
   border-radius: 10px;
   overflow: hidden;
-  background: #fffdfa;
+  background: var(--theme-editor-table-bg);
 }
 
 .mira-mdx-content thead th {
-  background: #faf7f1;
-  color: #2f2f2a;
+  background: var(--theme-editor-table-head-bg);
+  color: var(--theme-text-primary);
   font-weight: 640;
 }
 
 .mira-mdx-content th,
 .mira-mdx-content td {
   padding: 0.48em 0.72em;
-  border-bottom: 1px solid #ece5da;
+  border-bottom: 1px solid var(--theme-border);
   text-align: left;
   vertical-align: top;
 }
@@ -411,16 +411,16 @@
 .mira-mdx-content pre,
 .mira-code-block {
   overflow: hidden;
-  border: 1px solid #e4ddd2;
+  border: 1px solid var(--theme-border);
   border-radius: 10px;
-  background: #f7f4ee;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  background: var(--theme-editor-code-bg);
+  box-shadow: var(--theme-editor-code-shadow);
 }
 
 .mira-mdx-content pre {
   padding: 0.92em 1em;
   overflow-x: auto;
-  color: #252420;
+  color: var(--theme-editor-code-text);
   font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
   font-size: 0.9em;
   line-height: 1.62;
@@ -440,26 +440,26 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 8px;
-  border-bottom: 1px solid #e4ddd2;
-  background: rgba(255, 252, 246, 0.94);
+  border-bottom: 1px solid var(--theme-border);
+  background: var(--theme-editor-code-toolbar-bg);
 }
 
 .mira-code-block-language {
   width: 96px;
-  border: 1px solid #ddd4c8;
+  border: 1px solid var(--theme-editor-code-button-border);
   border-radius: 6px;
-  background: #fffdfa;
-  color: #4b4a43;
+  background: var(--theme-editor-code-button-bg);
+  color: var(--theme-editor-control-text);
   font-size: 12px;
   line-height: 1.4;
   padding: 3px 6px;
 }
 
 .mira-code-block-toolbar button {
-  border: 1px solid #ddd4c8;
+  border: 1px solid var(--theme-editor-code-button-border);
   border-radius: 6px;
-  background: #fffdfa;
-  color: #4b4a43;
+  background: var(--theme-editor-code-button-bg);
+  color: var(--theme-editor-control-text);
   font-size: 12px;
   line-height: 1.4;
   padding: 3px 8px;
@@ -469,8 +469,8 @@
 }
 
 .mira-code-block-toolbar button:hover {
-  border-color: #cfc3b4;
-  background: #fcf8f2;
+  border-color: var(--theme-editor-code-button-hover-border);
+  background: var(--theme-editor-code-button-hover-bg);
 }
 
 .mira-code-block-preview,
@@ -481,7 +481,7 @@
   margin: 0;
   border: none;
   background: transparent;
-  color: #232320;
+  color: var(--theme-editor-code-text);
   font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
   line-height: 1.62;
@@ -501,14 +501,14 @@
 }
 
 .mira-code-token-comment {
-  color: #8a857d;
+  color: var(--theme-editor-code-token-comment);
 }
 
 .mira-code-token-string {
-  color: #8a4d32;
+  color: var(--theme-editor-code-token-string);
 }
 
 .mira-code-token-keyword {
-  color: #49658c;
+  color: var(--theme-editor-code-token-keyword);
   font-weight: 600;
 }

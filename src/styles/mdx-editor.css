@@ -23,9 +23,35 @@
 }
 
 .mdx-editor-root .mdxeditor {
+  --accentBase: var(--theme-selection);
+  --accentBgSubtle: var(--theme-selection);
+  --accentBg: var(--theme-selection);
+  --accentBgHover: var(--theme-selection);
+  --accentBgActive: var(--theme-selection);
+  --accentLine: var(--theme-accent);
+  --accentBorder: var(--theme-accent);
+  --accentBorderHover: var(--theme-editor-link-hover);
+  --accentSolid: var(--theme-accent);
+  --accentSolidHover: var(--theme-editor-link-hover);
+  --accentText: var(--theme-accent);
+  --accentTextContrast: var(--theme-bg-primary);
+  --basePageBg: var(--theme-editor-control-bg);
+  --baseBase: var(--theme-editor-control-bg);
+  --baseBgSubtle: var(--theme-editor-control-bg-subtle);
+  --baseBg: var(--theme-editor-control-bg-subtle);
+  --baseBgHover: var(--theme-editor-control-bg-hover);
+  --baseBgActive: var(--theme-editor-control-bg-active);
+  --baseLine: var(--theme-editor-control-border);
+  --baseBorder: var(--theme-editor-control-border);
+  --baseBorderHover: var(--theme-editor-control-border-strong);
+  --baseSolid: var(--theme-editor-control-placeholder);
+  --baseSolidHover: var(--theme-editor-control-text-muted);
+  --baseText: var(--theme-editor-control-text-muted);
+  --baseTextContrast: var(--theme-editor-control-text);
   min-height: 100%;
   background: var(--theme-bg-primary);
   color: var(--theme-text-primary);
+  caret-color: var(--theme-text-primary);
   display: flex;
   flex-direction: column;
 }
@@ -38,6 +64,7 @@
   border-bottom: 1px solid var(--theme-border);
   background: var(--theme-bg-toolbar);
   backdrop-filter: blur(12px);
+  color: var(--theme-editor-control-text);
   align-items: center;
   box-sizing: border-box;
   flex-shrink: 0;
@@ -45,6 +72,10 @@
   flex-wrap: nowrap;
   padding-block: 0;
   padding-inline: 12px;
+}
+
+.mdx-editor-root .mdxeditor :where(button, input, select, textarea) {
+  color: var(--theme-editor-control-text);
 }
 
 .mdx-editor-root .mdxeditor ::selection {
