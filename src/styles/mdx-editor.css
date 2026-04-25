@@ -29,7 +29,9 @@
   border-bottom: 1px solid #ececea;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
+  justify-content: center;
   flex-wrap: wrap;
+  padding-inline: 12px;
 }
 
 .mira-mdx-content {
