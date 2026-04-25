@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mira 中文字体预览</title>
+    <link rel="stylesheet" href="https://fontsapi.zeoseven.com/69/main/result.css" />
+    <link rel="stylesheet" href="https://fontsapi.zeoseven.com/285/main/result.css" />
+    <link rel="stylesheet" href="https://fontsapi.zeoseven.com/214/main/result.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@callmebill/lxgw-wenkai-web@latest/style.css" />
+    <link
+      rel="stylesheet"
+      crossorigin="anonymous"
+      href="https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Medium.min.css"
+    />
+    <link
+      rel="stylesheet"
+      crossorigin="anonymous"
+      href="https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Bold.min.css"
+    />
+    <style>
+      :root {
+        --page-bg:
+          radial-gradient(circle at top left, rgba(245, 233, 214, 0.82), transparent 32%),
+          radial-gradient(circle at top right, rgba(220, 231, 238, 0.82), transparent 28%),
+          linear-gradient(180deg, #f7f4ee 0%, #f2ede5 100%);
+        --panel-bg: rgba(255, 255, 255, 0.8);
+        --panel-border: rgba(66, 58, 47, 0.12);
+        --panel-shadow: 0 20px 60px rgba(74, 61, 48, 0.09);
+        --text-strong: #25211c;
+        --text-muted: #6e6358;
+        --text-soft: #8c8075;
+        --accent: #875d35;
+        --accent-soft: rgba(135, 93, 53, 0.12);
+        --preview-font-size: 18px;
+        --preview-line-height: 1.76;
+        --preview-width: 32rem;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        background: var(--page-bg);
+        color: var(--text-strong);
+        font-family:
+          "PingFang SC",
+          "SF Pro Display",
+          "Hiragino Sans GB",
+          "Helvetica Neue",
+          sans-serif;
+      }
+
+      .page {
+        width: min(1200px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0 48px;
+      }
+
+      .hero {
+        padding: 28px 28px 24px;
+        border: 1px solid var(--panel-border);
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.72));
+        box-shadow: var(--panel-shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 16px 0 10px;
+        font-size: clamp(30px, 4vw, 46px);
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 780px;
+        font-size: 16px;
+        line-height: 1.72;
+        color: var(--text-muted);
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: 1.3fr repeat(3, minmax(140px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .toolbar-card {
+        padding: 16px;
+        border: 1px solid var(--panel-border);
+        border-radius: 22px;
+        background: var(--panel-bg);
+      }
+
+      .toolbar-card h2 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        letter-spacing: 0.05em;
+        color: var(--text-soft);
+        text-transform: uppercase;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 138px;
+        resize: vertical;
+        border: 1px solid rgba(92, 79, 65, 0.12);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--text-strong);
+        padding: 14px 15px;
+        font: inherit;
+        font-size: 14px;
+        line-height: 1.65;
+        outline: none;
+      }
+
+      textarea:focus {
+        border-color: rgba(135, 93, 53, 0.34);
+        box-shadow: 0 0 0 4px rgba(135, 93, 53, 0.08);
+      }
+
+      .control {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .control label {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 14px;
+        color: var(--text-muted);
+      }
+
+      .control output {
+        font-variant-numeric: tabular-nums;
+        color: var(--text-strong);
+      }
+
+      input[type='range'] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      .preset-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .preset-button {
+        border: 1px solid rgba(92, 79, 65, 0.12);
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--text-strong);
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        transition:
+          transform 0.16s ease,
+          background 0.16s ease,
+          border-color 0.16s ease;
+      }
+
+      .preset-button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(135, 93, 53, 0.26);
+        background: rgba(255, 248, 242, 0.96);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 18px;
+        margin-top: 22px;
+      }
+
+      .font-card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(250, 247, 241, 0.88)),
+          #fff;
+        box-shadow: var(--panel-shadow);
+      }
+
+      .font-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 5px;
+        background: linear-gradient(90deg, rgba(135, 93, 53, 0.76), rgba(196, 151, 108, 0.3));
+      }
+
+      .font-card-header {
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid rgba(92, 79, 65, 0.08);
+      }
+
+      .font-kicker {
+        display: inline-flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(70, 60, 47, 0.06);
+        color: var(--text-muted);
+        font-size: 11px;
+        letter-spacing: 0.03em;
+      }
+
+      .font-title {
+        margin: 12px 0 4px;
+        font-size: 22px;
+        line-height: 1.2;
+      }
+
+      .font-subtitle {
+        margin: 0;
+        font-size: 13px;
+        color: var(--text-soft);
+      }
+
+      .font-note {
+        margin: 12px 0 0;
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--text-muted);
+      }
+
+      .font-preview {
+        padding: 18px 20px 22px;
+      }
+
+      .preview-paper {
+        width: min(100%, var(--preview-width));
+        min-height: 440px;
+        margin: 0 auto;
+        padding: 24px 24px 26px;
+        border-radius: 18px;
+        border: 1px solid rgba(105, 93, 79, 0.08);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(250, 248, 244, 0.92)),
+          #fff;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+        font-size: var(--preview-font-size);
+        line-height: var(--preview-line-height);
+      }
+
+      .preview-paper h3 {
+        margin: 0 0 0.58em;
+        font-size: 1.48em;
+        line-height: 1.24;
+      }
+
+      .preview-paper p {
+        margin: 0 0 0.8em;
+      }
+
+      .preview-paper blockquote {
+        margin: 0 0 0.92em;
+        padding-left: 0.88em;
+        border-left: 3px solid rgba(135, 93, 53, 0.22);
+        color: #5d544b;
+      }
+
+      .preview-paper ul {
+        margin: 0 0 0.9em 1.2em;
+        padding: 0;
+      }
+
+      .preview-paper li + li {
+        margin-top: 0.26em;
+      }
+
+      .preview-paper code {
+        padding: 0.08em 0.35em;
+        border-radius: 6px;
+        background: rgba(70, 60, 47, 0.08);
+        font-family:
+          "SF Mono",
+          "JetBrains Mono",
+          Menlo,
+          Consolas,
+          monospace;
+        font-size: 0.88em;
+      }
+
+      .preview-paper .meta {
+        margin-top: 1.1em;
+        font-size: 0.78em;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #8e8378;
+      }
+
+      .font-current {
+        font-family:
+          "PingFang SC",
+          "SF Pro Text",
+          "Hiragino Sans GB",
+          "Noto Sans CJK",
+          "Microsoft YaHei",
+          sans-serif;
+      }
+
+      .font-pingfang {
+        font-family:
+          "PingFang SC",
+          "SF Pro Text",
+          "Hiragino Sans GB",
+          sans-serif;
+      }
+
+      .font-songti {
+        font-family:
+          "Songti SC",
+          "STSong",
+          serif;
+      }
+
+      .font-noto-sans {
+        font-family:
+          "Noto Sans CJK",
+          "Source Han Sans SC",
+          sans-serif;
+      }
+
+      .font-noto-serif {
+        font-family:
+          "Noto Serif CJK",
+          "Source Han Serif SC",
+          serif;
+      }
+
+      .font-misans {
+        font-family:
+          "MiSans",
+          "PingFang SC",
+          sans-serif;
+      }
+
+      .font-sarasa {
+        font-family:
+          "Sarasa UI SC",
+          "Noto Sans CJK",
+          sans-serif;
+      }
+
+      .font-wenkai {
+        font-family:
+          "LXGW WenKai",
+          "Klee One",
+          serif;
+      }
+
+      .footer {
+        margin-top: 20px;
+        padding: 0 6px;
+        font-size: 13px;
+        line-height: 1.8;
+        color: var(--text-muted);
+      }
+
+      .footer strong {
+        color: var(--text-strong);
+      }
+
+      @media (max-width: 980px) {
+        .toolbar {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          width: min(100vw - 20px, 1200px);
+          padding-top: 16px;
+        }
+
+        .hero {
+          padding: 22px 18px 18px;
+          border-radius: 22px;
+        }
+
+        .font-card {
+          border-radius: 20px;
+        }
+
+        .preview-paper {
+          padding: 20px 18px 22px;
+          min-height: 380px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <span class="eyebrow">Mira Font Lab</span>
+        <h1>中文正文字体对比预览</h1>
+        <p>
+          这个页面专门拿来对比“适不适合长时间写字和阅读”的中文字体。上面的文本、字号、行高和栏宽都可以改，下面会同步更新成一组更贴近编辑器正文的排版效果。
+        </p>
+
+        <div class="toolbar">
+          <section class="toolbar-card">
+            <h2>预览文本</h2>
+            <textarea id="sample-input">
+今天把一个模糊的念头写下来。真正舒服的中文字体，不只是“好看”，而是能让眼睛忘记字体本身，把注意力放回句子、节奏与意思。
+
+如果一款字体能让我在 20 分钟后还愿意继续写，那它大概率就是合适的。</textarea
+            >
+            <div class="preset-group">
+              <button class="preset-button" type="button" data-preset="journal">反思正文</button>
+              <button class="preset-button" type="button" data-preset="mixed">中英混排</button>
+              <button class="preset-button" type="button" data-preset="dense">密集阅读</button>
+            </div>
+          </section>
+
+          <section class="toolbar-card control">
+            <h2>字号</h2>
+            <label for="font-size-range">
+              正文字号
+              <output id="font-size-output" for="font-size-range">18px</output>
+            </label>
+            <input id="font-size-range" type="range" min="15" max="24" step="1" value="18" />
+          </section>
+
+          <section class="toolbar-card control">
+            <h2>行高</h2>
+            <label for="line-height-range">
+              正文行高
+              <output id="line-height-output" for="line-height-range">1.76</output>
+            </label>
+            <input
+              id="line-height-range"
+              type="range"
+              min="1.45"
+              max="2.05"
+              step="0.01"
+              value="1.76"
+            />
+          </section>
+
+          <section class="toolbar-card control">
+            <h2>栏宽</h2>
+            <label for="width-range">
+              纸张宽度
+              <output id="width-output" for="width-range">32rem</output>
+            </label>
+            <input id="width-range" type="range" min="24" max="40" step="1" value="32" />
+          </section>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">当前基线</span>
+              <span class="tag">与你现在编辑器接近</span>
+            </div>
+            <h2 class="font-title">当前编辑器字体栈</h2>
+            <p class="font-subtitle">PingFang SC + Noto Sans CJK 回退</p>
+            <p class="font-note">这是你目前最接近的参考，用它和下面几款对比，最容易判断“到底是不舒服在哪里”。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-current" data-preview="current"></div>
+          </div>
+        </article>
+
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">mac 内置</span>
+              <span class="tag">无衬线</span>
+            </div>
+            <h2 class="font-title">PingFang SC</h2>
+            <p class="font-subtitle">苹方</p>
+            <p class="font-note">稳、清楚、系统感强，UI 和正文都安全，但长时间写反思类文字时，有些人会觉得它偏冷、偏“工具感”。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-pingfang" data-preview="pingfang"></div>
+          </div>
+        </article>
+
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">mac 内置</span>
+              <span class="tag">衬线</span>
+            </div>
+            <h2 class="font-title">Songti SC</h2>
+            <p class="font-subtitle">宋体风格，更偏书页阅读</p>
+            <p class="font-note">如果你想让编辑器更像“写作纸面”而不是“系统界面”，它通常会比苹方更安静，也更适合长段落阅读。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-songti" data-preview="songti"></div>
+          </div>
+        </article>
+
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">开源</span>
+              <span class="tag">无衬线</span>
+            </div>
+            <h2 class="font-title">Noto Sans CJK</h2>
+            <p class="font-subtitle">思源黑体 / Source Han Sans</p>
+            <p class="font-note">很稳的现代黑体，兼顾多语言和长文，适合作为通用正文基线；如果你觉得苹方太苹果味，可以优先试它。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-noto-sans" data-preview="noto-sans"></div>
+          </div>
+        </article>
+
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">开源</span>
+              <span class="tag">衬线</span>
+            </div>
+            <h2 class="font-title">Noto Serif CJK</h2>
+            <p class="font-subtitle">思源宋体 / Source Han Serif</p>
+            <p class="font-note">如果目标是“看起来最像认真读书和认真写作”，这通常是第一梯队。长段正文的韵律感明显优于多数黑体。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-noto-serif" data-preview="noto-serif"></div>
+          </div>
+        </article>
+
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">免费商用</span>
+              <span class="tag">现代系统感</span>
+            </div>
+            <h2 class="font-title">MiSans</h2>
+            <p class="font-subtitle">小米 HyperOS 默认字体</p>
+            <p class="font-note">简洁、人文、屏幕友好，笔画更圆润一点。比苹方更柔和，比思源黑体更生活化，适合偏现代的日常记录产品。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-misans" data-preview="misans"></div>
+          </div>
+        </article>
+
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">开源</span>
+              <span class="tag">中英混排强</span>
+            </div>
+            <h2 class="font-title">Sarasa UI SC</h2>
+            <p class="font-subtitle">更纱黑体 UI</p>
+            <p class="font-note">中英混排很顺，数字和拉丁字母也漂亮。如果你的编辑器里常出现文件名、链接、英文术语，它会比很多纯中文字体更协调。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-sarasa" data-preview="sarasa"></div>
+          </div>
+        </article>
+
+        <article class="font-card">
+          <header class="font-card-header">
+            <div class="font-kicker">
+              <span class="tag">开源</span>
+              <span class="tag">最有人味</span>
+            </div>
+            <h2 class="font-title">LXGW WenKai</h2>
+            <p class="font-subtitle">霞鹜文楷</p>
+            <p class="font-note">氛围非常好，尤其适合日记、反思、卡片写作。缺点是小字号或密集正文里会比思源宋体更松、更慢，不一定适合所有人。</p>
+          </header>
+          <div class="font-preview">
+            <div class="preview-paper font-wenkai" data-preview="wenkai"></div>
+          </div>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <div><strong>打开方式：</strong>可以直接打开这个文件，也可以在开发环境里访问 `/font-preview.html`。</div>
+        <div><strong>说明：</strong>其中 `PingFang SC` 与 `Songti SC` 依赖 mac 自带字体；其他几款会通过公开字体 CDN 加载，首次打开可能有 1 到 2 秒延迟。</div>
+      </footer>
+    </main>
+
+    <script>
+      const sampleInput = document.getElementById('sample-input')
+      const fontSizeRange = document.getElementById('font-size-range')
+      const lineHeightRange = document.getElementById('line-height-range')
+      const widthRange = document.getElementById('width-range')
+      const fontSizeOutput = document.getElementById('font-size-output')
+      const lineHeightOutput = document.getElementById('line-height-output')
+      const widthOutput = document.getElementById('width-output')
+      const previewNodes = document.querySelectorAll('[data-preview]')
+      const presetButtons = document.querySelectorAll('[data-preset]')
+
+      const PRESETS = {
+        journal:
+          '今天把一个模糊的念头写下来。真正舒服的中文字体，不只是“好看”，而是能让眼睛忘记字体本身，把注意力放回句子、节奏与意思。\n\n如果一款字体能让我在 20 分钟后还愿意继续写，那它大概率就是合适的。',
+        mixed:
+          'Mira 不是单纯的 Markdown 编辑器，它更像一个给自己留白的地方。今天在 2026-04-26 晚上，我把一个想法从标题、正文、引用，一直写到 checklist 和 inline code。\n\nThe best reading font is not always the most beautiful one. It is the one that makes you want to stay.',
+        dense:
+          '当段落变长、信息密度提高、句子里同时出现数字 2026、英文 words、引号“这样”和括号（这样）时，字体是否还稳定耐看，往往比第一眼的风格更重要。\n\n如果我需要连续读 5 到 10 屏，这款字体还能不能让我继续往下滑？',
+      }
+
+      /** 根据当前输入生成统一的预览排版 */
+      function buildPreviewHtml(text) {
+        const paragraphs = text
+          .split(/\n{2,}/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+
+        const safeParagraphs = paragraphs.length > 0 ? paragraphs : ['请在上方输入你想对比的文字。']
+
+        const body = safeParagraphs.map((part) => `<p>${escapeHtml(part)}</p>`).join('')
+
+        return `
+          <h3>今天的记录</h3>
+          ${body}
+          <blockquote>我们不是在选“最漂亮”的字体，而是在选“最愿意长时间停留其上”的字体。</blockquote>
+          <ul>
+            <li>混排观察：Mira / Markdown / 2026 / reflection</li>
+            <li>细节观察：小字号、数字、引号、标点、段落节奏</li>
+          </ul>
+          <p>你也可以特别留意这行：<code>font-family</code>、<code>16px</code>、<code>line-height</code> 与中文正文能不能和平相处。</p>
+          <div class="meta">editor preview / chinese body text / long-form reading</div>
+        `
+      }
+
+      /** 转义用户输入，避免直接拼进 HTML */
+      function escapeHtml(value) {
+        return value
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;')
+      }
+
+      /** 同步控制面板数值和所有预览卡片的排版变量 */
+      function applyControls() {
+        const fontSize = `${fontSizeRange.value}px`
+        const lineHeight = lineHeightRange.value
+        const width = `${widthRange.value}rem`
+
+        document.documentElement.style.setProperty('--preview-font-size', fontSize)
+        document.documentElement.style.setProperty('--preview-line-height', lineHeight)
+        document.documentElement.style.setProperty('--preview-width', width)
+
+        fontSizeOutput.value = fontSize
+        lineHeightOutput.value = Number(lineHeight).toFixed(2)
+        widthOutput.value = width
+      }
+
+      /** 把输入文本渲染到所有字体预览卡片中 */
+      function renderPreviewText() {
+        const html = buildPreviewHtml(sampleInput.value)
+        previewNodes.forEach((node) => {
+          node.innerHTML = html
+        })
+      }
+
+      /** 绑定预设按钮，让几种典型阅读场景一键切换 */
+      function bindPresets() {
+        presetButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const presetKey = button.dataset.preset
+            if (!presetKey || !PRESETS[presetKey]) return
+            sampleInput.value = PRESETS[presetKey]
+            renderPreviewText()
+          })
+        })
+      }
+
+      sampleInput.addEventListener('input', renderPreviewText)
+      fontSizeRange.addEventListener('input', applyControls)
+      lineHeightRange.addEventListener('input', applyControls)
+      widthRange.addEventListener('input', applyControls)
+
+      bindPresets()
+      renderPreviewText()
+      applyControls()
+    </script>
+  </body>
+</html>
