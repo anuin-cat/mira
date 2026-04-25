@@ -43,6 +43,7 @@
 - 菜单在 `src-tauri/src/lib.rs` 的 `.setup()` 中用 Tauri 2 `Menu` / `Submenu` / `MenuItem` API 注册
 - 菜单点击通过 `app.emit("menu:<event-id>", ())` 发送事件到前端
 - 前端在 `App.tsx` 的 `useEffect` 中用 `listen("menu:<event-id>", ...)` 监听并响应
+- macOS 必须保留原生 `Edit` 菜单，并优先用系统预定义菜单项承接 `Undo` / `Redo` / `Cut` / `Copy` / `Paste` / `Select All`，避免 WebView 内文本编辑快捷键失效
 - 新增菜单项时，同步在此处登记：
   - `File > 更换 Vault...` → `change_vault` → `menu:change-vault`
   - `File > 刷新 Vault` → `refresh_vault` → `menu:refresh-vault`
