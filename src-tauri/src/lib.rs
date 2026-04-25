@@ -1,5 +1,5 @@
 use tauri::menu::{Menu, MenuItem, Submenu};
-use tauri::Manager;
+use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
