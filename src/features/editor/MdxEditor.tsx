@@ -54,6 +54,11 @@ const TOOLBAR_ACTION_GAP = 6
 const TOOLBAR_LAYOUT_GAP = 6
 const TOOLBAR_OVERFLOW_TRIGGER_FALLBACK_WIDTH = 30
 const TOOLBAR_FIXED_CONTROLS_FALLBACK_WIDTH = 30
+const EDITOR_SCROLL_CONTAINER_SELECTOR = '.mdxeditor-root-contenteditable'
+const BLOCK_TYPE_SELECT_INTERACTION_SELECTOR = [
+  '.mira-toolbar-primary [class*="_selectTrigger_"][data-toolbar-item="true"]',
+  'body > .mdxeditor-popup-container.mira-mdx-editor .mdxeditor-select-content[class*="_selectContainer_"]',
+].join(', ')
 const WINDOW_DRAG_IGNORE_SELECTOR =
   'button, input, textarea, select, a, [role="button"], [contenteditable="true"], [data-window-drag-ignore="true"]'
 
@@ -67,6 +72,12 @@ interface Props {
   isAiSidebarOpen: boolean
   onChange: (markdown: string) => void
   onToggleAiSidebar: () => void
+}
+
+interface EditorScrollSnapshot {
+  element: HTMLElement
+  left: number
+  top: number
 }
 
 /** 转义代码内容，避免高亮时把用户文本当作 HTML */
@@ -104,6 +115,38 @@ function looksLikeMarkdown(text: string) {
 /** 判断工具栏点击是否落在按钮、输入框等交互控件上 */
 function isWindowDragIgnoredTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest(WINDOW_DRAG_IGNORE_SELECTOR))
+}
+
+/** 获取 MDXEditor 正文滚动容器 */
+function getEditorScrollElement(shellElement: HTMLElement | null) {
+  return shellElement?.querySelector<HTMLElement>(EDITOR_SCROLL_CONTAINER_SELECTOR) ?? null
+}
+
+/** 记录编辑器当前滚动位置，避免工具栏异步聚焦后跳走 */
+function captureEditorScrollSnapshot(shellElement: HTMLElement | null): EditorScrollSnapshot | null {
+  const element = getEditorScrollElement(shellElement)
+  if (!element) return null
+
+  return {
+    element,
+    left: element.scrollLeft,
+    top: element.scrollTop,
+  }
+}
+
+/** 判断事件是否来自段落格式下拉菜单 */
+function isBlockTypeSelectInteractionTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(BLOCK_TYPE_SELECT_INTERACTION_SELECTOR))
+}
+
+/** 恢复编辑器滚动位置，断开连接的旧节点直接跳过 */
+function restoreEditorScrollSnapshot(snapshot: EditorScrollSnapshot | null) {
+  if (!snapshot || !snapshot.element.isConnected) return
+  snapshot.element.scrollTo({
+    left: snapshot.left,
+    top: snapshot.top,
+    behavior: 'auto',
+  })
 }
 
 /** 判断本次粘贴是否应该走 Markdown 导入，而不是按普通文本插入 */
@@ -485,10 +528,77 @@ function createEditorPlugins({
 export function MdxEditor({ initialContent, isAiSidebarOpen, onChange, onToggleAiSidebar }: Props) {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<MDXEditorMethods>(null)
+  const pendingScrollSnapshotRef = useRef<EditorScrollSnapshot | null>(null)
   const plugins = useMemo(
     () => createEditorPlugins({ isAiSidebarOpen, onToggleAiSidebar }),
     [isAiSidebarOpen, onToggleAiSidebar]
   )
+
+  useEffect(() => {
+    const restoreFrameIds = new Set<number>()
+    const restoreTimerIds = new Set<number>()
+
+    /** 延迟多轮恢复，覆盖 MDXEditor 设置块类型后的异步 focus */
+    const scheduleEditorScrollRestore = (snapshot: EditorScrollSnapshot | null) => {
+      if (!snapshot) return
+
+      const restore = () => restoreEditorScrollSnapshot(snapshot)
+      const scheduleFrame = (callback: () => void) => {
+        const frameId = window.requestAnimationFrame(() => {
+          restoreFrameIds.delete(frameId)
+          callback()
+        })
+        restoreFrameIds.add(frameId)
+      }
+      const scheduleTimer = (callback: () => void, delay: number) => {
+        const timerId = window.setTimeout(() => {
+          restoreTimerIds.delete(timerId)
+          callback()
+        }, delay)
+        restoreTimerIds.add(timerId)
+      }
+
+      restore()
+      scheduleTimer(restore, 0)
+      scheduleFrame(() => {
+        restore()
+        scheduleFrame(restore)
+      })
+      scheduleTimer(restore, 80)
+      scheduleTimer(() => {
+        restore()
+        if (pendingScrollSnapshotRef.current === snapshot) pendingScrollSnapshotRef.current = null
+      }, 160)
+    }
+
+    /** 段落格式菜单开始交互前，先记住用户当前阅读位置 */
+    const handleBlockTypeSelectInteractionStart = (event: PointerEvent | KeyboardEvent) => {
+      if (!isBlockTypeSelectInteractionTarget(event.target)) return
+      pendingScrollSnapshotRef.current = captureEditorScrollSnapshot(shellRef.current)
+    }
+
+    /** 段落格式变更会触发异步聚焦，结束交互后把滚动位置拉回原处 */
+    const handleBlockTypeSelectInteractionEnd = (event: PointerEvent | MouseEvent | KeyboardEvent) => {
+      if (!pendingScrollSnapshotRef.current) return
+      if (!isBlockTypeSelectInteractionTarget(event.target)) return
+      scheduleEditorScrollRestore(pendingScrollSnapshotRef.current)
+    }
+
+    document.addEventListener('pointerdown', handleBlockTypeSelectInteractionStart, true)
+    document.addEventListener('keydown', handleBlockTypeSelectInteractionStart, true)
+    document.addEventListener('pointerup', handleBlockTypeSelectInteractionEnd, true)
+    document.addEventListener('click', handleBlockTypeSelectInteractionEnd)
+    document.addEventListener('keyup', handleBlockTypeSelectInteractionEnd, true)
+    return () => {
+      document.removeEventListener('pointerdown', handleBlockTypeSelectInteractionStart, true)
+      document.removeEventListener('keydown', handleBlockTypeSelectInteractionStart, true)
+      document.removeEventListener('pointerup', handleBlockTypeSelectInteractionEnd, true)
+      document.removeEventListener('click', handleBlockTypeSelectInteractionEnd)
+      document.removeEventListener('keyup', handleBlockTypeSelectInteractionEnd, true)
+      restoreFrameIds.forEach((frameId) => window.cancelAnimationFrame(frameId))
+      restoreTimerIds.forEach((timerId) => window.clearTimeout(timerId))
+    }
+  }, [])
 
   useEffect(() => {
     const toolbarElement = shellRef.current?.querySelector<HTMLElement>('.mira-mdx-toolbar')
