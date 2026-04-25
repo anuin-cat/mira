@@ -48,7 +48,9 @@ const WINDOW_DRAG_IGNORE_SELECTOR =
 
 interface Props {
   initialContent: string
+  isAiSidebarOpen: boolean
   onChange: (markdown: string) => void
+  onToggleAiSidebar: () => void
 }
 
 /** 转义代码内容，避免高亮时把用户文本当作 HTML */
@@ -176,7 +178,10 @@ function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorP
 }
 
 /** Mira 使用的 MDXEditor 顶部工具栏 */
-function MiraToolbar() {
+function MiraToolbar({
+  isAiSidebarOpen,
+  onToggleAiSidebar,
+}: Pick<Props, 'isAiSidebarOpen' | 'onToggleAiSidebar'>) {
   return (
     <>
       <div className="mira-toolbar-drag-spacer" />
@@ -198,12 +203,23 @@ function MiraToolbar() {
       <Separator />
       <InsertCodeBlock />
       <div className="mira-toolbar-drag-spacer" />
+      <button
+        type="button"
+        className={`mira-ai-sidebar-toggle${isAiSidebarOpen ? ' active' : ''}`}
+        onClick={onToggleAiSidebar}
+        aria-label={isAiSidebarOpen ? '收起 AI 侧边栏' : '展开 AI 侧边栏'}
+      >
+        {isAiSidebarOpen ? '收起对话' : '展开对话'}
+      </button>
     </>
   )
 }
 
 /** 创建 MDXEditor 插件集合，只保留 Mira 当前要评估的 Markdown 能力 */
-function createEditorPlugins(): RealmPlugin[] {
+function createEditorPlugins({
+  isAiSidebarOpen,
+  onToggleAiSidebar,
+}: Pick<Props, 'isAiSidebarOpen' | 'onToggleAiSidebar'>): RealmPlugin[] {
   return [
     headingsPlugin({ allowedHeadingLevels: [1, 2, 3, 4, 5, 6] }),
     listsPlugin(),
@@ -231,17 +247,22 @@ function createEditorPlugins(): RealmPlugin[] {
     searchPlugin(),
     markdownShortcutPlugin(),
     toolbarPlugin({
-      toolbarContents: () => <MiraToolbar />,
+      toolbarContents: () => (
+        <MiraToolbar isAiSidebarOpen={isAiSidebarOpen} onToggleAiSidebar={onToggleAiSidebar} />
+      ),
       toolbarClassName: 'mira-mdx-toolbar',
     }),
   ]
 }
 
 /** MDXEditor 富文本 Markdown 编辑器，输入输出均保持 .md 文本内容 */
-export function MdxEditor({ initialContent, onChange }: Props) {
+export function MdxEditor({ initialContent, isAiSidebarOpen, onChange, onToggleAiSidebar }: Props) {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<MDXEditorMethods>(null)
-  const plugins = useMemo(() => createEditorPlugins(), [])
+  const plugins = useMemo(
+    () => createEditorPlugins({ isAiSidebarOpen, onToggleAiSidebar }),
+    [isAiSidebarOpen, onToggleAiSidebar]
+  )
 
   useEffect(() => {
     const toolbarElement = shellRef.current?.querySelector<HTMLElement>('.mira-mdx-toolbar')

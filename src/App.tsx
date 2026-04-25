@@ -20,6 +20,7 @@ import {
   updateMiraMap,
 } from './services/noteService'
 import {
+  getDisplayName,
   getParentPath,
   isPathInsideDirectory,
   MIRA_MAP_FILE,
@@ -27,6 +28,7 @@ import {
 import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree } from './features/file-tree/FileTree'
 import { MdxEditor } from './features/editor/MdxEditor'
+import { AiSidebar } from './features/ai/AiSidebar'
 import type { FontSize, Theme, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 import './App.css'
 import './styles/mdx-editor.css'
@@ -102,6 +104,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
+  const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vaultPathRef = useRef<string | null>(null)
@@ -548,13 +551,28 @@ export default function App() {
         style={{ width: sidebarWidth, minWidth: sidebarWidth }}
       />
       <div className="sidebar-resizer" onMouseDown={handleResizerMouseDown} />
-      <main className="editor-pane">
+      <main className={`editor-pane${activePath && isAiSidebarOpen ? ' has-ai-sidebar' : ''}`}>
         {activePath ? (
-          <MdxEditor
-            key={activePath}
-            initialContent={activeContent}
-            onChange={handleContentChange}
-          />
+          <>
+            <section className="editor-workspace">
+              <MdxEditor
+                key={activePath}
+                initialContent={activeContent}
+                isAiSidebarOpen={isAiSidebarOpen}
+                onChange={handleContentChange}
+                onToggleAiSidebar={() => setIsAiSidebarOpen((value) => !value)}
+              />
+            </section>
+            {isAiSidebarOpen ? (
+              <AiSidebar
+                key={`${vaultPath}:${activePath}`}
+                vaultPath={vaultPath}
+                notePath={activePath}
+                noteTitle={getDisplayName(activePath, 'file')}
+                noteContent={activeContent}
+              />
+            ) : null}
+          </>
         ) : (
           <div className="editor-empty">
             <p>右键左侧空白区域新建 Markdown 文件</p>

@@ -7,7 +7,7 @@
   flex: 1;
   height: 100%;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--theme-bg-primary);
   display: flex;
   flex-direction: column;
@@ -16,6 +16,9 @@
 .mdx-editor-root {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   --mira-editor-content-max-width: 760px;
   --mira-editor-content-padding-top: 24px;
   --mira-editor-content-padding-inline: 56px;
@@ -48,12 +51,14 @@
   --baseSolidHover: var(--theme-editor-control-text-muted);
   --baseText: var(--theme-editor-control-text-muted);
   --baseTextContrast: var(--theme-editor-control-text);
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
   background: var(--theme-bg-primary);
   color: var(--theme-text-primary);
   caret-color: var(--theme-text-primary);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .mdx-editor-root .mdxeditor [role='toolbar'] {
@@ -78,6 +83,38 @@
   flex: 1 1 40px;
   min-width: 28px;
   align-self: stretch;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle {
+  height: 30px;
+  border: 1px solid var(--theme-editor-control-border);
+  border-radius: 10px;
+  background: var(--theme-editor-control-bg);
+  color: var(--theme-editor-control-text);
+  padding: 0 12px;
+  font: inherit;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle:hover {
+  background: var(--theme-editor-control-bg-hover);
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active {
+  background: color-mix(in srgb, var(--theme-selection) 76%, white 24%);
+  border-color: color-mix(in srgb, var(--theme-selection) 62%, var(--theme-editor-control-border) 38%);
+  color: var(--theme-text-primary);
+}
+
+.mdx-editor-root .mdxeditor-root-contenteditable {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .mdx-editor-root .mdxeditor :where(button, input, select, textarea) {
