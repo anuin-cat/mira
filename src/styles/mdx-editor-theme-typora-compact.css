@@ -1,0 +1,356 @@
+/* Typora 风格的紧凑笔记主题：强调中文笔记阅读的连续性与层级感 */
+.mira-mdx-content {
+  color: #1f1f1b;
+  font-family:
+    'PingFang SC',
+    'SF Pro Text',
+    'Hiragino Sans GB',
+    'Noto Sans CJK SC',
+    'Microsoft YaHei',
+    sans-serif;
+  font-size: var(--mira-editor-body-size, 16px);
+  line-height: var(--mira-editor-body-line-height, 1.68);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mira-mdx-content p,
+.mira-mdx-content li,
+.mira-mdx-content blockquote,
+.mira-mdx-content table {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* 1. 先清零所有块元素的默认 margin，再用统一节奏重新建立纵向排版 */
+.mira-mdx-content > :first-child {
+  margin-top: 0;
+}
+
+.mira-mdx-content p,
+.mira-mdx-content ul,
+.mira-mdx-content ol,
+.mira-mdx-content blockquote,
+.mira-mdx-content pre,
+.mira-mdx-content table,
+.mira-mdx-content hr,
+.mira-mdx-content .mira-code-block {
+  margin: 0;
+}
+
+.mira-mdx-content :is(p, ul, ol, blockquote, pre, table, hr, .mira-code-block)
+  + :is(p, ul, ol, blockquote, pre, table, hr, .mira-code-block) {
+  margin-top: 0.8em;
+}
+
+/* 2. 标题采用更平衡的 Typora 式节奏，避免出现上松下紧 */
+.mira-mdx-content h1,
+.mira-mdx-content h2,
+.mira-mdx-content h3,
+.mira-mdx-content h4,
+.mira-mdx-content h5,
+.mira-mdx-content h6 {
+  margin: 0;
+  color: #171714;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.mira-mdx-content * + h1 {
+  margin-top: 1.18em;
+}
+
+.mira-mdx-content * + h2 {
+  margin-top: 1.02em;
+}
+
+.mira-mdx-content * + h3 {
+  margin-top: 0.9em;
+}
+
+.mira-mdx-content * + h4,
+.mira-mdx-content * + h5,
+.mira-mdx-content * + h6 {
+  margin-top: 0.8em;
+}
+
+.mira-mdx-content h1 + * {
+  margin-top: 0.82em;
+}
+
+.mira-mdx-content h2 + * {
+  margin-top: 0.68em;
+}
+
+.mira-mdx-content h3 + * {
+  margin-top: 0.58em;
+}
+
+.mira-mdx-content h4 + *,
+.mira-mdx-content h5 + *,
+.mira-mdx-content h6 + * {
+  margin-top: 0.48em;
+}
+
+.mira-mdx-content h1 {
+  font-size: 1.72em;
+  line-height: 1.24;
+}
+
+.mira-mdx-content h2 {
+  font-size: 1.46em;
+  line-height: 1.28;
+}
+
+.mira-mdx-content h3 {
+  font-size: 1.24em;
+  line-height: 1.34;
+}
+
+.mira-mdx-content h4 {
+  font-size: 1.1em;
+  line-height: 1.4;
+}
+
+.mira-mdx-content h5 {
+  font-size: 1em;
+  line-height: 1.45;
+}
+
+.mira-mdx-content h6 {
+  color: #66665f;
+  font-size: 0.94em;
+  line-height: 1.45;
+}
+
+/* 3. 正文段落保持紧凑，但列表与正文之间仍保留清晰的块间距 */
+.mira-mdx-content p {
+  margin: 0;
+}
+
+.mira-mdx-content p + p {
+  margin-top: 0.72em;
+}
+
+.mira-mdx-content ul,
+.mira-mdx-content ol {
+  padding-inline-start: 1.45em;
+}
+
+.mira-mdx-content li {
+  margin: 0;
+  padding-left: 0.12em;
+}
+
+.mira-mdx-content li + li {
+  margin-top: 0.16em;
+}
+
+.mira-mdx-content li > p {
+  margin: 0;
+}
+
+.mira-mdx-content li > p + p {
+  margin-top: 0.46em;
+}
+
+.mira-mdx-content li > :is(ul, ol, blockquote, pre, table, .mira-code-block),
+.mira-mdx-content li > p + :is(ul, ol, blockquote, pre, table, .mira-code-block) {
+  margin-top: 0.34em;
+}
+
+.mira-mdx-content :is(ul, ol) :is(ul, ol) {
+  margin-top: 0.24em;
+  margin-bottom: 0;
+}
+
+/* 4. 行内元素与引用使用更温和的对比，避免工具文档感过强 */
+.mira-mdx-content a {
+  color: #2d5f98;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(45, 95, 152, 0.18);
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.mira-mdx-content a:hover {
+  color: #1d446f;
+  border-bottom-color: rgba(29, 68, 111, 0.35);
+}
+
+.mira-mdx-content strong {
+  color: #141412;
+  font-weight: 680;
+}
+
+.mira-mdx-content em {
+  color: #3f3f3a;
+}
+
+.mira-mdx-content :is(p, li, blockquote, h1, h2, h3, h4, h5, h6, th, td) > code {
+  padding: 0.1em 0.38em;
+  border: 1px solid #e6dfd4;
+  border-radius: 6px;
+  background: #f7f2ea;
+  color: #8c4733;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.mira-mdx-content blockquote {
+  padding: 0.42em 0.92em;
+  border-left: 3px solid #d7d0c4;
+  border-radius: 0 10px 10px 0;
+  background: #faf7f1;
+  color: #4d4c45;
+}
+
+.mira-mdx-content blockquote p + p {
+  margin-top: 0.58em;
+}
+
+.mira-mdx-content hr {
+  height: 1px;
+  border: 0;
+  background: #e4ddd2;
+}
+
+.mira-mdx-content img {
+  display: block;
+  max-width: 100%;
+  border-radius: 12px;
+}
+
+/* 5. 表格与代码块保留轻量背景，兼顾笔记感和可扫描性 */
+.mira-mdx-content table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e7e0d5;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fffdfa;
+}
+
+.mira-mdx-content thead th {
+  background: #faf7f1;
+  color: #2f2f2a;
+  font-weight: 640;
+}
+
+.mira-mdx-content th,
+.mira-mdx-content td {
+  padding: 0.48em 0.72em;
+  border-bottom: 1px solid #ece5da;
+  text-align: left;
+  vertical-align: top;
+}
+
+.mira-mdx-content tr:last-child td {
+  border-bottom: none;
+}
+
+.mira-mdx-content pre,
+.mira-code-block {
+  overflow: hidden;
+  border: 1px solid #e4ddd2;
+  border-radius: 10px;
+  background: #f7f4ee;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.mira-mdx-content pre {
+  padding: 0.92em 1em;
+  overflow-x: auto;
+  color: #252420;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  line-height: 1.62;
+}
+
+.mira-mdx-content pre code {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+
+.mira-code-block-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e4ddd2;
+  background: rgba(255, 252, 246, 0.94);
+}
+
+.mira-code-block-language {
+  width: 96px;
+  border: 1px solid #ddd4c8;
+  border-radius: 6px;
+  background: #fffdfa;
+  color: #4b4a43;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 3px 6px;
+}
+
+.mira-code-block-toolbar button {
+  border: 1px solid #ddd4c8;
+  border-radius: 6px;
+  background: #fffdfa;
+  color: #4b4a43;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 3px 8px;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.mira-code-block-toolbar button:hover {
+  border-color: #cfc3b4;
+  background: #fcf8f2;
+}
+
+.mira-code-block-preview,
+.mira-code-block-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 96px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: #232320;
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.62;
+  padding: 14px 16px;
+  tab-size: 2;
+}
+
+.mira-code-block-preview {
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.mira-code-block-textarea {
+  display: block;
+  resize: vertical;
+  outline: none;
+}
+
+.mira-code-token-comment {
+  color: #8a857d;
+}
+
+.mira-code-token-string {
+  color: #8a4d32;
+}
+
+.mira-code-token-keyword {
+  color: #49658c;
+  font-weight: 600;
+}
