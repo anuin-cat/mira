@@ -12,6 +12,17 @@
   line-height: var(--mira-editor-body-line-height, 1.68);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  --mira-space-block: 0.8em;
+  --mira-space-paragraph: 0.72em;
+  --mira-space-list-after: 1.02em;
+  --mira-space-heading-1-before: 1.18em;
+  --mira-space-heading-1-after: 0.9em;
+  --mira-space-heading-2-before: 1.02em;
+  --mira-space-heading-2-after: 0.78em;
+  --mira-space-heading-3-before: 0.9em;
+  --mira-space-heading-3-after: 0.68em;
+  --mira-space-heading-4-before: 0.8em;
+  --mira-space-heading-4-after: 0.56em;
 }
 
 .mira-mdx-content p,
@@ -22,28 +33,39 @@
   line-height: inherit;
 }
 
-/* 1. 先清零所有块元素的默认 margin，再用统一节奏重新建立纵向排版 */
+/* 1. 先约束正文根节点的直系块元素节奏，避免宽泛选择器误伤嵌套内容 */
 .mira-mdx-content > :first-child {
   margin-top: 0;
 }
 
-.mira-mdx-content p,
-.mira-mdx-content ul,
-.mira-mdx-content ol,
-.mira-mdx-content blockquote,
-.mira-mdx-content pre,
-.mira-mdx-content table,
-.mira-mdx-content hr,
-.mira-mdx-content .mira-code-block {
+.mira-mdx-content > :where(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) {
   margin: 0;
 }
 
-.mira-mdx-content :is(p, ul, ol, blockquote, pre, table, hr, .mira-code-block)
-  + :is(p, ul, ol, blockquote, pre, table, hr, .mira-code-block) {
-  margin-top: 0.8em;
+.mira-mdx-content
+  > :where(p, ul, ol, blockquote, pre, table, hr, img, figure, .mira-code-block)
+  + :where(p, ul, ol, blockquote, pre, table, hr, img, figure, .mira-code-block) {
+  margin-top: var(--mira-space-block);
 }
 
-/* 2. 标题采用更平衡的 Typora 式节奏，避免出现上松下紧 */
+/* 2. 标题采用分离的前后间距规则，确保接正文、列表、引用等场景都稳定 */
 .mira-mdx-content h1,
 .mira-mdx-content h2,
 .mira-mdx-content h3,
@@ -56,40 +78,172 @@
   letter-spacing: -0.015em;
 }
 
-.mira-mdx-content * + h1 {
-  margin-top: 1.18em;
+.mira-mdx-content > h1 + :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) {
+  margin-top: var(--mira-space-heading-1-after);
 }
 
-.mira-mdx-content * + h2 {
-  margin-top: 1.02em;
+.mira-mdx-content > h2 + :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) {
+  margin-top: var(--mira-space-heading-2-after);
 }
 
-.mira-mdx-content * + h3 {
-  margin-top: 0.9em;
+.mira-mdx-content > h3 + :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) {
+  margin-top: var(--mira-space-heading-3-after);
 }
 
-.mira-mdx-content * + h4,
-.mira-mdx-content * + h5,
-.mira-mdx-content * + h6 {
-  margin-top: 0.8em;
+.mira-mdx-content > :is(h4, h5, h6) + :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) {
+  margin-top: var(--mira-space-heading-4-after);
 }
 
-.mira-mdx-content h1 + * {
-  margin-top: 0.82em;
+.mira-mdx-content > :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) + h1 {
+  margin-top: var(--mira-space-heading-1-before);
 }
 
-.mira-mdx-content h2 + * {
-  margin-top: 0.68em;
+.mira-mdx-content > :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) + h2 {
+  margin-top: var(--mira-space-heading-2-before);
 }
 
-.mira-mdx-content h3 + * {
-  margin-top: 0.58em;
+.mira-mdx-content > :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) + h3 {
+  margin-top: var(--mira-space-heading-3-before);
 }
 
-.mira-mdx-content h4 + *,
-.mira-mdx-content h5 + *,
-.mira-mdx-content h6 + * {
-  margin-top: 0.48em;
+.mira-mdx-content > :is(
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table,
+  hr,
+  img,
+  figure,
+  .mira-code-block,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) + :is(h4, h5, h6) {
+  margin-top: var(--mira-space-heading-4-before);
 }
 
 .mira-mdx-content h1 {
@@ -128,8 +282,12 @@
   margin: 0;
 }
 
-.mira-mdx-content p + p {
-  margin-top: 0.72em;
+.mira-mdx-content > p + p {
+  margin-top: var(--mira-space-paragraph);
+}
+
+.mira-mdx-content > :is(ul, ol) + p {
+  margin-top: var(--mira-space-list-after);
 }
 
 .mira-mdx-content ul,

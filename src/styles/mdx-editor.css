@@ -15,6 +15,10 @@
 .mdx-editor-root {
   flex: 1;
   min-height: 0;
+  --mira-editor-content-max-width: 760px;
+  --mira-editor-content-padding-top: 24px;
+  --mira-editor-content-padding-inline: 56px;
+  --mira-editor-content-padding-bottom: 120px;
 }
 
 .mdx-editor-root .mdxeditor {
@@ -37,10 +41,18 @@
 }
 
 .mira-mdx-content {
-  width: min(100%, 760px);
+  width: min(100%, var(--mira-editor-content-max-width));
   min-height: 100%;
   margin: 0 auto;
-  padding: 24px 56px 120px;
+  padding:
+    var(--mira-editor-content-padding-top)
+    var(--mira-editor-content-padding-inline)
+    var(--mira-editor-content-padding-bottom);
+}
+
+.mdx-editor-root .mdxeditor-root-contenteditable .mira-mdx-content[class*='_placeholder_'] {
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 [data-font-size='small'] {
