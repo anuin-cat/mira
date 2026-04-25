@@ -77,22 +77,69 @@
   flex-wrap: nowrap;
   padding-block: 0;
   padding-inline: 12px;
+  overflow: visible;
 }
 
-.mdx-editor-root .mdxeditor .mira-toolbar-drag-spacer {
-  flex: 1 1 40px;
-  min-width: 28px;
-  align-self: stretch;
+.mdx-editor-root .mdxeditor .mira-toolbar-layout {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
 }
 
-.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle {
+.mdx-editor-root .mdxeditor .mira-toolbar-center {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-primary {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-action {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-fixed-controls {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-50%);
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-overflow-trigger {
   height: 30px;
+  min-width: 30px;
   border: 1px solid var(--theme-editor-control-border);
   border-radius: 10px;
   background: var(--theme-editor-control-bg);
   color: var(--theme-editor-control-text);
-  padding: 0 12px;
+  padding: 0 9px;
   font: inherit;
+  line-height: 1;
   white-space: nowrap;
   transition:
     background 0.15s ease,
@@ -100,14 +147,120 @@
     border-color 0.15s ease;
 }
 
-.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle:hover {
+.mdx-editor-root .mdxeditor .mira-toolbar-overflow-trigger:hover {
   background: var(--theme-editor-control-bg-hover);
 }
 
+.mdx-editor-root .mdxeditor .mira-toolbar-overflow-trigger.active {
+  background: var(--theme-editor-control-bg-hover);
+  border-color: var(--theme-editor-control-border-strong);
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-overflow-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.mdx-editor-root .mdxeditor .mira-toolbar-overflow-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 8px;
+  border: 1px solid var(--theme-editor-control-border);
+  border-radius: 12px;
+  background: var(--theme-editor-control-bg);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.72) inset;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--theme-editor-control-text);
+  padding: 0;
+  font: inherit;
+  opacity: 0.78;
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle-icon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  box-sizing: border-box;
+  opacity: 0.9;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle-icon::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: 5px;
+  border-radius: 3px;
+  background: currentColor;
+  opacity: 0.12;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle-divider {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 6px;
+  width: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+  transition: transform 0.18s ease;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle:hover {
+  background: transparent;
+  opacity: 1;
+}
+
 .mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active {
-  background: color-mix(in srgb, var(--theme-selection) 76%, white 24%);
-  border-color: color-mix(in srgb, var(--theme-selection) 62%, var(--theme-editor-control-border) 38%);
   color: var(--theme-text-primary);
+  background: transparent;
+  opacity: 1;
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active .mira-ai-sidebar-toggle-icon::after,
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active .mira-ai-sidebar-toggle-divider {
+  transform: translateX(5px);
+}
+
+.mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle.active .mira-ai-sidebar-toggle-icon::after {
+  opacity: 0.18;
 }
 
 .mdx-editor-root .mdxeditor-root-contenteditable {

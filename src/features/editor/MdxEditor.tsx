@@ -29,7 +29,14 @@ import {
   type MDXEditorMethods,
   type RealmPlugin,
 } from '@mdxeditor/editor'
-import { type ClipboardEvent as ReactClipboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type ClipboardEvent as ReactClipboardEvent,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
@@ -43,8 +50,17 @@ const BLOCK_TYPE_TRANSLATIONS: Record<string, string> = {
   'toolbar.blockTypes.paragraph': '正文',
   'toolbar.blockTypes.quote': '引用',
 }
+const TOOLBAR_ACTION_GAP = 6
+const TOOLBAR_LAYOUT_GAP = 6
+const TOOLBAR_OVERFLOW_TRIGGER_FALLBACK_WIDTH = 30
+const TOOLBAR_FIXED_CONTROLS_FALLBACK_WIDTH = 30
 const WINDOW_DRAG_IGNORE_SELECTOR =
-  'button, input, textarea, select, a, [role="button"], [contenteditable="true"]'
+  'button, input, textarea, select, a, [role="button"], [contenteditable="true"], [data-window-drag-ignore="true"]'
+
+interface ToolbarOverflowAction {
+  key: string
+  render: () => React.ReactNode
+}
 
 interface Props {
   initialContent: string
@@ -102,6 +118,41 @@ function shouldImportMarkdownFromPaste(event: ReactClipboardEvent<HTMLDivElement
 
   // 3. 只有纯文本里出现明显 Markdown 语法时，才触发自动导入
   return looksLikeMarkdown(clipboardData.getData('text/plain'))
+}
+
+/** 根据工具栏宽度计算居中工具组还能保留几个快捷按钮 */
+function calculateVisibleOverflowActionCount({
+  layoutWidth,
+  primaryWidth,
+  actionWidths,
+  overflowTriggerWidth,
+  fixedControlsWidth,
+}: {
+  layoutWidth: number
+  primaryWidth: number
+  actionWidths: number[]
+  overflowTriggerWidth: number
+  fixedControlsWidth: number
+}) {
+  // 1. 从“全部可见”开始回退，直到居中工具组不会撞上右侧固定控制区
+  for (let visibleCount = actionWidths.length; visibleCount >= 0; visibleCount -= 1) {
+    const visibleActionsWidth =
+      actionWidths.slice(0, visibleCount).reduce((sum, width) => sum + width, 0) +
+      Math.max(visibleCount - 1, 0) * TOOLBAR_ACTION_GAP
+    const currentFixedControlsWidth =
+      fixedControlsWidth +
+      (visibleCount < actionWidths.length ? overflowTriggerWidth + TOOLBAR_ACTION_GAP : 0)
+    const availableWidth = Math.max(
+      layoutWidth - primaryWidth - currentFixedControlsWidth * 2 - TOOLBAR_LAYOUT_GAP * 2,
+      0
+    )
+
+    // 2. 找到第一个能放下的方案后立即返回，保证可见按钮尽量多
+    if (visibleActionsWidth <= availableWidth) return visibleCount
+  }
+
+  // 3. 理论上不会走到这里，兜底返回 0 保证布局稳定
+  return 0
 }
 
 /** 给轻量代码块做最小语法高亮，不引入额外高亮库 */
@@ -182,35 +233,199 @@ function MiraToolbar({
   isAiSidebarOpen,
   onToggleAiSidebar,
 }: Pick<Props, 'isAiSidebarOpen' | 'onToggleAiSidebar'>) {
+  const layoutRef = useRef<HTMLDivElement>(null)
+  const primaryRef = useRef<HTMLDivElement>(null)
+  const fixedControlsRef = useRef<HTMLDivElement>(null)
+  const aiSidebarToggleRef = useRef<HTMLButtonElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const overflowMenuRef = useRef<HTMLDivElement>(null)
+  const overflowTriggerRef = useRef<HTMLButtonElement>(null)
+  const [visibleActionCount, setVisibleActionCount] = useState(0)
+  const [isOverflowMenuOpen, setIsOverflowMenuOpen] = useState(false)
+  const overflowActions = useMemo<ToolbarOverflowAction[]>(
+    () => [
+      { key: 'link', render: () => <CreateLink /> },
+      { key: 'image', render: () => <InsertImage /> },
+      { key: 'table', render: () => <InsertTable /> },
+      { key: 'thematic-break', render: () => <InsertThematicBreak /> },
+      { key: 'code-block', render: () => <InsertCodeBlock /> },
+    ],
+    []
+  )
+  const visibleActions = overflowActions.slice(0, visibleActionCount)
+  const hiddenActions = overflowActions.slice(visibleActionCount)
+
+  useLayoutEffect(() => {
+    const layoutElement = layoutRef.current
+    const primaryElement = primaryRef.current
+    const fixedControlsElement = fixedControlsRef.current
+    const aiSidebarToggleElement = aiSidebarToggleRef.current
+    const measureElement = measureRef.current
+    if (!layoutElement || !primaryElement || !fixedControlsElement || !aiSidebarToggleElement || !measureElement) {
+      return
+    }
+
+    let frameId = 0
+
+    /** 重新测量工具栏，并决定中间居中区还能保留几个快捷按钮 */
+    const measureToolbarOverflow = () => {
+      // 1. 收集当前布局与测量容器的宽度数据
+      const actionWidths = Array.from(
+        measureElement.querySelectorAll<HTMLElement>('[data-overflow-item="true"]')
+      ).map((element) => element.offsetWidth)
+      const overflowTriggerElement = measureElement.querySelector<HTMLElement>(
+        '[data-overflow-trigger="true"]'
+      )
+
+      // 2. 根据可用空间决定可见按钮数量
+      const nextVisibleCount = calculateVisibleOverflowActionCount({
+        layoutWidth: layoutElement.clientWidth,
+        primaryWidth: primaryElement.offsetWidth,
+        actionWidths,
+        overflowTriggerWidth: overflowTriggerElement?.offsetWidth ?? TOOLBAR_OVERFLOW_TRIGGER_FALLBACK_WIDTH,
+        fixedControlsWidth: aiSidebarToggleElement.offsetWidth || TOOLBAR_FIXED_CONTROLS_FALLBACK_WIDTH,
+      })
+
+      // 3. 只有数量真的变化时才更新状态，避免无意义重渲染
+      setVisibleActionCount((currentCount) =>
+        currentCount === nextVisibleCount ? currentCount : nextVisibleCount
+      )
+    }
+
+    const handleResize = () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(measureToolbarOverflow)
+    }
+
+    handleResize()
+    const resizeObserver = new ResizeObserver(handleResize)
+    resizeObserver.observe(layoutElement)
+    resizeObserver.observe(primaryElement)
+    resizeObserver.observe(fixedControlsElement)
+    resizeObserver.observe(aiSidebarToggleElement)
+    resizeObserver.observe(measureElement)
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+      resizeObserver.disconnect()
+    }
+  }, [overflowActions])
+
+  useEffect(() => {
+    if (hiddenActions.length === 0 && isOverflowMenuOpen) setIsOverflowMenuOpen(false)
+  }, [hiddenActions.length, isOverflowMenuOpen])
+
+  useEffect(() => {
+    if (!isOverflowMenuOpen) return
+
+    /** 点击工具栏外部时自动收起更多菜单 */
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (overflowMenuRef.current?.contains(target)) return
+      if (overflowTriggerRef.current?.contains(target)) return
+      setIsOverflowMenuOpen(false)
+    }
+
+    /** 按下 Escape 时关闭更多菜单 */
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOverflowMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOverflowMenuOpen])
+
   return (
     <>
-      <div className="mira-toolbar-drag-spacer" />
-      <UndoRedo />
-      <Separator />
-      <BoldItalicUnderlineToggles />
-      <CodeToggle />
-      <StrikeThroughSupSubToggles />
-      <Separator />
-      <ListsToggle />
-      <Separator />
-      <BlockTypeSelect />
-      <Separator />
-      <CreateLink />
-      <InsertImage />
-      <Separator />
-      <InsertTable />
-      <InsertThematicBreak />
-      <Separator />
-      <InsertCodeBlock />
-      <div className="mira-toolbar-drag-spacer" />
-      <button
-        type="button"
-        className={`mira-ai-sidebar-toggle${isAiSidebarOpen ? ' active' : ''}`}
-        onClick={onToggleAiSidebar}
-        aria-label={isAiSidebarOpen ? '收起 AI 侧边栏' : '展开 AI 侧边栏'}
-      >
-        {isAiSidebarOpen ? '收起对话' : '展开对话'}
-      </button>
+      <div ref={layoutRef} className="mira-toolbar-layout">
+        <div className="mira-toolbar-center">
+          <div ref={primaryRef} className="mira-toolbar-primary">
+            <UndoRedo />
+            <Separator />
+            <BoldItalicUnderlineToggles />
+            <CodeToggle />
+            <StrikeThroughSupSubToggles options={['Strikethrough']} />
+            <Separator />
+            <ListsToggle />
+            <Separator />
+            <BlockTypeSelect />
+            <Separator />
+          </div>
+          <div className="mira-toolbar-actions">
+            {visibleActions.map((action) => (
+              <div key={action.key} className="mira-toolbar-action">
+                {action.render()}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div ref={fixedControlsRef} className="mira-toolbar-fixed-controls">
+          {hiddenActions.length > 0 ? (
+            <button
+              ref={overflowTriggerRef}
+              type="button"
+              className={`mira-toolbar-overflow-trigger${isOverflowMenuOpen ? ' active' : ''}`}
+              aria-label="显示更多工具"
+              aria-expanded={isOverflowMenuOpen}
+              onClick={() => setIsOverflowMenuOpen((value) => !value)}
+            >
+              ...
+            </button>
+          ) : null}
+          <button
+            ref={aiSidebarToggleRef}
+            type="button"
+            className={`mira-ai-sidebar-toggle${isAiSidebarOpen ? ' active' : ''}`}
+            aria-label={isAiSidebarOpen ? '收起 AI 侧边栏' : '展开 AI 侧边栏'}
+            aria-pressed={isAiSidebarOpen}
+            onClick={() => {
+              setIsOverflowMenuOpen(false)
+              onToggleAiSidebar()
+            }}
+          >
+            <span className="mira-ai-sidebar-toggle-icon" aria-hidden="true">
+              <span className="mira-ai-sidebar-toggle-divider" />
+            </span>
+          </button>
+          {isOverflowMenuOpen && hiddenActions.length > 0 ? (
+            <div
+              ref={overflowMenuRef}
+              className="mira-toolbar-overflow-popover"
+              data-window-drag-ignore="true"
+            >
+              {hiddenActions.map((action) => (
+                <div key={action.key} className="mira-toolbar-action">
+                  {action.render()}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div ref={measureRef} className="mira-toolbar-overflow-measure" aria-hidden="true">
+          {overflowActions.map((action) => (
+            <div
+              key={action.key}
+              className="mira-toolbar-action"
+              data-overflow-item="true"
+            >
+              {action.render()}
+            </div>
+          ))}
+          <button
+            type="button"
+            className="mira-toolbar-overflow-trigger"
+            data-overflow-trigger="true"
+            tabIndex={-1}
+          >
+            ...
+          </button>
+        </div>
+      </div>
     </>
   )
 }
