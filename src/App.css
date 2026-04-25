@@ -30,12 +30,27 @@ body {
 .file-sidebar,
 .note-list {
   width: 280px;
-  min-width: 280px;
+  min-width: 160px;
   background: #f7f7f5;
-  border-right: 1px solid #e5e5e2;
+  border-right: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ── 侧边栏拖拽分隔条 ── */
+.sidebar-resizer {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  border-right: 1px solid #e5e5e2;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.sidebar-resizer:hover {
+  background: #d0d0cc;
 }
 
 .file-sidebar-header,
@@ -81,6 +96,12 @@ body {
   overflow-y: auto;
   padding: 6px 0;
   position: relative;
+}
+
+.file-tree-body,
+.file-tree-body * {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .note-list-empty {
@@ -157,7 +178,8 @@ body {
   height: 30px;
   padding: 0 8px 0 4px;
   color: #2b2b2b;
-  cursor: default;
+  cursor: grab;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -171,10 +193,12 @@ body {
 
 .tree-node.dragging {
   opacity: 0.45;
+  cursor: grabbing;
 }
 
-.tree-node-indent {
-  flex: 0 0 auto;
+.tree-node.drag-target {
+  background: #dcdad4;
+  box-shadow: inset 0 0 0 1px #c8c5bd;
 }
 
 .tree-node-toggle {
@@ -257,6 +281,9 @@ body {
   font-size: 13px;
   background: #fff;
   outline: none;
+  cursor: text;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .context-menu {

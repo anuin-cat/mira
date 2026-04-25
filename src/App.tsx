@@ -31,6 +31,10 @@ import { MilkdownEditor } from './features/editor/MilkdownEditor'
 import type { VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 import './App.css'
 
+const SIDEBAR_MIN_WIDTH = 160
+const SIDEBAR_MAX_WIDTH = 480
+const SIDEBAR_DEFAULT_WIDTH = 280
+
 const DEFAULT_VAULT_STATE: VaultState = {
   version: 1,
   lastOpenedPath: null,
@@ -147,12 +151,47 @@ export default function App() {
   const [activeContent, setActiveContent] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vaultPathRef = useRef<string | null>(null)
   const vaultStateRef = useRef<VaultState>(DEFAULT_VAULT_STATE)
   const activePathRef = useRef<string | null>(null)
   const latestContentRef = useRef('')
+  const isDraggingRef = useRef(false)
+  const dragStartXRef = useRef(0)
+  const dragStartWidthRef = useRef(0)
+
+  /** 开始拖拽分隔条 */
+  const handleResizerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingRef.current = true
+    dragStartXRef.current = e.clientX
+    dragStartWidthRef.current = sidebarWidth
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const delta = moveEvent.clientX - dragStartXRef.current
+      const newWidth = Math.min(
+        SIDEBAR_MAX_WIDTH,
+        Math.max(SIDEBAR_MIN_WIDTH, dragStartWidthRef.current + delta)
+      )
+      setSidebarWidth(newWidth)
+    }
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [sidebarWidth])
 
   useEffect(() => {
     const savedPath = getVaultPath()
@@ -517,7 +556,9 @@ export default function App() {
         onMoveEntry={handleMoveEntry}
         onDeleteEntry={handleDeleteEntry}
         onExpandedDirsChange={handleExpandedDirsChange}
+        style={{ width: sidebarWidth, minWidth: sidebarWidth }}
       />
+      <div className="sidebar-resizer" onMouseDown={handleResizerMouseDown} />
       <main className="editor-pane">
         <EditorTitle activePath={activePath} onRename={handleTitleRename} />
         {activePath ? (

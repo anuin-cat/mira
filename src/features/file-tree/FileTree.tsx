@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Tree } from 'react-arborist'
 import type { MoveHandler, NodeApi, NodeRendererProps, RenameHandler, TreeApi } from 'react-arborist'
 import type { MouseEvent } from 'react'
@@ -22,6 +22,7 @@ interface FileTreeProps {
   onMoveEntry: (path: string, targetDir: string | null, kind: VaultEntryKind) => Promise<void>
   onDeleteEntry: (path: string, kind: VaultEntryKind) => Promise<void>
   onExpandedDirsChange: (paths: string[]) => void
+  style?: React.CSSProperties
 }
 
 interface VaultNodeProps extends NodeRendererProps<VaultTreeNode> {
@@ -40,7 +41,12 @@ function getErrorMessage(error: unknown): string {
 }
 
 /** 文件树节点渲染，目录点击展开，文件点击打开 */
-function VaultNode({ node, style, dragHandle, onContextMenuOpen }: VaultNodeProps) {
+function VaultNode({
+  node,
+  style,
+  dragHandle,
+  onContextMenuOpen,
+}: VaultNodeProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const submittedRef = useRef(false)
   const data = node.data
@@ -71,11 +77,15 @@ function VaultNode({ node, style, dragHandle, onContextMenuOpen }: VaultNodeProp
     <div
       ref={dragHandle}
       style={style}
-      className={`tree-node ${node.isSelected ? 'active' : ''} ${node.isDragging ? 'dragging' : ''}`}
+      className={[
+        'tree-node',
+        node.isSelected ? 'active' : '',
+        node.isDragging ? 'dragging' : '',
+        node.willReceiveDrop ? 'drag-target' : '',
+      ].join(' ')}
       onClick={handleNodeClick}
       onContextMenu={(event) => onContextMenuOpen(event, data)}
     >
-      <span className="tree-node-indent" style={{ width: node.level * 16 }} />
       <button
         type="button"
         className={`tree-node-toggle ${isDirectory ? '' : 'hidden'}`}
@@ -122,12 +132,17 @@ export function FileTree({
   onMoveEntry,
   onDeleteEntry,
   onExpandedDirsChange,
+  style,
 }: FileTreeProps) {
   const treeRef = useRef<TreeApi<VaultTreeNode> | undefined>(undefined)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const [treeHeight, setTreeHeight] = useState(600)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [pendingEditId, setPendingEditId] = useState<string | null>(null)
+  const dndRootElement = useMemo(
+    () => (typeof document === 'undefined' ? null : document.body),
+    []
+  )
 
   const initialOpenState = useMemo(
     () => Object.fromEntries(expandedDirs.map((path) => [path, true])),
@@ -208,6 +223,7 @@ export function FileTree({
     const targetDir = parentNode && !parentNode.isRoot ? parentNode.data.path : null
     try {
       for (const dragNode of dragNodes) {
+        if (getParentPath(dragNode.data.path) === targetDir) continue
         await onMoveEntry(dragNode.data.path, targetDir, dragNode.data.kind)
       }
     } catch (error) {
@@ -232,7 +248,7 @@ export function FileTree({
   const menuTarget = contextMenu?.target ?? null
 
   return (
-    <aside className="file-sidebar">
+    <aside className="file-sidebar" style={style}>
       <div className="file-sidebar-header">
         <span className="app-name">Mira</span>
         <button
@@ -265,7 +281,18 @@ export function FileTree({
             initialOpenState={initialOpenState}
             openByDefault={false}
             disableMultiSelection
-            disableDrop={({ parentNode }) => !parentNode.isRoot && parentNode.data.kind !== 'directory'}
+            disableDrop={({ parentNode, dragNodes }) => {
+              if (!parentNode.isRoot && parentNode.data.kind !== 'directory') return true
+              return dragNodes.some((dragNode) => (
+                dragNode.data.kind === 'directory'
+                && !parentNode.isRoot
+                && (
+                  parentNode.data.path === dragNode.data.path
+                  || parentNode.data.path.startsWith(`${dragNode.data.path}/`)
+                )
+              ))
+            }}
+            dndRootElement={dndRootElement}
             onActivate={(node: NodeApi<VaultTreeNode>) => {
               if (node.data.kind === 'file') void onOpenFile(node.data.path)
             }}
