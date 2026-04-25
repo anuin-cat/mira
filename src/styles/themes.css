@@ -44,6 +44,31 @@
   --theme-editor-code-token-comment: #8a857d;
   --theme-editor-code-token-string: #9a5a35;
   --theme-editor-code-token-keyword: #365f8b;
+  --accentBase: var(--theme-selection);
+  --accentBgSubtle: var(--theme-selection);
+  --accentBg: var(--theme-selection);
+  --accentBgHover: var(--theme-selection);
+  --accentBgActive: var(--theme-selection);
+  --accentLine: var(--theme-accent);
+  --accentBorder: var(--theme-accent);
+  --accentBorderHover: var(--theme-editor-link-hover);
+  --accentSolid: var(--theme-accent);
+  --accentSolidHover: var(--theme-editor-link-hover);
+  --accentText: var(--theme-accent);
+  --accentTextContrast: var(--theme-bg-primary);
+  --basePageBg: var(--theme-editor-control-bg);
+  --baseBase: var(--theme-editor-control-bg);
+  --baseBgSubtle: var(--theme-editor-control-bg-subtle);
+  --baseBg: var(--theme-editor-control-bg-subtle);
+  --baseBgHover: var(--theme-editor-control-bg-hover);
+  --baseBgActive: var(--theme-editor-control-bg-active);
+  --baseLine: var(--theme-editor-control-border);
+  --baseBorder: var(--theme-editor-control-border);
+  --baseBorderHover: var(--theme-editor-control-border-strong);
+  --baseSolid: var(--theme-editor-control-placeholder);
+  --baseSolidHover: var(--theme-editor-control-text-muted);
+  --baseText: var(--theme-editor-control-text-muted);
+  --baseTextContrast: var(--theme-editor-control-text);
 }
 
 /* 纸质书页主题 */
