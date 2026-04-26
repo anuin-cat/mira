@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import type { AiProviderSettings } from '../../domain/ai'
 import {
@@ -45,7 +46,7 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
     onSave(normalizeAiSettings(draftSettings))
   }
 
-  return (
+  return createPortal(
     <div className="ai-dialog-backdrop" onClick={onClose}>
       <div className="ai-dialog" onClick={(event) => event.stopPropagation()}>
         <div className="ai-dialog-header">
@@ -147,6 +148,7 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

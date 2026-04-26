@@ -415,15 +415,15 @@
 }
 
 .ai-dialog-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 4;
+  z-index: 1100;
   background: color-mix(in srgb, var(--theme-bg-primary) 20%, transparent 80%);
   backdrop-filter: blur(8px);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 14px;
+  padding: 24px;
   overflow-y: auto;
   animation: backdropFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
