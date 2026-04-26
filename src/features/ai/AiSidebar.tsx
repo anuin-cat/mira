@@ -9,6 +9,7 @@ import {
   saveAiChatSessions,
   saveAiSettings,
 } from '../../services/aiSettingsService'
+import { AiMarkdown } from './AiMarkdown'
 import { AiHistoryPanel } from './AiHistoryPanel'
 import { AiSettingsDialog } from './AiSettingsDialog'
 import './ai-sidebar.css'
@@ -238,7 +239,13 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
                 <strong>{message.role === 'user' ? '你' : 'Mira AI'}</strong>
                 {message.isFromCache ? <span>缓存命中</span> : null}
               </div>
-              <div className="ai-message-content">{message.content}</div>
+              <div className="ai-message-content">
+                {message.role === 'assistant' ? (
+                  <AiMarkdown content={message.content} />
+                ) : (
+                  <div className="ai-message-plain-text">{message.content}</div>
+                )}
+              </div>
             </article>
           ))
         ) : (

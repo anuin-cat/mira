@@ -204,12 +204,15 @@
 }
 
 .ai-message-content {
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.7;
   color: var(--theme-text-primary);
   font-size: 13.5px;
   letter-spacing: -0.01em;
+}
+
+.ai-message-plain-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
 }
 
 .ai-loading-bubble {

@@ -1,0 +1,197 @@
+.ai-markdown {
+  color: var(--theme-text-primary);
+  font-size: 13.5px;
+  line-height: 1.72;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.ai-markdown > :first-child {
+  margin-top: 0;
+}
+
+.ai-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.ai-markdown p,
+.ai-markdown ul,
+.ai-markdown ol,
+.ai-markdown blockquote,
+.ai-markdown pre,
+.ai-markdown table,
+.ai-markdown hr {
+  margin: 0 0 12px;
+}
+
+.ai-markdown h1,
+.ai-markdown h2,
+.ai-markdown h3,
+.ai-markdown h4,
+.ai-markdown h5,
+.ai-markdown h6 {
+  margin: 18px 0 10px;
+  color: var(--theme-text-primary);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+
+.ai-markdown h1 {
+  font-size: 17px;
+}
+
+.ai-markdown h2 {
+  font-size: 16px;
+}
+
+.ai-markdown h3 {
+  font-size: 15px;
+}
+
+.ai-markdown h4,
+.ai-markdown h5,
+.ai-markdown h6 {
+  font-size: 14px;
+}
+
+.ai-markdown ul,
+.ai-markdown ol {
+  padding-left: 1.35em;
+}
+
+.ai-markdown li + li {
+  margin-top: 6px;
+}
+
+.ai-markdown blockquote {
+  padding: 10px 12px;
+  border-left: 3px solid color-mix(in srgb, var(--theme-accent) 45%, transparent 55%);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--theme-selection) 18%, var(--theme-bg-primary) 82%);
+  color: var(--theme-text-secondary);
+}
+
+.ai-markdown hr {
+  border: none;
+  border-top: 1px solid color-mix(in srgb, var(--theme-border) 60%, transparent 40%);
+}
+
+.ai-markdown code {
+  font-family:
+    'SFMono-Regular',
+    'SF Mono',
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    monospace;
+  font-size: 0.92em;
+}
+
+.ai-markdown :not(pre) > code {
+  padding: 0.14em 0.42em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--theme-selection) 18%, var(--theme-bg-primary) 82%);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 35%, transparent 65%);
+}
+
+.ai-markdown pre {
+  padding: 12px 13px;
+  border-radius: 12px;
+  overflow-x: auto;
+  background: color-mix(in srgb, var(--theme-bg-primary) 76%, var(--theme-text-primary) 24%);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 45%, transparent 55%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--theme-bg-primary) 35%, transparent 65%);
+}
+
+.ai-markdown pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 12.5px;
+  line-height: 1.7;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.ai-markdown table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.ai-markdown th,
+.ai-markdown td {
+  min-width: 72px;
+  padding: 8px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--theme-border) 45%, transparent 55%);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ai-markdown th {
+  font-weight: 600;
+  color: var(--theme-text-primary);
+  background: color-mix(in srgb, var(--theme-selection) 10%, var(--theme-bg-primary) 90%);
+}
+
+.ai-markdown td {
+  color: var(--theme-text-secondary);
+}
+
+.ai-markdown img {
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+}
+
+.ai-markdown .katex {
+  font-size: 1.04em;
+}
+
+.ai-markdown .katex-display {
+  display: block;
+  margin: 0.25em 0 0.1em;
+  padding: 6px 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ai-markdown .katex-display > .katex {
+  display: inline-block;
+  min-width: min-content;
+}
+
+.ai-markdown .katex-display::-webkit-scrollbar {
+  height: 7px;
+}
+
+.ai-markdown .katex-display::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--theme-border) 75%, transparent 25%);
+  border-radius: 999px;
+}
+
+.ai-markdown-link {
+  color: var(--theme-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1.2px;
+  text-underline-offset: 2px;
+  transition:
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-markdown-link:hover {
+  color: color-mix(in srgb, var(--theme-accent) 82%, var(--theme-text-primary) 18%);
+}
+
+.ai-markdown-link-disabled {
+  color: var(--theme-text-tertiary);
+  cursor: not-allowed;
+  text-decoration-style: dashed;
+}
