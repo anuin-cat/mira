@@ -1,4 +1,6 @@
+import { History, Settings } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -273,12 +275,24 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
           <span>{noteTitle || '当前笔记'}</span>
         </div>
         <div className="ai-sidebar-actions">
-          <button type="button" className="ai-toolbar-button" onClick={() => setIsHistoryOpen((value) => !value)}>
-            历史
-          </button>
-          <button type="button" className="ai-toolbar-button" onClick={() => setIsSettingsOpen(true)}>
-            设置
-          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsHistoryOpen((value) => !value)}
+            aria-label="历史"
+          >
+            <History className="size-[18px]" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label="设置"
+          >
+            <Settings className="size-[18px]" aria-hidden />
+          </Button>
         </div>
       </header>
 
@@ -362,17 +376,23 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <button
+            <Button
               type="button"
-              className="ai-send-button"
+              variant="default"
+              size="icon"
+              className="size-8 shrink-0 rounded-full shadow-[0_4px_12px_color-mix(in_srgb,var(--theme-text-primary)_18%,transparent_82%)] transition-[transform,box-shadow,opacity] hover:-translate-y-px hover:shadow-[0_8px_18px_color-mix(in_srgb,var(--theme-text-primary)_22%,transparent_78%)] active:translate-y-0 active:shadow-[0_3px_10px_color-mix(in_srgb,var(--theme-text-primary)_14%,transparent_86%)] disabled:opacity-[0.36] disabled:shadow-none disabled:hover:translate-y-0"
               onClick={() => void handleSendMessage()}
               disabled={!draftMessage.trim() || isSending}
               aria-label="发送消息"
             >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
+              <svg
+                className="size-[18px] fill-none stroke-current stroke-[2.2] [stroke-linecap:round] [stroke-linejoin:round]"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+              >
                 <path d="M10 16V4m0 0L5.5 8.5M10 4l4.5 4.5" />
               </svg>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

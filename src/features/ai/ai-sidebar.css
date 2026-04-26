@@ -50,69 +50,6 @@
   gap: 8px;
 }
 
-.ai-toolbar-button,
-.ai-ghost-button,
-.ai-primary-button,
-.ai-secondary-button {
-  height: 32px;
-  border-radius: 8px;
-  font-size: 12.5px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  transition:
-    background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ai-toolbar-button,
-.ai-ghost-button,
-.ai-secondary-button {
-  border: 1px solid color-mix(in srgb, var(--theme-editor-control-border) 70%, transparent 30%);
-  background: color-mix(in srgb, var(--theme-editor-control-bg) 80%, var(--theme-bg-primary) 20%);
-  color: var(--theme-editor-control-text);
-}
-
-.ai-toolbar-button,
-.ai-ghost-button {
-  padding: 0 10px;
-}
-
-.ai-primary-button {
-  border: 1px solid transparent;
-  background: var(--theme-text-primary);
-  color: var(--theme-bg-primary);
-  padding: 0 16px;
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.ai-secondary-button {
-  padding: 0 14px;
-}
-
-.ai-toolbar-button:hover,
-.ai-ghost-button:hover,
-.ai-secondary-button:hover {
-  background: var(--theme-editor-control-bg-hover);
-  border-color: var(--theme-editor-control-border);
-  transform: translateY(-0.5px);
-}
-
-.ai-primary-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  opacity: 0.95;
-}
-
-.ai-primary-button:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
 .ai-message-list {
   flex: 1;
   min-height: 0;
@@ -146,10 +83,10 @@
   align-self: flex-end;
   width: fit-content;
   max-width: 75%;
-  padding: 10px 14px;
+  padding: 6px 10px;
   border-radius: 18px;
   background: color-mix(in srgb, var(--theme-accent) 14%, var(--theme-bg-primary) 86%);
-  border: 1px solid color-mix(in srgb, var(--theme-accent) 18%, var(--theme-border) 82%);
+  border: none;
 }
 
 .ai-message-assistant {
@@ -342,53 +279,6 @@
   gap: 10px;
 }
 
-
-
-.ai-send-button {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--theme-text-primary);
-  color: var(--theme-bg-primary);
-  cursor: pointer;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-text-primary) 18%, transparent 82%);
-  transition:
-    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ai-send-button svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.ai-send-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--theme-text-primary) 22%, transparent 78%);
-}
-
-.ai-send-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--theme-text-primary) 14%, transparent 86%);
-}
-
-.ai-send-button:disabled {
-  cursor: default;
-  opacity: 0.36;
-  box-shadow: none;
-}
-
 .ai-history-panel {
   position: absolute;
   top: var(--mira-window-toolbar-height);
@@ -436,10 +326,6 @@
   font-size: 12.5px;
   color: var(--theme-text-secondary);
   line-height: 1.6;
-}
-
-.ai-history-new-button {
-  margin: 16px 0 14px;
 }
 
 .ai-history-empty {

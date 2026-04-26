@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import type { AiChatSession } from '../../domain/ai'
 
 interface Props {
@@ -38,14 +39,19 @@ export function AiHistoryPanel({
           <h3>聊天历史</h3>
           <p>按最近更新时间排序。</p>
         </div>
-        <button type="button" className="ai-ghost-button" onClick={onClose}>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>
           收起
-        </button>
+        </Button>
       </div>
 
-      <button type="button" className="ai-secondary-button ai-history-new-button" onClick={onCreateSession}>
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-4 mb-3.5 w-full"
+        onClick={onCreateSession}
+      >
         新对话
-      </button>
+      </Button>
 
       {sessions.length === 0 ? (
         <div className="ai-history-empty">还没有历史对话，发出第一条消息后会出现在这里。</div>

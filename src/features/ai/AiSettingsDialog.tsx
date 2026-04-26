@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import type { AiProviderSettings } from '../../domain/ai'
 import {
   AI_PROVIDER_PRESETS,
@@ -52,9 +53,9 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
             <h2>AI 设置</h2>
             <p>配置 OpenAI 兼容接口，设置仅保存在当前设备。</p>
           </div>
-          <button type="button" className="ai-ghost-button" onClick={onClose}>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
             关闭
-          </button>
+          </Button>
         </div>
 
         <div className="ai-form-grid">
@@ -101,13 +102,15 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                 onChange={(event) => patchDraftSettings({ apiKey: event.target.value })}
                 placeholder={getAiProviderPreset(draftSettings.providerId).apiKeyPlaceholder}
               />
-              <button
+              <Button
                 type="button"
-                className="ai-ghost-button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
                 onClick={() => setIsApiKeyVisible((value) => !value)}
               >
                 {isApiKeyVisible ? '隐藏' : '显示'}
-              </button>
+              </Button>
             </div>
           </label>
 
@@ -136,12 +139,12 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
         </div>
 
         <div className="ai-dialog-footer">
-          <button type="button" className="ai-secondary-button" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             取消
-          </button>
-          <button type="button" className="ai-primary-button" onClick={handleSubmit}>
+          </Button>
+          <Button type="button" variant="default" className="font-semibold" onClick={handleSubmit}>
             保存
-          </button>
+          </Button>
         </div>
       </div>
     </div>
