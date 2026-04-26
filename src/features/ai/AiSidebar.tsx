@@ -6,21 +6,21 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select'
-import type { AiChatMessage, AiChatSession, AiProviderSettings } from '../../domain/ai'
+import type { AiChatMessage, AiChatSession, AiSettingsState } from '../../domain/ai'
 import { requestAiChatReply } from '../../services/aiService'
 import {
-  AI_PROVIDER_PRESETS,
   createAiChatSession,
   createAiSessionTitle,
-  getAiProviderPreset,
   loadAiChatSessions,
   loadAiSettings,
+  resolveActiveAiRequestSettings,
   saveAiChatSessions,
   saveAiSettings,
-  selectAiProviderPreset,
+  selectAiProviderModel,
 } from '../../services/aiSettingsService'
 import { AiMarkdown } from './AiMarkdown'
 import { AiHistoryPanel } from './AiHistoryPanel'
@@ -92,9 +92,34 @@ function resizeComposerInput(textarea: HTMLTextAreaElement) {
   textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
 }
 
+/** 为输入框下方的模型选择器生成分组结构 */
+function buildComposerModelGroups(settings: AiSettingsState) {
+  return settings.providers
+    .filter((provider) => provider.models.length > 0)
+    .map((provider) => ({
+      providerId: provider.id,
+      providerLabel: provider.label,
+      options: provider.models.map((model) => ({
+        value: `${provider.id}::${model.id}`,
+        label: model.label,
+      })),
+    }))
+}
+
+/** 解析下拉框里的 provider/model 复合值 */
+function parseComposerModelValue(value: string): { providerId: string; modelId: string } | null {
+  const separatorIndex = value.indexOf('::')
+  if (separatorIndex <= 0) return null
+
+  return {
+    providerId: value.slice(0, separatorIndex),
+    modelId: value.slice(separatorIndex + 2),
+  }
+}
+
 /** 侧边聊天栏：负责会话切换、设置编辑与消息发送 */
 export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props) {
-  const [settings, setSettings] = useState<AiProviderSettings>(() => loadAiSettings())
+  const [settings, setSettings] = useState<AiSettingsState>(() => loadAiSettings())
   const [sessions, setSessions] = useState<AiChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [draftMessage, setDraftMessage] = useState('')
@@ -154,40 +179,34 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
   }, [draftMessage])
 
   const currentSession = sessions.find((session) => session.id === currentSessionId) ?? null
-  const currentProviderPreset = getAiProviderPreset(settings.providerId)
-  const hasCustomModelLabel =
-    Boolean(settings.model) && settings.model !== currentProviderPreset.defaultModel
-  const composerModelOptions = [
-    ...(hasCustomModelLabel
-      ? [
-          {
-            value: 'current',
-            id: settings.providerId,
-            label: settings.model,
-          },
-        ]
-      : []),
-    ...AI_PROVIDER_PRESETS.map((preset) => ({
-      value: preset.id,
-      id: preset.id,
-      label: preset.defaultModel || preset.label,
-    })),
-  ]
-  const composerModelValue = hasCustomModelLabel ? 'current' : settings.providerId
+  const activeRequestSettings = resolveActiveAiRequestSettings(settings)
+  const composerModelGroups = buildComposerModelGroups(settings)
+  const composerModelValue = activeRequestSettings.model
+    ? `${activeRequestSettings.providerId}::${activeRequestSettings.model}`
+    : ''
 
-  /** 保存设置并立刻生效 */
-  function handleSaveSettings(nextSettings: AiProviderSettings) {
+  /** 保存设置并立刻生效；closeDialog 为 true 时关闭设置弹层 */
+  function handleSaveSettings(nextSettings: AiSettingsState, closeDialog: boolean) {
     setSettings(nextSettings)
     saveAiSettings(nextSettings)
-    setIsSettingsOpen(false)
+    if (closeDialog) setIsSettingsOpen(false)
   }
 
-  /** 从输入框内的紧凑选择器切换模型预设 */
-  function handleComposerModelChange(providerId: AiProviderSettings['providerId']) {
-    // 1. 下拉选择代表明确选中目标模型预设，因此直接套用对应默认模型
-    const nextSettings = selectAiProviderPreset(settings, providerId)
+  /** 从输入框内的紧凑选择器切换当前 provider 与 model */
+  function handleComposerModelChange(value: string) {
+    // 1. 先从下拉值里拆出 provider 和 model
+    const parsedValue = parseComposerModelValue(value)
+    if (!parsedValue) return
 
-    // 2. 立即保存到本机设置，让下一条消息使用新模型
+    // 2. 选中该 provider 下的模型，并把它切到当前默认使用
+    const nextSettings = selectAiProviderModel(
+      settings,
+      parsedValue.providerId,
+      parsedValue.modelId,
+      true
+    )
+
+    // 3. 立即保存到本机设置，让下一条消息直接使用它
     setSettings(nextSettings)
     saveAiSettings(nextSettings)
   }
@@ -245,7 +264,7 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
       // 3. 发起模型请求，命中缓存时也走同一展示链路
       const result = await requestAiChatReply({
         vaultPath,
-        settings,
+        settings: activeRequestSettings,
         session: baseSession,
         noteContext: {
           path: notePath,
@@ -365,22 +384,22 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
           <div className="ai-composer-controls">
             <Select
               value={composerModelValue}
-              onValueChange={(value) => {
-                if (value === 'current') return
-                handleComposerModelChange(value as AiProviderSettings['providerId'])
-              }}
+              onValueChange={handleComposerModelChange}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="选择模型" />
               </SelectTrigger>
               <SelectContent position="popper" side="top">
-                <SelectGroup>
-                  {composerModelOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label || '选择模型'}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
+                {composerModelGroups.map((group) => (
+                  <SelectGroup key={group.providerId}>
+                    <SelectLabel>{group.providerLabel}</SelectLabel>
+                    {group.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label || '选择模型'}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
               </SelectContent>
             </Select>
             <Button

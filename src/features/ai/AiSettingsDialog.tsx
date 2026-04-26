@@ -1,242 +1,410 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Eye, EyeOff, Sparkles, X } from 'lucide-react'
+import { Eye, EyeOff, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type { AiProviderSettings } from '../../domain/ai'
+import type { AiProviderConfig, AiProviderModel, AiSettingsState } from '../../domain/ai'
 import {
-  AI_PROVIDER_PRESETS,
-  getAiProviderPreset,
+  addAiProvider,
+  addAiProviderModel,
+  createCustomAiProvider,
+  getAiProviderById,
+  getAiProviderPresetForConfig,
+  isBuiltInAiProvider,
   normalizeAiSettings,
-  switchAiProviderPreset,
+  patchAiProvider,
+  removeAiProvider,
+  removeAiProviderModel,
+  setActiveAiProvider,
 } from '../../services/aiSettingsService'
+import { AddModelDialog } from './settings/AddModelDialog'
+import { AddProviderDialog } from './settings/AddProviderDialog'
 
 interface Props {
-  initialSettings: AiProviderSettings
+  initialSettings: AiSettingsState
   onClose: () => void
-  onSave: (settings: AiProviderSettings) => void
+  /** closeDialog：true 表示保存后关闭弹层（底部「保存设置」），false 表示保留弹层（API Key 旁「保存」） */
+  onSave: (settings: AiSettingsState, closeDialog: boolean) => void
 }
 
-/** AI 设置弹层：编辑 provider、key、模型和提示词 */
+/** 统一提取 provider 的 API Key 占位文案 */
+function getApiKeyPlaceholder(provider: AiProviderConfig): string {
+  return getAiProviderPresetForConfig(provider)?.apiKeyPlaceholder ?? '输入你的 API Key'
+}
+
+/** 计算模型当前应展示的状态文案 */
+function getModelBadgeLabel(
+  settings: AiSettingsState,
+  provider: AiProviderConfig,
+  model: AiProviderModel
+): string | null {
+  if (provider.selectedModelId !== model.id) return null
+  return settings.activeProviderId === provider.id ? '当前使用' : '默认模型'
+}
+
+/** AI 设置弹层：支持多 provider、多模型与当前模型切换 */
 export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
-  const formId = useId()
-  const [draftSettings, setDraftSettings] = useState<AiProviderSettings>(initialSettings)
+  const [draftSettings, setDraftSettings] = useState<AiSettingsState>(initialSettings)
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
+    initialSettings.activeProviderId ?? initialSettings.providers[0]?.id ?? null
+  )
   const [isApiKeyVisible, setIsApiKeyVisible] = useState(false)
+  const [isAddProviderOpen, setIsAddProviderOpen] = useState(false)
+  const [isAddModelOpen, setIsAddModelOpen] = useState(false)
+
+  const selectedProvider =
+    getAiProviderById(draftSettings, selectedProviderId) ?? draftSettings.providers[0] ?? null
 
   useEffect(() => {
     setDraftSettings(initialSettings)
+    setSelectedProviderId(initialSettings.activeProviderId ?? initialSettings.providers[0]?.id ?? null)
+    setIsApiKeyVisible(false)
   }, [initialSettings])
 
   useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
+    // 1. 当当前选中的 provider 被删除后，自动回退到列表中的首项
+    const hasSelectedProvider = draftSettings.providers.some((p) => p.id === selectedProviderId)
+    if (hasSelectedProvider) return
+    setSelectedProviderId(draftSettings.providers[0]?.id ?? null)
+  }, [draftSettings.providers, selectedProviderId])
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      if (isAddProviderOpen || isAddModelOpen) return
+      onClose()
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isAddModelOpen, isAddProviderOpen, onClose])
 
-  function patchDraftSettings(patch: Partial<AiProviderSettings>) {
-    const nextSettings = normalizeAiSettings({
-      ...draftSettings,
-      ...patch,
-    })
+  /** 更新顶层 AI 设置字段 */
+  function patchDraftSettings(patch: Partial<AiSettingsState>) {
+    setDraftSettings((current) => normalizeAiSettings({ ...current, ...patch }))
+  }
+
+  /** 更新当前选中 provider 的局部字段 */
+  function patchSelectedProvider(patch: Partial<AiProviderConfig>) {
+    if (!selectedProvider) return
+    setDraftSettings((current) => patchAiProvider(current, selectedProvider.id, patch))
+  }
+
+  /** 添加一个新的自定义 provider，并自动切到详情面板 */
+  function handleAddProvider(label: string, baseURL: string) {
+    const nextProvider = createCustomAiProvider(label, baseURL)
+    const nextSettings = addAiProvider(draftSettings, nextProvider)
     setDraftSettings(nextSettings)
+    setSelectedProviderId(nextProvider.id)
+    setIsAddProviderOpen(false)
   }
 
-  function handleProviderChange(providerId: AiProviderSettings['providerId']) {
-    setDraftSettings(switchAiProviderPreset(draftSettings, providerId))
+  /** 删除指定的自定义 provider */
+  function handleDeleteProvider(providerId: string) {
+    const targetProvider = getAiProviderById(draftSettings, providerId)
+    if (!targetProvider || isBuiltInAiProvider(targetProvider)) return
+    const nextSettings = removeAiProvider(draftSettings, providerId)
+    const nextSelectedProviderId =
+      selectedProviderId === providerId
+        ? nextSettings.activeProviderId ?? nextSettings.providers[0]?.id ?? null
+        : selectedProviderId
+    setDraftSettings(nextSettings)
+    setSelectedProviderId(nextSelectedProviderId)
   }
 
-  function handleSubmit() {
-    onSave(normalizeAiSettings(draftSettings))
+  /** 把当前 provider 设为聊天默认入口 */
+  function handleActivateProvider(providerId: string) {
+    setDraftSettings((current) => setActiveAiProvider(current, providerId))
+  }
+
+  /** 添加一个模型到当前 provider */
+  function handleAddModel(modelId: string) {
+    if (!selectedProvider) return
+    setDraftSettings((current) => addAiProviderModel(current, selectedProvider.id, modelId))
+    setIsAddModelOpen(false)
+  }
+
+  /** 删除当前 provider 下的某个模型 */
+  function handleDeleteModel(modelId: string) {
+    if (!selectedProvider) return
+    setDraftSettings((current) => removeAiProviderModel(current, selectedProvider.id, modelId))
+  }
+
+  /** 将当前草稿写入本地；是否关闭弹层由调用方决定 */
+  function persistSettings(closeDialog: boolean) {
+    onSave(normalizeAiSettings(draftSettings), closeDialog)
   }
 
   return createPortal(
-    <div
-      role="presentation"
-      className={cn(
-        'fixed inset-0 z-[1100] flex items-center justify-center overflow-y-auto overscroll-contain p-4 sm:p-6',
-        'bg-foreground/10 backdrop-blur-md dark:bg-background/60',
-        'animate-in fade-in-0 duration-200'
-      )}
-      onClick={onClose}
-    >
-      <Card
-        className={cn(
-          'relative w-full max-w-xl gap-0 border-border/80 py-0 shadow-2xl ring-1 ring-foreground/10',
-          'animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-300'
-        )}
-        onClick={(event) => event.stopPropagation()}
+    <>
+      <div
+        role="presentation"
+        className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/20 p-4 backdrop-blur-sm animate-in fade-in-0 duration-150"
+        onClick={onClose}
       >
-        <CardHeader className="relative gap-2 border-b border-border/50 bg-linear-to-br from-muted/40 via-card to-card px-5 pb-4 pt-5 sm:px-6">
-          <CardTitle className="flex items-center gap-3 pr-10 text-xl font-semibold tracking-tight">
-            <span
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15"
-              aria-hidden
-            >
-              <Sparkles className="size-5" strokeWidth={1.75} />
-            </span>
-            AI 设置
-          </CardTitle>
-          <CardDescription className="text-pretty text-[13px] leading-relaxed">
-            配置 OpenAI 兼容接口。密钥与偏好仅保存在本机，不会上传。
-          </CardDescription>
-          <CardAction>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="rounded-lg text-muted-foreground hover:text-foreground"
-              onClick={onClose}
-              aria-label="关闭"
-            >
-              <X className="size-4" />
-            </Button>
-          </CardAction>
-        </CardHeader>
+        <div
+          className="relative flex max-h-[88vh] w-full max-w-[960px] overflow-hidden rounded-2xl border border-border/60 bg-background shadow-xl animate-in fade-in-0 zoom-in-97 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex min-h-0 w-full">
+            {/* 左侧供应商列表 */}
+            <aside className="flex w-[240px] shrink-0 flex-col border-r border-border/50 bg-muted/10">
+              <div className="flex items-center justify-between px-4 py-4">
+                <span className="text-sm font-semibold text-foreground">供应商</span>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => setIsAddProviderOpen(true)}
+                >
+                  <Plus className="size-3.5" />
+                  添加
+                </button>
+              </div>
 
-        <CardContent className="space-y-5 px-5 py-5 sm:px-6">
-          <div className="space-y-2">
-            <Label htmlFor={`${formId}-provider`} className="text-muted-foreground">
-              提供商
-            </Label>
-            <Select
-              value={draftSettings.providerId}
-              onValueChange={(value) =>
-                handleProviderChange(value as AiProviderSettings['providerId'])
-              }
-            >
-              <SelectTrigger id={`${formId}-provider`} className="h-9 w-full">
-                <SelectValue placeholder="选择提供商" />
-              </SelectTrigger>
-              <SelectContent position="popper" className="z-[1200]">
-                <SelectGroup>
-                  {AI_PROVIDER_PRESETS.map((preset) => (
-                    <SelectItem key={preset.id} value={preset.id}>
-                      {preset.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+                {draftSettings.providers.map((provider) => {
+                  const isSelected = provider.id === selectedProvider?.id
+                  const isActive = provider.id === draftSettings.activeProviderId
+                  const isCustom = !isBuiltInAiProvider(provider)
+
+                  return (
+                    <button
+                      key={provider.id}
+                      type="button"
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors',
+                        isSelected ? 'bg-primary/8 text-foreground' : 'text-foreground/80 hover:bg-muted'
+                      )}
+                      onClick={() => {
+                        setSelectedProviderId(provider.id)
+                        setIsApiKeyVisible(false)
+                      }}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{provider.label}</span>
+                      <span
+                        className={cn(
+                          'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium',
+                          isCustom
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-primary/10 text-primary'
+                        )}
+                      >
+                        {isCustom ? '自定义' : '内置'}
+                      </span>
+                      {isCustom ? (
+                        <button
+                          type="button"
+                          className="shrink-0 rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteProvider(provider.id)
+                          }}
+                          aria-label="删除供应商"
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      ) : null}
+                      {/* toggle：点击切换是否为当前使用 */}
+                      <button
+                        type="button"
+                        className={cn(
+                          'relative shrink-0 h-4 w-7 rounded-full transition-colors',
+                          isActive ? 'bg-primary' : 'bg-muted-foreground/25'
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleActivateProvider(provider.id)
+                        }}
+                        aria-label={isActive ? '当前使用' : '设为使用'}
+                      >
+                        <span
+                          className={cn(
+                            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform',
+                            isActive ? 'left-[14px]' : 'left-0.5'
+                          )}
+                        />
+                      </button>
+                    </button>
+                  )
+                })}
+              </div>
+            </aside>
+
+            {/* 右侧详情 */}
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {/* 顶部标题栏 */}
+              <div className="flex items-center justify-between border-b border-border/50 px-6 py-4">
+                <div>
+                  <div className="text-base font-semibold text-foreground">
+                    {selectedProvider?.label ?? 'AI 设置'}
+                  </div>
+                  {selectedProvider ? (
+                    <div className="text-xs text-muted-foreground">
+                      Base URL: {selectedProvider.baseURL}
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={onClose}
+                  aria-label="关闭"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              {/* 内容区 */}
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                {selectedProvider ? (
+                  <div className="space-y-6">
+                    {/* API Key 区块 */}
+                    <div>
+                      <div className="mb-2.5 text-sm font-semibold text-foreground">API Key</div>
+                      <div className="flex gap-2">
+                        <Input
+                          className="h-9 min-w-0 flex-1 font-mono text-sm"
+                          type={isApiKeyVisible ? 'text' : 'password'}
+                          autoComplete="off"
+                          placeholder={getApiKeyPlaceholder(selectedProvider)}
+                          value={selectedProvider.apiKey}
+                          onChange={(e) => patchSelectedProvider({ apiKey: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted"
+                          onClick={() => setIsApiKeyVisible((v) => !v)}
+                          aria-label={isApiKeyVisible ? '隐藏密钥' : '显示密钥'}
+                        >
+                          {isApiKeyVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        </button>
+                        <Button type="button" className="h-9 shrink-0 px-4 text-sm" onClick={() => persistSettings(false)}>
+                          保存
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* 模型管理区块 */}
+                    <div>
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <div className="text-sm font-semibold text-foreground">模型管理</div>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          onClick={() => setIsAddModelOpen(true)}
+                        >
+                          <Plus className="size-3.5" />
+                          添加模型
+                        </button>
+                      </div>
+
+                      {selectedProvider.models.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedProvider.models.map((model) => {
+                            const badgeLabel = getModelBadgeLabel(draftSettings, selectedProvider, model)
+
+                            return (
+                              <div
+                                key={model.id}
+                                className="flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate text-sm font-medium text-foreground">{model.label}</div>
+                                  <div className="truncate text-xs text-muted-foreground">{model.id}</div>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                  {badgeLabel ? (
+                                    <span
+                                      className={cn(
+                                        'rounded px-1.5 py-0.5 text-[11px] font-medium',
+                                        badgeLabel === '当前使用'
+                                          ? 'bg-primary/10 text-primary'
+                                          : 'bg-muted text-muted-foreground'
+                                      )}
+                                    >
+                                      {badgeLabel}
+                                    </span>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className="rounded p-1 text-muted-foreground/50 transition-colors hover:text-destructive"
+                                    onClick={() => handleDeleteModel(model.id)}
+                                    aria-label="删除模型"
+                                  >
+                                    <Trash2 className="size-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center">
+                          <div className="text-sm text-muted-foreground">还没有保存任何模型</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 对话偏好区块 */}
+                    <div>
+                      <div className="mb-2.5 text-sm font-semibold text-foreground">对话偏好</div>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Label className="w-12 shrink-0 text-sm text-muted-foreground">温度</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1.5}
+                            step={0.1}
+                            className="h-9 w-24 text-sm"
+                            value={draftSettings.temperature}
+                            onChange={(e) => patchDraftSettings({ temperature: Number(e.target.value || 0) })}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm text-muted-foreground">系统提示词</Label>
+                          <Textarea
+                            className="min-h-[90px] resize-y text-sm leading-relaxed"
+                            placeholder="定义 AI 的回答语气、边界和任务偏好"
+                            rows={3}
+                            value={draftSettings.systemPrompt}
+                            onChange={(e) => patchDraftSettings({ systemPrompt: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* 底部按钮栏 */}
+              <div className="flex items-center justify-end gap-2 border-t border-border/50 px-6 py-3">
+                <Button type="button" variant="ghost" className="h-9 px-4 text-sm" onClick={onClose}>
+                  取消
+                </Button>
+                <Button type="button" className="h-9 px-4 text-sm" onClick={() => persistSettings(true)}>
+                  保存设置
+                </Button>
+              </div>
+            </section>
           </div>
+        </div>
+      </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-1">
-              <Label htmlFor={`${formId}-model`} className="text-muted-foreground">
-                模型
-              </Label>
-              <Input
-                id={`${formId}-model`}
-                autoComplete="off"
-                placeholder="例如 deepseek-chat"
-                value={draftSettings.model}
-                onChange={(event) => patchDraftSettings({ model: event.target.value })}
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-1">
-              <Label htmlFor={`${formId}-temperature`} className="text-muted-foreground">
-                温度
-              </Label>
-              <Input
-                id={`${formId}-temperature`}
-                type="number"
-                min={0}
-                max={1.5}
-                step={0.1}
-                value={draftSettings.temperature}
-                onChange={(event) =>
-                  patchDraftSettings({ temperature: Number(event.target.value || 0) })
-                }
-              />
-            </div>
-          </div>
+      {isAddProviderOpen ? (
+        <AddProviderDialog onClose={() => setIsAddProviderOpen(false)} onSubmit={handleAddProvider} />
+      ) : null}
 
-          <div className="space-y-2">
-            <Label htmlFor={`${formId}-base`} className="text-muted-foreground">
-              Base URL
-            </Label>
-            <Input
-              id={`${formId}-base`}
-              autoComplete="off"
-              placeholder="https://api.example.com/v1"
-              value={draftSettings.baseURL}
-              onChange={(event) => patchDraftSettings({ baseURL: event.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor={`${formId}-key`} className="text-muted-foreground">
-              API Key
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id={`${formId}-key`}
-                className="min-w-0 flex-1 font-mono text-[13px] tracking-tight"
-                type={isApiKeyVisible ? 'text' : 'password'}
-                autoComplete="off"
-                placeholder={getAiProviderPreset(draftSettings.providerId).apiKeyPlaceholder}
-                value={draftSettings.apiKey}
-                onChange={(event) => patchDraftSettings({ apiKey: event.target.value })}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setIsApiKeyVisible((v) => !v)}
-                aria-label={isApiKeyVisible ? '隐藏密钥' : '显示密钥'}
-              >
-                {isApiKeyVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor={`${formId}-system`} className="text-muted-foreground">
-              系统提示词
-            </Label>
-            <Textarea
-              id={`${formId}-system`}
-              className="min-h-[120px] resize-y text-[13px] leading-relaxed"
-              placeholder="可选：定义助手的行为与回答风格…"
-              rows={5}
-              value={draftSettings.systemPrompt}
-              onChange={(event) => patchDraftSettings({ systemPrompt: event.target.value })}
-            />
-          </div>
-        </CardContent>
-
-        <CardFooter className="flex justify-end gap-2 border-t border-border/50 bg-muted/25 px-5 py-4 sm:px-6">
-          <Button type="button" variant="outline" onClick={onClose}>
-            取消
-          </Button>
-          <Button type="button" onClick={handleSubmit}>
-            保存
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>,
+      {isAddModelOpen && selectedProvider ? (
+        <AddModelDialog
+          provider={selectedProvider}
+          onClose={() => setIsAddModelOpen(false)}
+          onAddModel={handleAddModel}
+        />
+      ) : null}
+    </>,
     document.body
   )
 }
