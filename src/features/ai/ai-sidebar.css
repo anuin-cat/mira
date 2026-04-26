@@ -24,21 +24,15 @@
 
 .ai-sidebar-title {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex: 1;
 }
 
-.ai-sidebar-title strong {
+.ai-sidebar-session-heading {
+  display: block;
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--theme-text-primary);
-}
-
-.ai-sidebar-title span {
-  font-size: 11px;
-  color: var(--theme-text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -220,7 +220,7 @@ export function createAiChatSession(
   const now = new Date().toISOString()
   return {
     id: createAiId(),
-    title: noteTitle ? `关于《${noteTitle}》` : '新对话',
+    title: '新对话',
     vaultPath,
     notePath,
     noteTitle,

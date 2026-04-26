@@ -65,6 +65,14 @@ function pickSessionIdForNote(sessions: AiChatSession[], notePath: string | null
   return matchedSession?.id ?? sessions[0]?.id ?? null
 }
 
+/** 顶栏展示：有首条用户消息则用其摘要，否则占位 */
+function getSidebarHeaderLabel(session: AiChatSession | null): string {
+  if (!session) return '新对话'
+  const firstUser = session.messages.find((m) => m.role === 'user')
+  if (firstUser?.content.trim()) return createAiSessionTitle(firstUser.content, null)
+  return '新对话'
+}
+
 /** 根据内容把输入框高度限制在 3 到 8 行之间 */
 function resizeComposerInput(textarea: HTMLTextAreaElement) {
   // 1. 先恢复自动高度，让删除内容时输入框也能收回
@@ -271,8 +279,7 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
     <aside className="ai-sidebar">
       <header className="ai-sidebar-header">
         <div className="ai-sidebar-title">
-          <strong>AI 对话</strong>
-          <span>{noteTitle || '当前笔记'}</span>
+          <span className="ai-sidebar-session-heading">{getSidebarHeaderLabel(currentSession)}</span>
         </div>
         <div className="ai-sidebar-actions">
           <Button
