@@ -55,37 +55,62 @@ body {
 
 /* ── 主布局：两栏 ── */
 .app-layout {
-  display: flex;
   height: 100vh;
+  min-width: 0;
+  min-height: 0;
   background: var(--theme-bg-sidebar);
 }
 
 /* ── 左侧文件树 ── */
 .file-sidebar,
 .note-list {
-  width: 280px;
-  min-width: 160px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
   background: var(--theme-bg-sidebar);
   border-right: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 /* ── 侧边栏拖拽分隔条 ── */
-.sidebar-resizer {
+.panel-resizer {
   width: 8px;
   margin-left: -4px;
   margin-right: -4px;
-  cursor: col-resize;
   background: transparent;
   flex-shrink: 0;
   position: relative;
   z-index: 3;
+  outline: none;
 }
 
-.sidebar-resizer:hover {
+.panel-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background-color 0.18s ease;
+}
+
+.panel-resizer:hover::before,
+.panel-resizer:focus-visible::before {
+  background: color-mix(in srgb, var(--theme-border) 78%, transparent 22%);
+}
+
+.panel-resizer-hidden {
+  width: 0;
+  margin-left: 0;
+  margin-right: 0;
+  pointer-events: none;
+}
+
+.panel-resizer-hidden::before {
   background: transparent;
 }
 
@@ -428,26 +453,33 @@ body {
 }
 
 /* ── 右侧编辑区 ── */
+.app-sidebar-panel,
+.ai-sidebar-panel-shell {
+  min-width: 0;
+  min-height: 0;
+}
+
 .editor-pane {
-  flex: 1;
+  display: flex;
+  flex-direction: row;
+  height: 100%;
   min-width: 0;
   overflow: hidden;
   position: relative;
-  display: flex;
-  flex-direction: row;
   background: var(--theme-bg-primary);
   border-top-left-radius: var(--mira-editor-panel-radius);
   border-bottom-left-radius: var(--mira-editor-panel-radius);
   box-shadow: -6px 0 8px rgba(24, 24, 24, 0.02);
 }
 
-.editor-pane.has-ai-sidebar {
+.editor-pane.is-ai-sidebar-collapsed {
   border-top-right-radius: var(--mira-editor-panel-radius);
   border-bottom-right-radius: var(--mira-editor-panel-radius);
 }
 
 .editor-workspace {
   flex: 1;
+  height: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -455,11 +487,20 @@ body {
 
 .editor-empty {
   flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ccc;
   font-size: 14px;
+}
+
+.ai-sidebar-panel-shell {
+  height: 100%;
+  overflow: hidden;
+  background: var(--theme-bg-primary);
+  border-top-right-radius: var(--mira-editor-panel-radius);
+  border-bottom-right-radius: var(--mira-editor-panel-radius);
 }
 
 /* ── Vault 设置页 ── */

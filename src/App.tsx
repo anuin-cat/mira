@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import {
+  Group as PanelGroup,
+  Panel,
+  Separator as PanelResizeHandle,
+  usePanelRef,
+} from 'react-resizable-panels'
+import {
   ensureVaultSystem,
   getVaultPath,
   readVaultState,
@@ -36,6 +42,9 @@ import './styles/mdx-editor.css'
 const SIDEBAR_MIN_WIDTH = 160
 const SIDEBAR_MAX_WIDTH = 480
 const SIDEBAR_DEFAULT_WIDTH = 280
+const AI_SIDEBAR_MIN_WIDTH = 280
+const AI_SIDEBAR_MAX_WIDTH = 560
+const AI_SIDEBAR_DEFAULT_WIDTH = 360
 
 const DEFAULT_VAULT_STATE: VaultState = {
   version: 1,
@@ -94,6 +103,11 @@ function isMacOSPlatform() {
   return navigator.userAgent.toLowerCase().includes('mac')
 }
 
+/** 把面板宽度收敛为整数，避免拖拽结果在小数像素间抖动 */
+function toPanelPixels(width: number) {
+  return Math.round(width)
+}
+
 export default function App() {
   const isMacOS = isMacOSPlatform()
   const [vaultPath, setVaultPathState] = useState<string | null>(null)
@@ -105,46 +119,60 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
+  const [aiSidebarWidth, setAiSidebarWidth] = useState(AI_SIDEBAR_DEFAULT_WIDTH)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vaultPathRef = useRef<string | null>(null)
   const vaultStateRef = useRef<VaultState>(DEFAULT_VAULT_STATE)
   const activePathRef = useRef<string | null>(null)
   const latestContentRef = useRef('')
-  const isDraggingRef = useRef(false)
-  const dragStartXRef = useRef(0)
-  const dragStartWidthRef = useRef(0)
+  const fileSidebarPanelRef = usePanelRef()
+  const aiSidebarPanelRef = usePanelRef()
 
-  /** 开始拖拽分隔条 */
-  const handleResizerMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    isDraggingRef.current = true
-    dragStartXRef.current = e.clientX
-    dragStartWidthRef.current = sidebarWidth
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      if (!isDraggingRef.current) return
-      const delta = moveEvent.clientX - dragStartXRef.current
-      const newWidth = Math.min(
-        SIDEBAR_MAX_WIDTH,
-        Math.max(SIDEBAR_MIN_WIDTH, dragStartWidthRef.current + delta)
-      )
-      setSidebarWidth(newWidth)
+  /** 同步三栏最终宽度，避免拖拽过程触发 React 重渲染 */
+  const handleLayoutChanged = useCallback(() => {
+    // 1. 读取左侧文件树最终像素宽度
+    const nextSidebarWidth = fileSidebarPanelRef.current?.getSize().inPixels
+    if (nextSidebarWidth) {
+      const nextPixels = toPanelPixels(nextSidebarWidth)
+      setSidebarWidth((currentWidth) => (currentWidth === nextPixels ? currentWidth : nextPixels))
     }
 
-    const onMouseUp = () => {
-      isDraggingRef.current = false
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
+    // 2. 读取 AI 面板最终像素宽度，并同步开关状态与记忆宽度
+    const nextAiWidth = aiSidebarPanelRef.current?.getSize().inPixels
+    if (nextAiWidth === undefined) return
+
+    const isAiOpen = nextAiWidth > 1
+    setIsAiSidebarOpen((currentValue) => (currentValue === isAiOpen ? currentValue : isAiOpen))
+
+    if (!isAiOpen) return
+    const nextPixels = toPanelPixels(nextAiWidth)
+    setAiSidebarWidth((currentWidth) => (currentWidth === nextPixels ? currentWidth : nextPixels))
+  }, [fileSidebarPanelRef, aiSidebarPanelRef])
+
+  /** 显式切换 AI 面板展开状态，避免 effect 与布局回调互相触发 */
+  const handleToggleAiSidebar = useCallback(() => {
+    // 1. 读取当前 AI 面板实例，优先用真实尺寸做决策
+    const aiPanel = aiSidebarPanelRef.current
+    if (!aiPanel) {
+      setIsAiSidebarOpen((currentValue) => !currentValue)
+      return
     }
 
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
-  }, [sidebarWidth])
+    const isCurrentlyOpen = aiPanel.getSize().inPixels > 1
+    if (isCurrentlyOpen) {
+      // 2. 关闭前记住当前宽度，方便下次恢复
+      const currentPixels = toPanelPixels(aiPanel.getSize().inPixels)
+      setAiSidebarWidth((currentWidth) => (currentWidth === currentPixels ? currentWidth : currentPixels))
+      aiPanel.collapse()
+      setIsAiSidebarOpen(false)
+      return
+    }
+
+    // 3. 展开时直接恢复记忆宽度，避免再走额外同步 effect
+    aiPanel.resize(aiSidebarWidth)
+    setIsAiSidebarOpen(true)
+  }, [aiSidebarPanelRef, aiSidebarWidth])
 
   useEffect(() => {
     const savedPath = getVaultPath()
@@ -514,8 +542,20 @@ export default function App() {
         .catch((error) => {
           window.alert(getErrorMessage(error))
         })
-    }, 1000)
+      }, 1000)
   }, [])
+
+  const editorWorkspace = activePath ? (
+    <section className="editor-workspace">
+      <MdxEditor
+        key={activePath}
+        initialContent={activeContent}
+        isAiSidebarOpen={isAiSidebarOpen}
+        onChange={handleContentChange}
+        onToggleAiSidebar={handleToggleAiSidebar}
+      />
+    </section>
+  ) : null
 
   if (isLoading) {
     return <div className="loading">加载中...</div>
@@ -530,55 +570,75 @@ export default function App() {
   }
 
   return (
-    <div
+    <PanelGroup
+      orientation="horizontal"
       className="app-layout"
+      id="app-layout"
+      onLayoutChanged={handleLayoutChanged}
       data-font-size={vaultState.fontSize || 'medium'}
       data-theme={vaultState.theme || 'default'}
       data-platform={isMacOS ? 'macos' : 'default'}
     >
-      <FileTree
-        key={vaultPath}
-        treeData={treeData}
-        activePath={activePath}
-        expandedDirs={vaultState.expandedDirs}
-        onOpenFile={handleOpenFile}
-        onCreateFile={handleCreateFile}
-        onCreateFolder={handleCreateFolder}
-        onRenameEntry={handleRenameEntry}
-        onMoveEntry={handleMoveEntry}
-        onDeleteEntry={handleDeleteEntry}
-        onExpandedDirsChange={handleExpandedDirsChange}
-        style={{ width: sidebarWidth, minWidth: sidebarWidth }}
-      />
-      <div className="sidebar-resizer" onMouseDown={handleResizerMouseDown} />
-      <main className={`editor-pane${activePath && isAiSidebarOpen ? ' has-ai-sidebar' : ''}`}>
+      <Panel
+        id="file-sidebar-panel"
+        className="app-sidebar-panel"
+        defaultSize={sidebarWidth}
+        minSize={SIDEBAR_MIN_WIDTH}
+        maxSize={SIDEBAR_MAX_WIDTH}
+        groupResizeBehavior="preserve-pixel-size"
+        panelRef={fileSidebarPanelRef}
+      >
+        <FileTree
+          key={vaultPath}
+          treeData={treeData}
+          activePath={activePath}
+          expandedDirs={vaultState.expandedDirs}
+          onOpenFile={handleOpenFile}
+          onCreateFile={handleCreateFile}
+          onCreateFolder={handleCreateFolder}
+          onRenameEntry={handleRenameEntry}
+          onMoveEntry={handleMoveEntry}
+          onDeleteEntry={handleDeleteEntry}
+          onExpandedDirsChange={handleExpandedDirsChange}
+        />
+      </Panel>
+      <PanelResizeHandle id="file-sidebar-separator" className="panel-resizer" />
+      <Panel
+        id="editor-workspace-panel"
+        className={`editor-pane${isAiSidebarOpen ? '' : ' is-ai-sidebar-collapsed'}`}
+      >
         {activePath ? (
-          <>
-            <section className="editor-workspace">
-              <MdxEditor
-                key={activePath}
-                initialContent={activeContent}
-                isAiSidebarOpen={isAiSidebarOpen}
-                onChange={handleContentChange}
-                onToggleAiSidebar={() => setIsAiSidebarOpen((value) => !value)}
-              />
-            </section>
-            {isAiSidebarOpen ? (
-              <AiSidebar
-                key={`${vaultPath}:${activePath}`}
-                vaultPath={vaultPath}
-                notePath={activePath}
-                noteTitle={getDisplayName(activePath, 'file')}
-                noteContent={activeContent}
-              />
-            ) : null}
-          </>
+          editorWorkspace
         ) : (
           <div className="editor-empty">
             <p>右键左侧空白区域新建 Markdown 文件</p>
           </div>
         )}
-      </main>
-    </div>
+      </Panel>
+      <PanelResizeHandle
+        id="ai-sidebar-separator"
+        className={`panel-resizer${isAiSidebarOpen ? '' : ' panel-resizer-hidden'}`}
+        disabled={!isAiSidebarOpen}
+      />
+      <Panel
+        id="ai-sidebar-panel"
+        className="ai-sidebar-panel-shell"
+        defaultSize={0}
+        minSize={AI_SIDEBAR_MIN_WIDTH}
+        maxSize={AI_SIDEBAR_MAX_WIDTH}
+        collapsedSize={0}
+        collapsible
+        groupResizeBehavior="preserve-pixel-size"
+        panelRef={aiSidebarPanelRef}
+      >
+        <AiSidebar
+          key={vaultPath}
+          vaultPath={vaultPath}
+          notePath={activePath}
+          noteTitle={activePath ? getDisplayName(activePath, 'file') : null}
+          noteContent={activeContent}
+        />
+      </Panel>
+    </PanelGroup>
   )
 }

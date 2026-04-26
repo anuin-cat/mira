@@ -1,8 +1,8 @@
 .ai-sidebar {
-  width: 360px;
-  max-width: 42vw;
-  min-width: 320px;
-  border-left: 1px solid color-mix(in srgb, var(--theme-border) 60%, transparent 40%);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border-left: 1px solid color-mix(in srgb, var(--theme-border) 58%, transparent 42%);
   background: transparent;
   display: flex;
   flex-direction: column;
@@ -125,9 +125,9 @@
 }
 
 .ai-message {
-  max-width: 85%;
-  padding: 14px 16px;
-  border-radius: 18px;
+  max-width: 100%;
+  padding: 0;
+  border-radius: 0;
   animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -144,23 +144,26 @@
 
 .ai-message-user {
   align-self: flex-end;
-  background: color-mix(in srgb, var(--theme-selection) 85%, var(--theme-text-primary) 15%);
-  border-bottom-right-radius: 6px;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--theme-selection) 20%, transparent 80%);
+  width: fit-content;
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--theme-accent) 14%, var(--theme-bg-primary) 86%);
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 18%, var(--theme-border) 82%);
 }
 
 .ai-message-assistant {
-  align-self: flex-start;
-  background: color-mix(in srgb, var(--theme-bg-primary) 85%, var(--theme-text-primary) 15%);
-  border: 1px solid color-mix(in srgb, var(--theme-border) 50%, transparent 50%);
-  border-bottom-left-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  align-self: stretch;
+  width: 100%;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .ai-message-label {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 11px;
   color: var(--theme-text-tertiary);
 }
@@ -176,8 +179,9 @@
 }
 
 .ai-message-content {
+  width: 100%;
   color: var(--theme-text-primary);
-  font-size: 13.5px;
+  font-size: 15.5px;
   letter-spacing: -0.01em;
 }
 
@@ -188,11 +192,12 @@
 }
 
 .ai-loading-bubble {
-  align-self: flex-start;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--theme-bg-primary) 85%, var(--theme-text-primary) 15%);
-  border: 1px solid color-mix(in srgb, var(--theme-border) 50%, transparent 50%);
+  width: 100%;
+  align-self: stretch;
+  padding: 2px 0 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
   color: var(--theme-text-secondary);
   font-size: 13px;
   animation: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -290,7 +295,7 @@
     );
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--theme-bg-primary) 80%, transparent 20%),
-    0 16px 36px color-mix(in srgb, var(--theme-text-primary) 12%, transparent 88%);
+    0 8px 20px color-mix(in srgb, var(--theme-text-primary) 8%, transparent 92%);
   padding: 8px;
   transition:
     border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -302,8 +307,8 @@
   border-color: color-mix(in srgb, var(--theme-accent) 72%, var(--theme-editor-control-border) 28%);
   background: var(--theme-editor-control-bg);
   box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--theme-selection) 28%, transparent 72%),
-    0 18px 42px color-mix(in srgb, var(--theme-text-primary) 14%, transparent 86%);
+    0 0 0 2px color-mix(in srgb, var(--theme-selection) 24%, transparent 76%),
+    0 10px 24px color-mix(in srgb, var(--theme-text-primary) 9%, transparent 91%);
 }
 
 .ai-composer-input {
@@ -676,19 +681,7 @@
   gap: 10px;
 }
 
-@media (max-width: 1200px) {
-  .ai-sidebar {
-    width: 332px;
-    min-width: 300px;
-  }
-}
-
 @media (max-width: 980px) {
-  .ai-sidebar {
-    width: 46vw;
-    min-width: 280px;
-  }
-
   .ai-form-grid {
     grid-template-columns: 1fr;
   }
