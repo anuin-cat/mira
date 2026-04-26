@@ -235,10 +235,11 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
         {currentSession?.messages.length ? (
           currentSession.messages.map((message) => (
             <article key={message.id} className={`ai-message ai-message-${message.role}`}>
-              <div className="ai-message-label">
-                <strong>{message.role === 'user' ? '你' : 'Mira AI'}</strong>
-                {message.isFromCache ? <span>缓存命中</span> : null}
-              </div>
+              {message.isFromCache ? (
+                <div className="ai-message-label">
+                  <span>缓存命中</span>
+                </div>
+              ) : null}
               <div className="ai-message-content">
                 {message.role === 'assistant' ? (
                   <AiMarkdown content={message.content} />
