@@ -101,11 +101,15 @@
 }
 
 .ai-markdown blockquote {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-left: 3px solid color-mix(in srgb, var(--theme-accent) 45%, transparent 55%);
   border-radius: 0 10px 10px 0;
   background: color-mix(in srgb, var(--theme-selection) 18%, var(--theme-bg-primary) 82%);
   color: var(--theme-text-secondary);
+}
+
+.ai-markdown blockquote > :last-child {
+  margin-bottom: 0;
 }
 
 .ai-markdown hr {
