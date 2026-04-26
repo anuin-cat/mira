@@ -2,17 +2,24 @@ import { useEffect, useRef, useState } from 'react'
 import type { AiChatMessage, AiChatSession, AiProviderSettings } from '../../domain/ai'
 import { requestAiChatReply } from '../../services/aiService'
 import {
+  AI_PROVIDER_PRESETS,
   createAiChatSession,
   createAiSessionTitle,
+  getAiProviderPreset,
   loadAiChatSessions,
   loadAiSettings,
   saveAiChatSessions,
   saveAiSettings,
+  selectAiProviderPreset,
 } from '../../services/aiSettingsService'
 import { AiMarkdown } from './AiMarkdown'
 import { AiHistoryPanel } from './AiHistoryPanel'
 import { AiSettingsDialog } from './AiSettingsDialog'
 import './ai-sidebar.css'
+
+const AI_COMPOSER_MIN_ROWS = 3
+const AI_COMPOSER_MAX_ROWS = 8
+const AI_COMPOSER_FALLBACK_LINE_HEIGHT = 22
 
 interface Props {
   vaultPath: string
@@ -48,6 +55,25 @@ function pickSessionIdForNote(sessions: AiChatSession[], notePath: string | null
   return matchedSession?.id ?? sessions[0]?.id ?? null
 }
 
+/** 根据内容把输入框高度限制在 3 到 8 行之间 */
+function resizeComposerInput(textarea: HTMLTextAreaElement) {
+  // 1. 先恢复自动高度，让删除内容时输入框也能收回
+  textarea.style.height = 'auto'
+
+  // 2. 根据当前字体行高计算 3 行和 8 行的真实像素高度
+  const styles = window.getComputedStyle(textarea)
+  const lineHeight = Number.parseFloat(styles.lineHeight) || AI_COMPOSER_FALLBACK_LINE_HEIGHT
+  const paddingTop = Number.parseFloat(styles.paddingTop) || 0
+  const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0
+  const minHeight = lineHeight * AI_COMPOSER_MIN_ROWS + paddingTop + paddingBottom
+  const maxHeight = lineHeight * AI_COMPOSER_MAX_ROWS + paddingTop + paddingBottom
+  const nextHeight = Math.min(maxHeight, Math.max(minHeight, textarea.scrollHeight))
+
+  // 3. 超过 8 行后固定高度并开启内部滚动
+  textarea.style.height = `${nextHeight}px`
+  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+}
+
 /** 侧边聊天栏：负责会话切换、设置编辑与消息发送 */
 export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props) {
   const [settings, setSettings] = useState<AiProviderSettings>(() => loadAiSettings())
@@ -60,6 +86,7 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const messageListRef = useRef<HTMLDivElement | null>(null)
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
   const previousNotePathRef = useRef<string | null>(notePath)
 
   /** 同步会话到内存与 localStorage */
@@ -103,13 +130,48 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
     })
   }, [currentSessionId, sessions, isSending])
 
+  useEffect(() => {
+    if (!composerInputRef.current) return
+    resizeComposerInput(composerInputRef.current)
+  }, [draftMessage])
+
   const currentSession = sessions.find((session) => session.id === currentSessionId) ?? null
+  const currentProviderPreset = getAiProviderPreset(settings.providerId)
+  const hasCustomModelLabel =
+    Boolean(settings.model) && settings.model !== currentProviderPreset.defaultModel
+  const composerModelOptions = [
+    ...(hasCustomModelLabel
+      ? [
+          {
+            value: 'current',
+            id: settings.providerId,
+            label: settings.model,
+          },
+        ]
+      : []),
+    ...AI_PROVIDER_PRESETS.map((preset) => ({
+      value: preset.id,
+      id: preset.id,
+      label: preset.defaultModel || preset.label,
+    })),
+  ]
+  const composerModelValue = hasCustomModelLabel ? 'current' : settings.providerId
 
   /** 保存设置并立刻生效 */
   function handleSaveSettings(nextSettings: AiProviderSettings) {
     setSettings(nextSettings)
     saveAiSettings(nextSettings)
     setIsSettingsOpen(false)
+  }
+
+  /** 从输入框内的紧凑选择器切换模型预设 */
+  function handleComposerModelChange(providerId: AiProviderSettings['providerId']) {
+    // 1. 下拉选择代表明确选中目标模型预设，因此直接套用对应默认模型
+    const nextSettings = selectAiProviderPreset(settings, providerId)
+
+    // 2. 立即保存到本机设置，让下一条消息使用新模型
+    setSettings(nextSettings)
+    saveAiSettings(nextSettings)
   }
 
   /** 新建会话并关闭历史面板 */
@@ -226,11 +288,6 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
         />
       ) : null}
 
-      <div className="ai-session-meta">
-        <span>{settings.model || '未设置模型'}</span>
-        <span>{currentSession?.messages.length ?? 0} 条消息</span>
-      </div>
-
       <div ref={messageListRef} className="ai-message-list">
         {currentSession?.messages.length ? (
           currentSession.messages.map((message) => (
@@ -261,23 +318,51 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
       {errorMessage ? <div className="ai-error-banner">{errorMessage}</div> : null}
 
       <div className="ai-composer">
-        <textarea
-          value={draftMessage}
-          onChange={(event) => setDraftMessage(event.target.value)}
-          placeholder="基于当前笔记继续聊..."
-          rows={4}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              void handleSendMessage()
-            }
-          }}
-        />
-        <div className="ai-composer-footer">
-          <span>Enter 发送，Shift + Enter 换行</span>
-          <button type="button" className="ai-primary-button" onClick={() => void handleSendMessage()}>
-            发送
-          </button>
+        <div className="ai-composer-box">
+          <textarea
+            ref={composerInputRef}
+            className="ai-composer-input"
+            value={draftMessage}
+            onChange={(event) => setDraftMessage(event.target.value)}
+            placeholder="基于当前笔记继续聊..."
+            rows={AI_COMPOSER_MIN_ROWS}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                void handleSendMessage()
+              }
+            }}
+          />
+          <div className="ai-composer-controls">
+            <label className="ai-model-picker">
+              <span className="ai-model-picker-dot" aria-hidden="true" />
+              <select
+                value={composerModelValue}
+                aria-label="选择模型"
+                onChange={(event) => {
+                  if (event.target.value === 'current') return
+                  handleComposerModelChange(event.target.value as AiProviderSettings['providerId'])
+                }}
+              >
+                {composerModelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label || '选择模型'}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="ai-send-button"
+              onClick={() => void handleSendMessage()}
+              disabled={!draftMessage.trim() || isSending}
+              aria-label="发送消息"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M10 16V4m0 0L5.5 8.5M10 4l4.5 4.5" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import {
   AI_PROVIDER_PRESETS,
   getAiProviderPreset,
   normalizeAiSettings,
+  switchAiProviderPreset,
 } from '../../services/aiSettingsService'
 
 interface Props {
@@ -35,19 +36,7 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
 
   /** 切换 provider 时自动带出对应预设 */
   function handleProviderChange(providerId: AiProviderSettings['providerId']) {
-    // 1. 读取新老 provider 预设，用于判断是否应该顺带替换默认值
-    const previousPreset = getAiProviderPreset(draftSettings.providerId)
-    const nextPreset = getAiProviderPreset(providerId)
-    const shouldReplaceBaseUrl = draftSettings.baseURL === previousPreset.defaultBaseUrl
-    const shouldReplaceModel =
-      !draftSettings.model || draftSettings.model === previousPreset.defaultModel
-
-    // 2. 切 provider 时优先保留用户手改过的内容，只覆盖仍等于旧预设的字段
-    patchDraftSettings({
-      providerId,
-      baseURL: shouldReplaceBaseUrl ? nextPreset.defaultBaseUrl : draftSettings.baseURL,
-      model: shouldReplaceModel ? nextPreset.defaultModel : draftSettings.model,
-    })
+    setDraftSettings(switchAiProviderPreset(draftSettings, providerId))
   }
 
   /** 提交设置并关闭弹层 */

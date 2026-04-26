@@ -104,6 +104,43 @@ export function saveAiSettings(settings: AiProviderSettings): void {
   localStorage.setItem(AI_SETTINGS_STORAGE_KEY, JSON.stringify(normalizeAiSettings(settings)))
 }
 
+/** 切换提供商预设，并尽量保留用户手动修改过的设置 */
+export function switchAiProviderPreset(
+  settings: AiProviderSettings,
+  providerId: AiProviderId
+): AiProviderSettings {
+  // 1. 判断当前 baseURL / model 是否仍是旧预设值
+  const previousPreset = getAiProviderPreset(settings.providerId)
+  const nextPreset = getAiProviderPreset(providerId)
+  const shouldReplaceBaseUrl = settings.baseURL === previousPreset.defaultBaseUrl
+  const shouldReplaceModel = !settings.model || settings.model === previousPreset.defaultModel
+
+  // 2. 只覆盖没有被用户手动改过的字段，避免快速切换时丢失自定义配置
+  return normalizeAiSettings({
+    ...settings,
+    providerId,
+    baseURL: shouldReplaceBaseUrl ? nextPreset.defaultBaseUrl : settings.baseURL,
+    model: shouldReplaceModel ? nextPreset.defaultModel : settings.model,
+  })
+}
+
+/** 直接选中一个提供商预设，用于紧凑模型选择器 */
+export function selectAiProviderPreset(
+  settings: AiProviderSettings,
+  providerId: AiProviderId
+): AiProviderSettings {
+  // 1. 读取目标预设，明确使用该预设的 baseURL 与默认模型
+  const preset = getAiProviderPreset(providerId)
+
+  // 2. 保留 API Key、系统提示词等个人设置，只切换请求入口和模型
+  return normalizeAiSettings({
+    ...settings,
+    providerId,
+    baseURL: preset.defaultBaseUrl,
+    model: preset.defaultModel,
+  })
+}
+
 /** 为指定 vault 构造聊天历史存储键 */
 function getAiSessionsStorageKey(vaultPath: string): string {
   return `${AI_SESSIONS_STORAGE_PREFIX}${vaultPath}`
