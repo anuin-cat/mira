@@ -60,6 +60,42 @@
   padding-left: 1.35em;
 }
 
+.ai-markdown ul {
+  list-style-type: disc;
+}
+
+.ai-markdown ol {
+  list-style-type: decimal;
+}
+
+.ai-markdown ul ul {
+  list-style-type: circle;
+}
+
+.ai-markdown ul ul ul {
+  list-style-type: square;
+}
+
+.ai-markdown ol ol {
+  list-style-type: lower-alpha;
+}
+
+.ai-markdown ol ol ol {
+  list-style-type: lower-roman;
+}
+
+.ai-markdown li:has(> input[type='checkbox']),
+.ai-markdown .task-list-item {
+  list-style-type: none;
+}
+
+.ai-markdown li > input[type='checkbox'] {
+  width: 0.95em;
+  height: 0.95em;
+  margin: 0 0.5em 0 -1.35em;
+  vertical-align: -0.12em;
+}
+
 .ai-markdown li + li {
   margin-top: 6px;
 }

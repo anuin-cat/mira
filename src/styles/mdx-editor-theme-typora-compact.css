@@ -295,9 +295,41 @@
   padding-inline-start: 1.45em;
 }
 
+.mira-mdx-content ul {
+  list-style-type: disc;
+}
+
+.mira-mdx-content ol {
+  list-style-type: decimal;
+}
+
+.mira-mdx-content ul ul {
+  list-style-type: circle;
+}
+
+.mira-mdx-content ul ul ul {
+  list-style-type: square;
+}
+
+.mira-mdx-content ol ol {
+  list-style-type: lower-alpha;
+}
+
+.mira-mdx-content ol ol ol {
+  list-style-type: lower-roman;
+}
+
 .mira-mdx-content li {
   margin: 0;
   padding-left: 0.12em;
+}
+
+.mira-mdx-content li[class*='_listItemChecked_'],
+.mira-mdx-content li[class*='_listItemUnchecked_'] {
+  margin-inline-start: -1rem;
+  padding-inline-start: 1.5rem;
+  padding-inline-end: 0;
+  list-style-type: none;
 }
 
 .mira-mdx-content li + li {
