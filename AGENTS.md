@@ -16,8 +16,18 @@
 - TypeScript
 - Vite
 - pnpm
+- Tailwind CSS v4
+- shadcn/ui
+- Radix UI（通过 shadcn/ui 组件使用）
+- lucide-react
 - MDXEditor（Markdown/MDX 富文本编辑器，Lexical 底层，输入输出原生 .md 文件）
 - date-fns（日期格式化）
+
+## 前端样式
+
+- **优先**使用 [shadcn/ui](https://ui.shadcn.com/) 已有组件（`src/components/ui`）组合与扩展，保持交互、无障碍与视觉与项目其余部分一致
+- **其次**用 Tailwind 工具类在 JSX 上微调布局、间距、排版、颜色等；需要可复用样式时，优先 Tailwind 的 `@apply` 或组件级 class 组合，避免散落魔法字符串
+- **仅在必要时**再写独立 CSS（如第三方库深度定制、无法用工具类表达的复杂动画或全局主题变量）；新样式文件应有明确理由，并尽量收窄作用域（避免全局污染）
 
 ## 基本原则
 
@@ -76,6 +86,7 @@
 
 - `src/components`：UI 组件
 - `src/features`：功能模块
+- `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装
@@ -112,6 +123,24 @@ vault/
 - `data-path` / `data-kind` 属性挂在 DOM 节点上，通过事件委托在容器层统一捕获
 - 拖拽预览、目标高亮、边界自动滚动、悬停自动展开目录均通过直接 DOM 操作实现
 - 落点合法性校验：同目录跳过、禁止目录自嵌套
+
+### shadcn/ui 与全局 CSS Reset 冲突
+
+**问题**：shadcn 组件（如 `Select`、`Card` 等）的 Tailwind 工具类（`py-1`、`px-2`、`shadow-md` 等）不生效，表现为内边距为零、无阴影、无圆角。
+
+**根本原因**：`App.css` 里的 `* { margin: 0; padding: 0; }` 是普通 CSS（不在任何 `@layer` 里），CSS 规范规定不在 `@layer` 里的规则优先级高于任何 `@layer` 里的规则，而 Tailwind 工具类在 `@layer utilities` 里，因此全局 reset 会覆盖所有 shadcn 组件的间距类。
+
+**解决**：把全局 reset 移入 `@layer base`，让 Tailwind 工具类能正常覆盖它：
+
+```css
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+```
 
 ### MDXEditor 弹层层级注意事项
 

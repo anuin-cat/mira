@@ -1,8 +1,10 @@
 /* 全局重置 */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 :root {
@@ -501,56 +503,6 @@ body {
   background: var(--theme-bg-primary);
   border-top-right-radius: var(--mira-editor-panel-radius);
   border-bottom-right-radius: var(--mira-editor-panel-radius);
-}
-
-/* ── Vault 设置页 ── */
-.vault-setup {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f7f7f5;
-}
-
-.vault-setup-card {
-  background: white;
-  border-radius: 12px;
-  padding: 48px;
-  max-width: 380px;
-  width: 100%;
-  text-align: center;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
-}
-
-.vault-setup-card h1 {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.vault-setup-card p {
-  color: #777;
-  font-size: 13px;
-  line-height: 1.7;
-  margin-bottom: 32px;
-}
-
-.btn-primary {
-  background: #1a1a1a;
-  color: white;
-  border: none;
-  padding: 10px 24px;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-primary:hover {
-  background: #333;
 }
 
 /* ── 加载状态 ── */

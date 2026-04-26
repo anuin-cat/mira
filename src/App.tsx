@@ -36,8 +36,6 @@ import { FileTree } from './features/file-tree/FileTree'
 import { MdxEditor } from './features/editor/MdxEditor'
 import { AiSidebar } from './features/ai/AiSidebar'
 import type { FontSize, Theme, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
-import './App.css'
-import './styles/mdx-editor.css'
 
 const SIDEBAR_MIN_WIDTH = 160
 const SIDEBAR_MAX_WIDTH = 480

@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select'
 import type { AiChatMessage, AiChatSession, AiProviderSettings } from '../../domain/ai'
 import { requestAiChatReply } from '../../services/aiService'
 import {
@@ -334,23 +341,24 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
             }}
           />
           <div className="ai-composer-controls">
-            <label className="ai-model-picker">
-              <span className="ai-model-picker-dot" aria-hidden="true" />
-              <select
-                value={composerModelValue}
-                aria-label="选择模型"
-                onChange={(event) => {
-                  if (event.target.value === 'current') return
-                  handleComposerModelChange(event.target.value as AiProviderSettings['providerId'])
-                }}
-              >
+            <Select
+              value={composerModelValue}
+              onValueChange={(value) => {
+                if (value === 'current') return
+                handleComposerModelChange(value as AiProviderSettings['providerId'])
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" side="top">
                 {composerModelOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <SelectItem key={option.value} value={option.value}>
                     {option.label || '选择模型'}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </label>
+              </SelectContent>
+            </Select>
             <button
               type="button"
               className="ai-send-button"
