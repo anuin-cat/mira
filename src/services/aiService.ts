@@ -1,7 +1,6 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import type { AiChatMessage, AiChatRequest, AiChatResult, AiNoteContext, AiTokenUsage } from '../domain/ai'
 import { AgentToolRegistry, createVaultAgentTools, runChatCompletionAgent } from './agent'
-import { createAiCacheKey, readAiCacheEntry, writeAiCacheEntry } from './aiCacheService'
 
 const NOTE_CONTEXT_CHAR_LIMIT = 12000
 const MAX_HISTORY_MESSAGES = 16
@@ -30,7 +29,7 @@ function createAbortError(): Error {
   }
 }
 
-/** 在关键节点检查请求是否已被取消，避免继续写缓存或回推 UI */
+/** 在关键节点检查请求是否已被取消，避免继续回推 UI */
 function throwIfAborted(signal: AbortSignal | undefined) {
   if (signal?.aborted) throw createAbortError()
 }
@@ -79,26 +78,11 @@ function buildCompletionMessages(request: AiChatRequest): ChatCompletionMessageP
   return messages
 }
 
-/** 根据当前请求构建缓存 key，命中后直接返回历史结果 */
-async function buildAiCacheKey(request: AiChatRequest, messages: ChatCompletionMessageParam[]): Promise<string> {
-  return await createAiCacheKey({
-    providerId: request.settings.providerId,
-    baseURL: request.settings.baseURL,
-    model: request.settings.model,
-    systemPrompt: request.settings.systemPrompt,
-    temperature: request.settings.temperature,
-    notePath: request.noteContext.path,
-    noteTitle: request.noteContext.title,
-    messages,
-  })
-}
-
 /** 创建统一的 assistant 消息对象 */
 function createAssistantMessage(
   content: string,
   options: {
     id?: string
-    isFromCache?: boolean
     reasoningContent?: string
     reasoningDurationMs?: number | null
     isReasoningComplete?: boolean
@@ -112,7 +96,6 @@ function createAssistantMessage(
     createdAt: new Date().toISOString(),
   }
 
-  if (options.isFromCache) message.isFromCache = true
   if (typeof options.reasoningContent === 'string' && options.reasoningContent.length > 0) {
     message.reasoningContent = options.reasoningContent
   }
@@ -141,22 +124,10 @@ export async function requestAiChatReply(
   if (!baseURL.trim()) throw new Error('请先在设置中填写 Base URL')
   if (!model.trim()) throw new Error('请先在设置中填写模型名称')
 
-  // 2. 生成消息数组与缓存 key，优先命中本地 cache
+  // 2. 生成消息数组，历史消息只取 role/content，避免把展示元数据发给接口
   const messages = buildCompletionMessages(request)
-  const cacheKey = await buildAiCacheKey(request, messages)
-  const cachedEntry = await readAiCacheEntry(request.vaultPath, cacheKey)
-  if (cachedEntry) {
-    throwIfAborted(options.signal)
-    return {
-      message: createAssistantMessage(cachedEntry.assistantMessage, {
-        id: options.assistantMessageId,
-        isFromCache: true,
-      }),
-      isFromCache: true,
-    }
-  }
 
-  // 3. 缓存未命中时走 agent 循环，把工具调用结果追加在原始消息之后
+  // 3. 走 agent 循环，把工具调用结果追加在原始消息之后
   const { default: OpenAI } = await import('openai')
   const client = new OpenAI({
     apiKey,
@@ -176,13 +147,9 @@ export async function requestAiChatReply(
     signal: options.signal,
   })
 
-  // 4. 收尾补全状态，并落本地缓存
+  // 4. 收尾补全状态；接口缓存统计只写入本地聊天记录，不再发回模型
   const normalizedContent = agentResult.content.trim()
   throwIfAborted(options.signal)
-  await writeAiCacheEntry(request.vaultPath, cacheKey, {
-    assistantMessage: normalizedContent,
-    createdAt: new Date().toISOString(),
-  })
 
   return {
     message: createAssistantMessage(normalizedContent, {
@@ -192,6 +159,5 @@ export async function requestAiChatReply(
       isReasoningComplete: agentResult.reasoningContent ? agentResult.isReasoningComplete : undefined,
       tokenUsage: agentResult.tokenUsage,
     }),
-    isFromCache: false,
   }
 }

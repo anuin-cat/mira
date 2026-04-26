@@ -457,7 +457,9 @@ function isValidAiChatMessage(message: unknown): message is AiChatMessage {
 /** 校验 token usage 元数据是否可用 */
 function isValidAiTokenUsage(tokenUsage: unknown): boolean {
   if (!tokenUsage || typeof tokenUsage !== 'object' || Array.isArray(tokenUsage)) return false
-  return Object.values(tokenUsage).every((value) => value === undefined || typeof value === 'number')
+  return Object.values(tokenUsage).every(
+    (value) => value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+  )
 }
 
 /** 校验一条历史会话是否可用 */

@@ -74,7 +74,6 @@ export interface AiChatMessage {
   role: AiChatRole
   content: string
   createdAt: string
-  isFromCache?: boolean
   reasoningContent?: string
   reasoningDurationMs?: number | null
   isReasoningComplete?: boolean
@@ -112,5 +111,4 @@ export interface AiChatRequest {
 /** 聊天返回结果 */
 export interface AiChatResult {
   message: AiChatMessage
-  isFromCache: boolean
 }

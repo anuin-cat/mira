@@ -75,8 +75,6 @@ function getMessageMetaItems(message: AiChatMessage): string[] {
   const tokenUsage = message.tokenUsage
   const cacheStats = getPromptCacheStats(tokenUsage)
 
-  if (message.isFromCache) items.push('Mira 本地缓存命中')
-
   if (cacheStats) {
     items.push(`接口缓存 ${Math.round(cacheStats.hitRate * 100)}%`)
     items.push(`命中 ${formatTokenCount(cacheStats.hitTokens)}`)
