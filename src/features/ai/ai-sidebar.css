@@ -183,36 +183,6 @@
   display: contents;
 }
 
-.ai-form-field textarea,
-.ai-form-field input,
-.ai-form-field select {
-  width: 100%;
-  border: 1px solid color-mix(in srgb, var(--theme-editor-control-border) 60%, transparent 40%);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--theme-editor-control-bg) 90%, var(--theme-bg-primary) 10%);
-  color: var(--theme-text-primary);
-  padding: 12px 14px;
-  font: inherit;
-  font-size: 13.5px;
-  line-height: 1.6;
-  resize: vertical;
-  transition:
-    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ai-form-field textarea:focus,
-.ai-form-field input:focus,
-.ai-form-field select:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  background: var(--theme-editor-control-bg);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--theme-selection) 25%, transparent 75%),
-    0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
 .ai-composer-box {
   flex-shrink: 0;
   margin: 0 8px 10px;
@@ -299,24 +269,21 @@
   }
 }
 
-.ai-history-panel-header,
-.ai-dialog-header {
+.ai-history-panel-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
 
-.ai-history-panel-header h3,
-.ai-dialog-header h2 {
+.ai-history-panel-header h3 {
   font-size: 16.5px;
   font-weight: 600;
   letter-spacing: -0.02em;
   margin-bottom: 6px;
 }
 
-.ai-history-panel-header p,
-.ai-dialog-header p {
+.ai-history-panel-header p {
   font-size: 12.5px;
   color: var(--theme-text-secondary);
   line-height: 1.6;
@@ -412,97 +379,4 @@
 .ai-history-delete:hover {
   background: color-mix(in srgb, #fee2e2 80%, transparent 20%);
   color: #991b1b;
-}
-
-.ai-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  background: color-mix(in srgb, var(--theme-bg-primary) 20%, transparent 80%);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  overflow-y: auto;
-  animation: backdropFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.ai-dialog {
-  width: min(100%, 560px);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--theme-bg-primary) 97%, var(--theme-selection) 3%);
-  border: 1px solid color-mix(in srgb, var(--theme-border) 50%, transparent 50%);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
-  padding: 20px;
-  animation: dialogSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes dialogSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.ai-form-grid {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.ai-form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ai-form-field span {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--theme-text-secondary);
-}
-
-.ai-form-field-wide {
-  grid-column: 1 / -1;
-}
-
-.ai-inline-input {
-  display: flex;
-  gap: 10px;
-}
-
-.ai-inline-input input {
-  flex: 1;
-}
-
-.ai-dialog-footer {
-  margin-top: 18px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-@media (max-width: 980px) {
-  .ai-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ai-form-field-wide {
-    grid-column: auto;
-  }
 }
