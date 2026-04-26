@@ -142,6 +142,27 @@ vault/
 }
 ```
 
+### shadcn/ui 组合约束
+
+**问题**：shadcn 组件源码已复制进项目后，若没有按官方组合结构使用，常见表现是“样式不全”而不是直接报错。例如 `SelectContent` 里直接放 `SelectItem`，视觉上会少一层弹出层内边距。
+
+**根本原因**：部分间距、分组、滚动等样式并不挂在最外层容器，而是挂在特定子组件上。以当前 `src/components/ui/select.tsx` 为例，弹出层那圈 `p-1` 是由 `SelectGroup` 提供的，不加这一层就会看起来像“样式丢了”。
+
+**解决**：使用 shadcn 组件前，先按官方文档的 composition 结构组合，不要只拷贝能跑通的最短 JSX。当前项目里 `Select` 的推荐结构是：
+
+```tsx
+<Select>
+  <SelectTrigger>
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectGroup>
+      <SelectItem value="...">...</SelectItem>
+    </SelectGroup>
+  </SelectContent>
+</Select>
+```
+
 ### MDXEditor 弹层层级注意事项
 
 MDXEditor 的下拉菜单会 portal 到 `body > .mdxeditor-popup-container`，该外壳自身会形成 stacking context。若弹层被 sticky 工具栏遮挡，优先抬高 portal 外壳的 `z-index`，不要只调 Radix 内层 wrapper；视觉上避免把菜单和按钮硬拼接，优先使用独立浮层、完整圆角和少量间距。

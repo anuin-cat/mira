@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -352,11 +353,13 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper" side="top">
-                {composerModelOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label || '选择模型'}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {composerModelOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label || '选择模型'}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <button
