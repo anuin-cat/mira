@@ -1,4 +1,4 @@
-export { runChatCompletionAgent } from './agentRunner'
+export { convertAgentTranscriptToCompletionMessages, runChatCompletionAgent } from './agentRunner'
 export { AgentToolRegistry } from './toolRegistry'
 export { createVaultAgentTools } from './tools/vaultTools'
 export type {

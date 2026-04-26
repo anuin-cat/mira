@@ -1,5 +1,5 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions'
-import type { AiTokenUsage } from '../../domain/ai'
+import type { AiAgentTranscriptMessage, AiTokenUsage } from '../../domain/ai'
 
 export type AgentToolInput = Record<string, unknown>
 
@@ -52,6 +52,7 @@ export interface AgentRunResult {
   reasoningDurationMs: number | null
   isReasoningComplete: boolean
   tokenUsage: AiTokenUsage | null
+  agentTranscript: AiAgentTranscriptMessage[]
   toolTraces: AgentToolExecutionTrace[]
 }
 

@@ -450,7 +450,8 @@ function isValidAiChatMessage(message: unknown): message is AiChatMessage {
       candidate.reasoningDurationMs === null ||
       typeof candidate.reasoningDurationMs === 'number') &&
     (candidate.isReasoningComplete === undefined || typeof candidate.isReasoningComplete === 'boolean') &&
-    (candidate.tokenUsage === undefined || isValidAiTokenUsage(candidate.tokenUsage))
+    (candidate.tokenUsage === undefined || isValidAiTokenUsage(candidate.tokenUsage)) &&
+    (candidate.agentTranscript === undefined || isValidAiAgentTranscript(candidate.agentTranscript))
   )
 }
 
@@ -460,6 +461,36 @@ function isValidAiTokenUsage(tokenUsage: unknown): boolean {
   return Object.values(tokenUsage).every(
     (value) => value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0)
   )
+}
+
+/** 校验持久化的 agent transcript 是否可重放 */
+function isValidAiAgentTranscript(transcript: unknown): boolean {
+  if (!Array.isArray(transcript)) return false
+  return transcript.every((message) => {
+    if (!message || typeof message !== 'object') return false
+    const candidate = message as Record<string, unknown>
+
+    if (candidate.role === 'tool') {
+      return typeof candidate.toolCallId === 'string' && typeof candidate.content === 'string'
+    }
+
+    if (candidate.role !== 'assistant' || typeof candidate.content !== 'string') return false
+    const toolCalls = candidate.toolCalls
+    return (
+      (candidate.reasoningContent === undefined || typeof candidate.reasoningContent === 'string') &&
+      (toolCalls === undefined ||
+        (Array.isArray(toolCalls) &&
+          toolCalls.every((toolCall) => {
+            if (!toolCall || typeof toolCall !== 'object') return false
+            const item = toolCall as Record<string, unknown>
+            return (
+              typeof item.id === 'string' &&
+              typeof item.name === 'string' &&
+              typeof item.argumentsText === 'string'
+            )
+          })))
+    )
+  })
 }
 
 /** 校验一条历史会话是否可用 */

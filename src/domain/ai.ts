@@ -68,6 +68,27 @@ export interface AiTokenUsage {
   reasoningTokens?: number
 }
 
+/** agent 工具调用记录中的 function call */
+export interface AiAgentTranscriptToolCall {
+  id: string
+  name: string
+  argumentsText: string
+}
+
+/** agent 完整 API transcript，用于后续请求复用工具结果与接口前缀缓存 */
+export type AiAgentTranscriptMessage =
+  | {
+      role: 'assistant'
+      content: string
+      reasoningContent?: string
+      toolCalls?: AiAgentTranscriptToolCall[]
+    }
+  | {
+      role: 'tool'
+      toolCallId: string
+      content: string
+    }
+
 /** 聊天消息 */
 export interface AiChatMessage {
   id: string
@@ -78,6 +99,7 @@ export interface AiChatMessage {
   reasoningDurationMs?: number | null
   isReasoningComplete?: boolean
   tokenUsage?: AiTokenUsage
+  agentTranscript?: AiAgentTranscriptMessage[]
 }
 
 /** 单个聊天会话 */

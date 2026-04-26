@@ -1,9 +1,13 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 import type { AiChatMessage, AiChatRequest, AiChatResult, AiNoteContext, AiTokenUsage } from '../domain/ai'
-import { AgentToolRegistry, createVaultAgentTools, runChatCompletionAgent } from './agent'
+import {
+  AgentToolRegistry,
+  convertAgentTranscriptToCompletionMessages,
+  createVaultAgentTools,
+  runChatCompletionAgent,
+} from './agent'
 
 const NOTE_CONTEXT_CHAR_LIMIT = 12000
-const MAX_HISTORY_MESSAGES = 16
 
 export interface AiChatStreamUpdate {
   content: string
@@ -69,10 +73,26 @@ function buildCompletionMessages(request: AiChatRequest): ChatCompletionMessageP
   const noteContextPrompt = buildNoteContextPrompt(request.noteContext)
   if (noteContextPrompt) messages.push({ role: 'system', content: noteContextPrompt })
 
-  const historyMessages = request.session.messages.slice(-MAX_HISTORY_MESSAGES).map((message) => ({
-    role: message.role,
-    content: message.content,
-  }))
+  const historyMessages = request.session.messages.flatMap((message): ChatCompletionMessageParam[] => {
+    if (message.role === 'user') {
+      return [
+        {
+          role: 'user',
+          content: message.content,
+        },
+      ]
+    }
+
+    const transcriptMessages = convertAgentTranscriptToCompletionMessages(message.agentTranscript)
+    if (transcriptMessages.length > 0) return transcriptMessages
+
+    return [
+      {
+        role: 'assistant',
+        content: message.content,
+      },
+    ]
+  })
 
   messages.push(...historyMessages, { role: 'user', content: request.userMessage })
   return messages
@@ -87,6 +107,7 @@ function createAssistantMessage(
     reasoningDurationMs?: number | null
     isReasoningComplete?: boolean
     tokenUsage?: AiTokenUsage | null
+    agentTranscript?: AiChatMessage['agentTranscript']
   } = {}
 ): AiChatMessage {
   const message: AiChatMessage = {
@@ -108,6 +129,9 @@ function createAssistantMessage(
   if (options.tokenUsage) {
     message.tokenUsage = options.tokenUsage
   }
+  if (options.agentTranscript?.length) {
+    message.agentTranscript = options.agentTranscript
+  }
 
   return message
 }
@@ -124,7 +148,7 @@ export async function requestAiChatReply(
   if (!baseURL.trim()) throw new Error('请先在设置中填写 Base URL')
   if (!model.trim()) throw new Error('请先在设置中填写模型名称')
 
-  // 2. 生成消息数组，历史消息只取 role/content，避免把展示元数据发给接口
+  // 2. 生成消息数组；展示元数据不发送，但持久化的 agent transcript 会原样重放
   const messages = buildCompletionMessages(request)
 
   // 3. 走 agent 循环，把工具调用结果追加在原始消息之后
@@ -147,7 +171,7 @@ export async function requestAiChatReply(
     signal: options.signal,
   })
 
-  // 4. 收尾补全状态；接口缓存统计只写入本地聊天记录，不再发回模型
+  // 4. 收尾补全状态；接口缓存统计只写入本地聊天记录，agent transcript 用于后续前缀缓存
   const normalizedContent = agentResult.content.trim()
   throwIfAborted(options.signal)
 
@@ -158,6 +182,7 @@ export async function requestAiChatReply(
       reasoningDurationMs: agentResult.reasoningDurationMs,
       isReasoningComplete: agentResult.reasoningContent ? agentResult.isReasoningComplete : undefined,
       tokenUsage: agentResult.tokenUsage,
+      agentTranscript: agentResult.agentTranscript,
     }),
   }
 }

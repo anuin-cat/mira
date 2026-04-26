@@ -4,7 +4,7 @@ import type {
   ChatCompletionMessageParam,
   ChatCompletionMessageToolCall,
 } from 'openai/resources/chat/completions'
-import type { AiTokenUsage } from '../../domain/ai'
+import type { AiAgentTranscriptMessage, AiAgentTranscriptToolCall, AiTokenUsage } from '../../domain/ai'
 import type {
   AgentRunResult,
   AgentRunStreamUpdate,
@@ -43,6 +43,10 @@ interface ModelTurnResult {
 }
 
 type ReasoningAssistantMessageParam = ChatCompletionAssistantMessageParam & {
+  reasoning_content?: string
+}
+
+type ReasoningChatCompletionMessageParam = ChatCompletionMessageParam & {
   reasoning_content?: string
 }
 
@@ -242,6 +246,72 @@ function createAssistantToolCallMessage(
   return message
 }
 
+/** 把 agent 内部工具调用转换为可持久化 transcript */
+function serializeToolCalls(toolCalls: AgentToolCall[]): AiAgentTranscriptToolCall[] {
+  return toolCalls.map((toolCall) => ({
+    id: toolCall.id,
+    name: toolCall.name,
+    argumentsText: toolCall.argumentsText,
+  }))
+}
+
+/** 创建可持久化、可重放的 assistant transcript 消息 */
+function createAssistantTranscriptMessage(
+  content: string,
+  reasoningContent: string,
+  toolCalls: AgentToolCall[]
+): AiAgentTranscriptMessage {
+  const message: AiAgentTranscriptMessage = {
+    role: 'assistant',
+    content,
+  }
+
+  if (reasoningContent) message.reasoningContent = reasoningContent
+  if (toolCalls.length > 0) message.toolCalls = serializeToolCalls(toolCalls)
+
+  return message
+}
+
+/** 把持久化 transcript 转回 Chat Completions messages */
+export function convertAgentTranscriptToCompletionMessages(
+  transcript: AiAgentTranscriptMessage[] | undefined
+): ChatCompletionMessageParam[] {
+  if (!transcript?.length) return []
+
+  return transcript.flatMap((message): ChatCompletionMessageParam[] => {
+    if (message.role === 'tool') {
+      return [
+        {
+          role: 'tool',
+          tool_call_id: message.toolCallId,
+          content: message.content,
+        },
+      ]
+    }
+
+    const assistantMessage: ReasoningChatCompletionMessageParam = {
+      role: 'assistant',
+      content: message.content,
+    }
+
+    if (message.reasoningContent) assistantMessage.reasoning_content = message.reasoningContent
+    if (message.toolCalls?.length) {
+      assistantMessage.tool_calls = message.toolCalls.map(
+        (toolCall): ChatCompletionMessageToolCall => ({
+          id: toolCall.id,
+          type: 'function',
+          function: {
+            name: toolCall.name,
+            arguments: toolCall.argumentsText,
+          },
+        })
+      )
+    }
+
+    return [assistantMessage]
+  })
+}
+
 /** 流式执行一轮模型调用，并收集正文、思考与工具调用 */
 async function runModelTurn(
   options: RunChatCompletionAgentOptions,
@@ -346,6 +416,7 @@ export async function runChatCompletionAgent(
   options: RunChatCompletionAgentOptions
 ): Promise<AgentRunResult> {
   const workingMessages: ChatCompletionMessageParam[] = [...options.messages]
+  const agentTranscript: AiAgentTranscriptMessage[] = []
   const toolTraces: AgentToolExecutionTrace[] = []
   let allReasoningContent = ''
   let reasoningDurationMs: number | null = null
@@ -364,6 +435,9 @@ export async function runChatCompletionAgent(
     if (turn.toolCalls.length === 0) {
       const content = turn.content.trim()
       if (!content) throw new Error('模型没有返回可用内容')
+      if (agentTranscript.length > 0) {
+        agentTranscript.push(createAssistantTranscriptMessage(content, turn.reasoningContent, []))
+      }
 
       return {
         content,
@@ -371,11 +445,13 @@ export async function runChatCompletionAgent(
         reasoningDurationMs,
         isReasoningComplete,
         tokenUsage,
+        agentTranscript,
         toolTraces,
       }
     }
 
     workingMessages.push(createAssistantToolCallMessage(turn.content, turn.reasoningContent, turn.toolCalls))
+    agentTranscript.push(createAssistantTranscriptMessage(turn.content, turn.reasoningContent, turn.toolCalls))
 
     for (const toolCall of turn.toolCalls) {
       throwIfAborted(options.signal)
@@ -385,6 +461,11 @@ export async function runChatCompletionAgent(
       })
 
       toolTraces.push(execution.trace)
+      agentTranscript.push({
+        role: 'tool',
+        toolCallId: toolCall.id,
+        content: execution.content,
+      })
       workingMessages.push({
         role: 'tool',
         tool_call_id: toolCall.id,
