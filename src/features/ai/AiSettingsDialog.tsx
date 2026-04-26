@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Eye, EyeOff, Plus, Trash2, X } from 'lucide-react'
+import { Eye, EyeOff, Layers, Plus, Settings2, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +22,8 @@ import {
 } from '../../services/aiSettingsService'
 import { AddModelDialog } from './settings/AddModelDialog'
 import { AddProviderDialog } from './settings/AddProviderDialog'
+
+type NavSection = 'providers' | 'chat-params'
 
 interface Props {
   initialSettings: AiSettingsState
@@ -45,9 +47,10 @@ function getModelBadgeLabel(
   return settings.activeProviderId === provider.id ? '当前使用' : '默认模型'
 }
 
-/** AI 设置弹层：支持多 provider、多模型与当前模型切换 */
+/** AI 设置弹层：三栏布局，左侧导航 / 中间供应商列表 / 右侧详情 */
 export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
   const [draftSettings, setDraftSettings] = useState<AiSettingsState>(initialSettings)
+  const [activeNav, setActiveNav] = useState<NavSection>('providers')
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(
     initialSettings.activeProviderId ?? initialSettings.providers[0]?.id ?? null
   )
@@ -145,107 +148,14 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
         onClick={onClose}
       >
         <div
-          className="relative flex max-h-[88vh] w-full max-w-[960px] overflow-hidden rounded-2xl border border-border/60 bg-background shadow-xl animate-in fade-in-0 zoom-in-97 duration-200"
+          className="relative flex max-h-[88vh] w-full max-w-[920px] overflow-hidden rounded-2xl border border-border/60 bg-background shadow-xl animate-in fade-in-0 zoom-in-97 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex min-h-0 w-full">
-            {/* 左侧供应商列表 */}
-            <aside className="flex w-[240px] shrink-0 flex-col border-r border-border/50 bg-muted/10">
-              <div className="flex items-center justify-between px-4 py-4">
-                <span className="text-sm font-semibold text-foreground">供应商</span>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  onClick={() => setIsAddProviderOpen(true)}
-                >
-                  <Plus className="size-3.5" />
-                  添加
-                </button>
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-                {draftSettings.providers.map((provider) => {
-                  const isSelected = provider.id === selectedProvider?.id
-                  const isActive = provider.id === draftSettings.activeProviderId
-                  const isCustom = !isBuiltInAiProvider(provider)
-
-                  return (
-                    <button
-                      key={provider.id}
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors',
-                        isSelected ? 'bg-primary/8 text-foreground' : 'text-foreground/80 hover:bg-muted'
-                      )}
-                      onClick={() => {
-                        setSelectedProviderId(provider.id)
-                        setIsApiKeyVisible(false)
-                      }}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{provider.label}</span>
-                      <span
-                        className={cn(
-                          'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium',
-                          isCustom
-                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                            : 'bg-primary/10 text-primary'
-                        )}
-                      >
-                        {isCustom ? '自定义' : '内置'}
-                      </span>
-                      {isCustom ? (
-                        <button
-                          type="button"
-                          className="shrink-0 rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteProvider(provider.id)
-                          }}
-                          aria-label="删除供应商"
-                        >
-                          <Trash2 className="size-3" />
-                        </button>
-                      ) : null}
-                      {/* toggle：点击切换是否为当前使用 */}
-                      <button
-                        type="button"
-                        className={cn(
-                          'relative shrink-0 h-4 w-7 rounded-full transition-colors',
-                          isActive ? 'bg-primary' : 'bg-muted-foreground/25'
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleActivateProvider(provider.id)
-                        }}
-                        aria-label={isActive ? '当前使用' : '设为使用'}
-                      >
-                        <span
-                          className={cn(
-                            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform',
-                            isActive ? 'left-[14px]' : 'left-0.5'
-                          )}
-                        />
-                      </button>
-                    </button>
-                  )
-                })}
-              </div>
-            </aside>
-
-            {/* 右侧详情 */}
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {/* 顶部标题栏 */}
-              <div className="flex items-center justify-between border-b border-border/50 px-6 py-4">
-                <div>
-                  <div className="text-base font-semibold text-foreground">
-                    {selectedProvider?.label ?? 'AI 设置'}
-                  </div>
-                  {selectedProvider ? (
-                    <div className="text-xs text-muted-foreground">
-                      Base URL: {selectedProvider.baseURL}
-                    </div>
-                  ) : null}
-                </div>
+          <div className="flex min-h-0 w-full" style={{ minHeight: '560px' }}>
+            {/* 最左侧导航栏 */}
+            <nav className="flex w-[200px] shrink-0 flex-col border-r border-border/50 bg-muted/20 px-3 py-4">
+              <div className="mb-4 flex items-center justify-between px-2">
+                <span className="text-sm font-semibold text-foreground">设置</span>
                 <button
                   type="button"
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -255,10 +165,152 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                   <X className="size-4" />
                 </button>
               </div>
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                    activeNav === 'providers'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-foreground/80 hover:bg-muted hover:text-foreground'
+                  )}
+                  onClick={() => setActiveNav('providers')}
+                >
+                  <Layers className="size-4 shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium">模型服务</div>
+                    <div className="text-xs text-muted-foreground">管理AI模型和API配置</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                    activeNav === 'chat-params'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-foreground/80 hover:bg-muted hover:text-foreground'
+                  )}
+                  onClick={() => setActiveNav('chat-params')}
+                >
+                  <Settings2 className="size-4 shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium">对话参数</div>
+                    <div className="text-xs text-muted-foreground">温度与最大回复长度</div>
+                  </div>
+                </button>
+              </div>
+            </nav>
+
+            {/* 中间供应商列表（仅模型服务页显示） */}
+            {activeNav === 'providers' ? (
+              <aside className="flex w-[260px] shrink-0 flex-col border-r border-border/50">
+                <div className="px-4 pb-2 pt-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-foreground">供应商</span>
+                    <button
+                      type="button"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      onClick={() => setIsAddProviderOpen(true)}
+                      aria-label="添加供应商"
+                    >
+                      <Plus className="size-4 shrink-0" aria-hidden />
+                      添加
+                    </button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+                  {draftSettings.providers.map((provider) => {
+                    const isSelected = provider.id === selectedProvider?.id
+                    const isActive = provider.id === draftSettings.activeProviderId
+                    const isCustom = !isBuiltInAiProvider(provider)
+
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors',
+                          isSelected ? 'bg-primary/8 text-foreground' : 'text-foreground/80 hover:bg-muted'
+                        )}
+                        onClick={() => {
+                          setSelectedProviderId(provider.id)
+                          setIsApiKeyVisible(false)
+                        }}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{provider.label}</span>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium',
+                            isCustom
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                              : 'bg-primary/10 text-primary'
+                          )}
+                        >
+                          {isCustom ? '自定义' : '内置'}
+                        </span>
+                        {isCustom ? (
+                          <button
+                            type="button"
+                            className="shrink-0 rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteProvider(provider.id)
+                            }}
+                            aria-label="删除供应商"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        ) : null}
+                        {/* toggle：点击切换是否为当前使用 */}
+                        <button
+                          type="button"
+                          className={cn(
+                            'relative shrink-0 h-4 w-7 rounded-full transition-colors',
+                            isActive ? 'bg-primary' : 'bg-muted-foreground/25'
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleActivateProvider(provider.id)
+                          }}
+                          aria-label={isActive ? '当前使用' : '设为使用'}
+                        >
+                          <span
+                            className={cn(
+                              'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform',
+                              isActive ? 'left-[14px]' : 'left-0.5'
+                            )}
+                          />
+                        </button>
+                      </button>
+                    )
+                  })}
+                </div>
+              </aside>
+            ) : null}
+
+            {/* 右侧内容区 */}
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {/* 顶部标题栏 */}
+              <div className="flex items-center border-b border-border/50 px-6 py-4">
+                {activeNav === 'providers' ? (
+                  <div>
+                    <div className="text-base font-semibold text-foreground">
+                      {selectedProvider?.label ?? 'AI 设置'}
+                    </div>
+                    {selectedProvider ? (
+                      <div className="text-xs text-muted-foreground">
+                        Base URL: {selectedProvider.baseURL}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="text-base font-semibold text-foreground">对话参数</div>
+                )}
+              </div>
 
               {/* 内容区 */}
               <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                {selectedProvider ? (
+                {activeNav === 'providers' && selectedProvider ? (
                   <div className="space-y-6">
                     {/* API Key 区块 */}
                     <div>
@@ -292,7 +344,7 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                         <div className="text-sm font-semibold text-foreground">模型管理</div>
                         <button
                           type="button"
-                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          className="flex items-center gap-1 rounded-md border border-border/60 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                           onClick={() => setIsAddModelOpen(true)}
                         >
                           <Plus className="size-3.5" />
@@ -346,34 +398,30 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                         </div>
                       )}
                     </div>
-
-                    {/* 对话偏好区块 */}
-                    <div>
-                      <div className="mb-2.5 text-sm font-semibold text-foreground">对话偏好</div>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <Label className="w-12 shrink-0 text-sm text-muted-foreground">温度</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={1.5}
-                            step={0.1}
-                            className="h-9 w-24 text-sm"
-                            value={draftSettings.temperature}
-                            onChange={(e) => patchDraftSettings({ temperature: Number(e.target.value || 0) })}
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm text-muted-foreground">系统提示词</Label>
-                          <Textarea
-                            className="min-h-[90px] resize-y text-sm leading-relaxed"
-                            placeholder="定义 AI 的回答语气、边界和任务偏好"
-                            rows={3}
-                            value={draftSettings.systemPrompt}
-                            onChange={(e) => patchDraftSettings({ systemPrompt: e.target.value })}
-                          />
-                        </div>
-                      </div>
+                  </div>
+                ) : activeNav === 'chat-params' ? (
+                  <div className="max-w-md space-y-6">
+                    <div className="flex items-center gap-4">
+                      <Label className="w-16 shrink-0 text-sm text-muted-foreground">温度</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={1.5}
+                        step={0.1}
+                        className="h-9 w-28 text-sm"
+                        value={draftSettings.temperature}
+                        onChange={(e) => patchDraftSettings({ temperature: Number(e.target.value || 0) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">系统提示词</Label>
+                      <Textarea
+                        className="min-h-[120px] resize-y text-sm leading-relaxed"
+                        placeholder="定义 AI 的回答语气、边界和任务偏好"
+                        rows={4}
+                        value={draftSettings.systemPrompt}
+                        onChange={(e) => patchDraftSettings({ systemPrompt: e.target.value })}
+                      />
                     </div>
                   </div>
                 ) : null}
