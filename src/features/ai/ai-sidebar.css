@@ -105,22 +105,24 @@
   box-shadow: none;
 }
 
-.ai-message-label {
+.ai-message-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-top: 12px;
   font-size: 11px;
   color: var(--theme-text-tertiary);
 }
 
-.ai-message-label span {
-  padding: 3px 8px;
+.ai-message-meta span {
+  padding: 2px 7px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--theme-selection) 25%, transparent 75%);
+  background: color-mix(in srgb, var(--theme-bg-secondary) 70%, transparent 30%);
   color: var(--theme-text-secondary);
   font-size: 10.5px;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  line-height: 1.35;
 }
 
 .ai-message-content {

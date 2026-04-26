@@ -57,6 +57,17 @@ export interface AiModelCatalogItem {
 
 export type AiChatRole = 'user' | 'assistant'
 
+/** 单次 AI 响应的 token 与接口缓存用量 */
+export interface AiTokenUsage {
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  promptCacheHitTokens?: number
+  promptCacheMissTokens?: number
+  promptCachedTokens?: number
+  reasoningTokens?: number
+}
+
 /** 聊天消息 */
 export interface AiChatMessage {
   id: string
@@ -67,6 +78,7 @@ export interface AiChatMessage {
   reasoningContent?: string
   reasoningDurationMs?: number | null
   isReasoningComplete?: boolean
+  tokenUsage?: AiTokenUsage
 }
 
 /** 单个聊天会话 */

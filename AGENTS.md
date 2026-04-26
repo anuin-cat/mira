@@ -88,6 +88,7 @@
 - `src/features`：功能模块
 - `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务
+- `src/services/agent`：AI agent 内核；`tools` 放可控工具，`utils` 放工具共享辅助逻辑
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装
 

@@ -449,8 +449,15 @@ function isValidAiChatMessage(message: unknown): message is AiChatMessage {
     (candidate.reasoningDurationMs === undefined ||
       candidate.reasoningDurationMs === null ||
       typeof candidate.reasoningDurationMs === 'number') &&
-    (candidate.isReasoningComplete === undefined || typeof candidate.isReasoningComplete === 'boolean')
+    (candidate.isReasoningComplete === undefined || typeof candidate.isReasoningComplete === 'boolean') &&
+    (candidate.tokenUsage === undefined || isValidAiTokenUsage(candidate.tokenUsage))
   )
+}
+
+/** 校验 token usage 元数据是否可用 */
+function isValidAiTokenUsage(tokenUsage: unknown): boolean {
+  if (!tokenUsage || typeof tokenUsage !== 'object' || Array.isArray(tokenUsage)) return false
+  return Object.values(tokenUsage).every((value) => value === undefined || typeof value === 'number')
 }
 
 /** 校验一条历史会话是否可用 */

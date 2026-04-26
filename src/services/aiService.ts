@@ -1,5 +1,6 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import type { AiChatMessage, AiChatRequest, AiChatResult, AiNoteContext } from '../domain/ai'
+import type { AiChatMessage, AiChatRequest, AiChatResult, AiNoteContext, AiTokenUsage } from '../domain/ai'
+import { AgentToolRegistry, createVaultAgentTools, runChatCompletionAgent } from './agent'
 import { createAiCacheKey, readAiCacheEntry, writeAiCacheEntry } from './aiCacheService'
 
 const NOTE_CONTEXT_CHAR_LIMIT = 12000
@@ -78,55 +79,6 @@ function buildCompletionMessages(request: AiChatRequest): ChatCompletionMessageP
   return messages
 }
 
-/** 把未知对象收窄为可按键读取的 Record */
-function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-}
-
-/** 递归提取字符串片段，兼容 string / 数组 / { text } 这几类常见返回 */
-function collectTextParts(value: unknown): string[] {
-  if (typeof value === 'string') return [value]
-  if (Array.isArray(value)) return value.flatMap((item) => collectTextParts(item))
-
-  const candidate = toRecord(value)
-  if (!candidate) return []
-  if (typeof candidate.text === 'string') return [candidate.text]
-  if ('content' in candidate) return collectTextParts(candidate.content)
-
-  return []
-}
-
-/** 提取流式 delta 里的文本内容 */
-function extractDeltaText(content: unknown): string {
-  return collectTextParts(content).join('')
-}
-
-/** 提取兼容接口 chunk 中的正文增量 */
-function extractContentDelta(delta: unknown): string {
-  const candidate = toRecord(delta)
-  if (!candidate) return ''
-  return extractDeltaText(candidate.content)
-}
-
-/** 提取兼容接口 chunk 中的思考增量，兼容 DeepSeek 的非标准字段 */
-function extractReasoningDelta(delta: unknown): string {
-  const candidate = toRecord(delta)
-  if (!candidate) return ''
-
-  const reasoningFields = [
-    candidate.reasoning_content,
-    candidate.reasoningContent,
-    candidate.reasoning,
-  ]
-
-  for (const field of reasoningFields) {
-    const reasoningText = extractDeltaText(field)
-    if (reasoningText) return reasoningText
-  }
-
-  return ''
-}
-
 /** 根据当前请求构建缓存 key，命中后直接返回历史结果 */
 async function buildAiCacheKey(request: AiChatRequest, messages: ChatCompletionMessageParam[]): Promise<string> {
   return await createAiCacheKey({
@@ -150,6 +102,7 @@ function createAssistantMessage(
     reasoningContent?: string
     reasoningDurationMs?: number | null
     isReasoningComplete?: boolean
+    tokenUsage?: AiTokenUsage | null
   } = {}
 ): AiChatMessage {
   const message: AiChatMessage = {
@@ -169,33 +122,11 @@ function createAssistantMessage(
   if (typeof options.isReasoningComplete === 'boolean') {
     message.isReasoningComplete = options.isReasoningComplete
   }
+  if (options.tokenUsage) {
+    message.tokenUsage = options.tokenUsage
+  }
 
   return message
-}
-
-/** 计算思考耗时；思考尚未结束时返回 null */
-function getReasoningDurationMs(
-  reasoningStartedAt: number | null,
-  reasoningCompletedAt: number | null
-): number | null {
-  if (reasoningStartedAt === null || reasoningCompletedAt === null) return null
-  return Math.max(0, reasoningCompletedAt - reasoningStartedAt)
-}
-
-/** 向上层派发一次流式快照，统一保证字段形状稳定 */
-function emitStreamUpdate(
-  onUpdate: RequestAiChatReplyOptions['onUpdate'],
-  content: string,
-  reasoningContent: string,
-  isReasoningComplete: boolean,
-  reasoningDurationMs: number | null
-) {
-  onUpdate?.({
-    content,
-    reasoningContent,
-    isReasoningComplete,
-    reasoningDurationMs,
-  })
 }
 
 /** 向 OpenAI 兼容接口发送一次对话请求，支持流式正文与思考轨 */
@@ -225,85 +156,28 @@ export async function requestAiChatReply(
     }
   }
 
-  // 3. 缓存未命中时走流式请求，把思考和正文分轨回推给 UI
+  // 3. 缓存未命中时走 agent 循环，把工具调用结果追加在原始消息之后
   const { default: OpenAI } = await import('openai')
   const client = new OpenAI({
     apiKey,
     baseURL,
     dangerouslyAllowBrowser: true,
   })
-  const stream = await client.chat.completions.create(
-    {
-      model,
-      temperature,
-      messages,
-      stream: true,
-    },
-    {
-      signal: options.signal,
-    }
-  )
 
-  let content = ''
-  let reasoningContent = ''
-  let reasoningStartedAt: number | null = null
-  let reasoningCompletedAt: number | null = null
-  let isReasoningComplete = false
-
-  for await (const chunk of stream) {
-    throwIfAborted(options.signal)
-    const choice = chunk.choices[0]
-    if (!choice) continue
-
-    const reasoningDelta = extractReasoningDelta(choice.delta)
-    const contentDelta = extractContentDelta(choice.delta)
-
-    if (reasoningDelta) {
-      if (reasoningStartedAt === null) reasoningStartedAt = Date.now()
-      reasoningContent += reasoningDelta
-    }
-
-    if (contentDelta) {
-      content += contentDelta
-      if (reasoningContent && !isReasoningComplete) {
-        isReasoningComplete = true
-        reasoningCompletedAt = Date.now()
-      }
-    }
-
-    if (choice.finish_reason && reasoningContent && !isReasoningComplete) {
-      isReasoningComplete = true
-      reasoningCompletedAt = Date.now()
-    }
-
-    if (reasoningDelta || contentDelta || choice.finish_reason) {
-      emitStreamUpdate(
-        options.onUpdate,
-        content,
-        reasoningContent,
-        isReasoningComplete,
-        getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt)
-      )
-    }
-  }
+  const toolRegistry = new AgentToolRegistry(createVaultAgentTools())
+  const agentResult = await runChatCompletionAgent({
+    client,
+    model,
+    temperature,
+    messages,
+    vaultPath: request.vaultPath,
+    toolRegistry,
+    onUpdate: options.onUpdate,
+    signal: options.signal,
+  })
 
   // 4. 收尾补全状态，并落本地缓存
-  if (reasoningContent && !isReasoningComplete) {
-    isReasoningComplete = true
-    reasoningCompletedAt = Date.now()
-    throwIfAborted(options.signal)
-    emitStreamUpdate(
-      options.onUpdate,
-      content,
-      reasoningContent,
-      true,
-      getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt)
-    )
-  }
-
-  const normalizedContent = content.trim()
-  if (!normalizedContent) throw new Error('模型没有返回可用内容')
-
+  const normalizedContent = agentResult.content.trim()
   throwIfAborted(options.signal)
   await writeAiCacheEntry(request.vaultPath, cacheKey, {
     assistantMessage: normalizedContent,
@@ -313,9 +187,10 @@ export async function requestAiChatReply(
   return {
     message: createAssistantMessage(normalizedContent, {
       id: options.assistantMessageId,
-      reasoningContent: reasoningContent || undefined,
-      reasoningDurationMs: getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt),
-      isReasoningComplete: reasoningContent ? true : undefined,
+      reasoningContent: agentResult.reasoningContent || undefined,
+      reasoningDurationMs: agentResult.reasoningDurationMs,
+      isReasoningComplete: agentResult.reasoningContent ? agentResult.isReasoningComplete : undefined,
+      tokenUsage: agentResult.tokenUsage,
     }),
     isFromCache: false,
   }
