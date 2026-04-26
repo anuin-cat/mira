@@ -5,6 +5,35 @@ import { createAiCacheKey, readAiCacheEntry, writeAiCacheEntry } from './aiCache
 const NOTE_CONTEXT_CHAR_LIMIT = 12000
 const MAX_HISTORY_MESSAGES = 16
 
+export interface AiChatStreamUpdate {
+  content: string
+  reasoningContent: string
+  isReasoningComplete: boolean
+  reasoningDurationMs: number | null
+}
+
+interface RequestAiChatReplyOptions {
+  assistantMessageId?: string
+  onUpdate?: (update: AiChatStreamUpdate) => void
+  signal?: AbortSignal
+}
+
+/** 创建统一的取消异常，方便上层识别“主动中断”而不是“请求失败” */
+function createAbortError(): Error {
+  try {
+    return new DOMException('请求已取消', 'AbortError')
+  } catch {
+    const error = new Error('请求已取消')
+    error.name = 'AbortError'
+    return error
+  }
+}
+
+/** 在关键节点检查请求是否已被取消，避免继续写缓存或回推 UI */
+function throwIfAborted(signal: AbortSignal | undefined) {
+  if (signal?.aborted) throw createAbortError()
+}
+
 /** 生成消息 id，兼容不支持 randomUUID 的环境 */
 function createAiMessageId(): string {
   return typeof crypto.randomUUID === 'function'
@@ -49,21 +78,50 @@ function buildCompletionMessages(request: AiChatRequest): ChatCompletionMessageP
   return messages
 }
 
-/** 提取兼容接口返回的文本内容 */
-function extractCompletionText(content: unknown): string {
-  if (typeof content === 'string') return content.trim()
+/** 把未知对象收窄为可按键读取的 Record */
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
 
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => {
-        if (typeof part === 'string') return part
-        if (part && typeof part === 'object' && 'text' in part && typeof part.text === 'string') {
-          return part.text
-        }
-        return ''
-      })
-      .join('\n')
-      .trim()
+/** 递归提取字符串片段，兼容 string / 数组 / { text } 这几类常见返回 */
+function collectTextParts(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap((item) => collectTextParts(item))
+
+  const candidate = toRecord(value)
+  if (!candidate) return []
+  if (typeof candidate.text === 'string') return [candidate.text]
+  if ('content' in candidate) return collectTextParts(candidate.content)
+
+  return []
+}
+
+/** 提取流式 delta 里的文本内容 */
+function extractDeltaText(content: unknown): string {
+  return collectTextParts(content).join('')
+}
+
+/** 提取兼容接口 chunk 中的正文增量 */
+function extractContentDelta(delta: unknown): string {
+  const candidate = toRecord(delta)
+  if (!candidate) return ''
+  return extractDeltaText(candidate.content)
+}
+
+/** 提取兼容接口 chunk 中的思考增量，兼容 DeepSeek 的非标准字段 */
+function extractReasoningDelta(delta: unknown): string {
+  const candidate = toRecord(delta)
+  if (!candidate) return ''
+
+  const reasoningFields = [
+    candidate.reasoning_content,
+    candidate.reasoningContent,
+    candidate.reasoning,
+  ]
+
+  for (const field of reasoningFields) {
+    const reasoningText = extractDeltaText(field)
+    if (reasoningText) return reasoningText
   }
 
   return ''
@@ -84,19 +142,69 @@ async function buildAiCacheKey(request: AiChatRequest, messages: ChatCompletionM
 }
 
 /** 创建统一的 assistant 消息对象 */
-function createAssistantMessage(content: string, isFromCache = false): AiChatMessage {
-  return {
-    id: createAiMessageId(),
+function createAssistantMessage(
+  content: string,
+  options: {
+    id?: string
+    isFromCache?: boolean
+    reasoningContent?: string
+    reasoningDurationMs?: number | null
+    isReasoningComplete?: boolean
+  } = {}
+): AiChatMessage {
+  const message: AiChatMessage = {
+    id: options.id ?? createAiMessageId(),
     role: 'assistant',
     content,
     createdAt: new Date().toISOString(),
-    isFromCache,
   }
+
+  if (options.isFromCache) message.isFromCache = true
+  if (typeof options.reasoningContent === 'string' && options.reasoningContent.length > 0) {
+    message.reasoningContent = options.reasoningContent
+  }
+  if (options.reasoningDurationMs !== undefined) {
+    message.reasoningDurationMs = options.reasoningDurationMs
+  }
+  if (typeof options.isReasoningComplete === 'boolean') {
+    message.isReasoningComplete = options.isReasoningComplete
+  }
+
+  return message
 }
 
-/** 向 OpenAI 兼容接口发送一次对话请求，并落本地缓存 */
-export async function requestAiChatReply(request: AiChatRequest): Promise<AiChatResult> {
+/** 计算思考耗时；思考尚未结束时返回 null */
+function getReasoningDurationMs(
+  reasoningStartedAt: number | null,
+  reasoningCompletedAt: number | null
+): number | null {
+  if (reasoningStartedAt === null || reasoningCompletedAt === null) return null
+  return Math.max(0, reasoningCompletedAt - reasoningStartedAt)
+}
+
+/** 向上层派发一次流式快照，统一保证字段形状稳定 */
+function emitStreamUpdate(
+  onUpdate: RequestAiChatReplyOptions['onUpdate'],
+  content: string,
+  reasoningContent: string,
+  isReasoningComplete: boolean,
+  reasoningDurationMs: number | null
+) {
+  onUpdate?.({
+    content,
+    reasoningContent,
+    isReasoningComplete,
+    reasoningDurationMs,
+  })
+}
+
+/** 向 OpenAI 兼容接口发送一次对话请求，支持流式正文与思考轨 */
+export async function requestAiChatReply(
+  request: AiChatRequest,
+  options: RequestAiChatReplyOptions = {}
+): Promise<AiChatResult> {
   // 1. 先校验必填设置，避免发出无意义请求
+  throwIfAborted(options.signal)
   const { apiKey, baseURL, model, temperature } = request.settings
   if (!apiKey.trim()) throw new Error('请先在设置中填写 API Key')
   if (!baseURL.trim()) throw new Error('请先在设置中填写 Base URL')
@@ -107,35 +215,108 @@ export async function requestAiChatReply(request: AiChatRequest): Promise<AiChat
   const cacheKey = await buildAiCacheKey(request, messages)
   const cachedEntry = await readAiCacheEntry(request.vaultPath, cacheKey)
   if (cachedEntry) {
+    throwIfAborted(options.signal)
     return {
-      message: createAssistantMessage(cachedEntry.assistantMessage, true),
+      message: createAssistantMessage(cachedEntry.assistantMessage, {
+        id: options.assistantMessageId,
+        isFromCache: true,
+      }),
       isFromCache: true,
     }
   }
 
-  // 3. 缓存未命中时调用 OpenAI 兼容接口，再把结果写回 .mira/cache/llm
+  // 3. 缓存未命中时走流式请求，把思考和正文分轨回推给 UI
   const { default: OpenAI } = await import('openai')
   const client = new OpenAI({
     apiKey,
     baseURL,
     dangerouslyAllowBrowser: true,
   })
-  const completion = await client.chat.completions.create({
-    model,
-    temperature,
-    messages,
-  })
+  const stream = await client.chat.completions.create(
+    {
+      model,
+      temperature,
+      messages,
+      stream: true,
+    },
+    {
+      signal: options.signal,
+    }
+  )
 
-  const content = extractCompletionText(completion.choices[0]?.message?.content)
-  if (!content) throw new Error('模型没有返回可用内容')
+  let content = ''
+  let reasoningContent = ''
+  let reasoningStartedAt: number | null = null
+  let reasoningCompletedAt: number | null = null
+  let isReasoningComplete = false
 
+  for await (const chunk of stream) {
+    throwIfAborted(options.signal)
+    const choice = chunk.choices[0]
+    if (!choice) continue
+
+    const reasoningDelta = extractReasoningDelta(choice.delta)
+    const contentDelta = extractContentDelta(choice.delta)
+
+    if (reasoningDelta) {
+      if (reasoningStartedAt === null) reasoningStartedAt = Date.now()
+      reasoningContent += reasoningDelta
+    }
+
+    if (contentDelta) {
+      content += contentDelta
+      if (reasoningContent && !isReasoningComplete) {
+        isReasoningComplete = true
+        reasoningCompletedAt = Date.now()
+      }
+    }
+
+    if (choice.finish_reason && reasoningContent && !isReasoningComplete) {
+      isReasoningComplete = true
+      reasoningCompletedAt = Date.now()
+    }
+
+    if (reasoningDelta || contentDelta || choice.finish_reason) {
+      emitStreamUpdate(
+        options.onUpdate,
+        content,
+        reasoningContent,
+        isReasoningComplete,
+        getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt)
+      )
+    }
+  }
+
+  // 4. 收尾补全状态，并落本地缓存
+  if (reasoningContent && !isReasoningComplete) {
+    isReasoningComplete = true
+    reasoningCompletedAt = Date.now()
+    throwIfAborted(options.signal)
+    emitStreamUpdate(
+      options.onUpdate,
+      content,
+      reasoningContent,
+      true,
+      getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt)
+    )
+  }
+
+  const normalizedContent = content.trim()
+  if (!normalizedContent) throw new Error('模型没有返回可用内容')
+
+  throwIfAborted(options.signal)
   await writeAiCacheEntry(request.vaultPath, cacheKey, {
-    assistantMessage: content,
+    assistantMessage: normalizedContent,
     createdAt: new Date().toISOString(),
   })
 
   return {
-    message: createAssistantMessage(content),
+    message: createAssistantMessage(normalizedContent, {
+      id: options.assistantMessageId,
+      reasoningContent: reasoningContent || undefined,
+      reasoningDurationMs: getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt),
+      isReasoningComplete: reasoningContent ? true : undefined,
+    }),
     isFromCache: false,
   }
 }

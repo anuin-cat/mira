@@ -444,7 +444,12 @@ function isValidAiChatMessage(message: unknown): message is AiChatMessage {
     typeof candidate.id === 'string' &&
     (candidate.role === 'user' || candidate.role === 'assistant') &&
     typeof candidate.content === 'string' &&
-    typeof candidate.createdAt === 'string'
+    typeof candidate.createdAt === 'string' &&
+    (candidate.reasoningContent === undefined || typeof candidate.reasoningContent === 'string') &&
+    (candidate.reasoningDurationMs === undefined ||
+      candidate.reasoningDurationMs === null ||
+      typeof candidate.reasoningDurationMs === 'number') &&
+    (candidate.isReasoningComplete === undefined || typeof candidate.isReasoningComplete === 'boolean')
   )
 }
 

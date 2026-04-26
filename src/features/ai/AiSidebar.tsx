@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '../../components/ui/select'
 import type { AiChatMessage, AiChatSession, AiSettingsState } from '../../domain/ai'
-import { requestAiChatReply } from '../../services/aiService'
+import { requestAiChatReply, type AiChatStreamUpdate } from '../../services/aiService'
 import {
   createAiChatSession,
   createAiSessionTitle,
@@ -22,7 +22,7 @@ import {
   saveAiSettings,
   selectAiProviderModel,
 } from '../../services/aiSettingsService'
-import { AiMarkdown } from './AiMarkdown'
+import { AiAssistantMessage } from './AiAssistantMessage'
 import { AiHistoryPanel } from './AiHistoryPanel'
 import { AiSettingsDialog } from './AiSettingsDialog'
 import './ai-sidebar.css'
@@ -38,16 +38,31 @@ interface Props {
   noteContent: string
 }
 
+/** 统一生成聊天消息 id */
+function createChatMessageId(): string {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 /** 统一生成 user 消息对象 */
 function createUserMessage(content: string): AiChatMessage {
   return {
-    id:
-      typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    id: createChatMessageId(),
     role: 'user',
     content,
     createdAt: new Date().toISOString(),
+  }
+}
+
+/** 创建一条空 assistant 占位消息，用于承接流式增量 */
+function createAssistantPlaceholderMessage(): AiChatMessage {
+  return {
+    id: createChatMessageId(),
+    role: 'assistant',
+    content: '',
+    createdAt: new Date().toISOString(),
+    isReasoningComplete: false,
   }
 }
 
@@ -56,6 +71,11 @@ function getAiErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
   if (error instanceof Error && error.message) return error.message
   return '请求失败，请稍后重试'
+}
+
+/** 判断失败是否来自主动取消，避免把切换笔记误报成请求错误 */
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError'
 }
 
 /** 选择当前笔记最合适的会话：优先同笔记，其次最近一条 */
@@ -68,7 +88,7 @@ function pickSessionIdForNote(sessions: AiChatSession[], notePath: string | null
 /** 顶栏展示：有首条用户消息则用其摘要，否则占位 */
 function getSidebarHeaderLabel(session: AiChatSession | null): string {
   if (!session) return '新对话'
-  const firstUser = session.messages.find((m) => m.role === 'user')
+  const firstUser = session.messages.find((message) => message.role === 'user')
   if (firstUser?.content.trim()) return createAiSessionTitle(firstUser.content, null)
   return '新对话'
 }
@@ -117,7 +137,15 @@ function parseComposerModelValue(value: string): { providerId: string; modelId: 
   }
 }
 
-/** 侧边聊天栏：负责会话切换、设置编辑与消息发送 */
+/** 用一条新消息替换会话中的同 id 消息 */
+function replaceMessageInSession(session: AiChatSession, nextMessage: AiChatMessage): AiChatSession {
+  return {
+    ...session,
+    messages: session.messages.map((message) => (message.id === nextMessage.id ? nextMessage : message)),
+  }
+}
+
+/** 侧边聊天栏：负责会话切换、设置编辑、流式发送与思考展示 */
 export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props) {
   const [settings, setSettings] = useState<AiSettingsState>(() => loadAiSettings())
   const [sessions, setSessions] = useState<AiChatSession[]>([])
@@ -127,20 +155,35 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
   const [isSending, setIsSending] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const [collapsedReasoningMessageIds, setCollapsedReasoningMessageIds] = useState<Record<string, boolean>>({})
 
   const messageListRef = useRef<HTMLDivElement | null>(null)
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
   const previousNotePathRef = useRef<string | null>(notePath)
+  const activeRequestIdRef = useRef(0)
+  const activeAbortControllerRef = useRef<AbortController | null>(null)
 
   /** 同步会话到内存与 localStorage */
-  function commitSessions(nextSessions: AiChatSession[], nextCurrentSessionId = currentSessionId) {
+  function commitSessions(
+    nextSessions: AiChatSession[],
+    nextCurrentSessionId = currentSessionId,
+    shouldPersist = true
+  ) {
     // 1. 先按更新时间倒序，保证历史面板和默认选择都稳定
     const sortedSessions = [...nextSessions].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
     // 2. 再同步到 React state 和当前 vault 的本地历史
     setSessions(sortedSessions)
     setCurrentSessionId(nextCurrentSessionId)
-    saveAiChatSessions(vaultPath, sortedSessions)
+    if (shouldPersist) saveAiChatSessions(vaultPath, sortedSessions)
+  }
+
+  /** 让当前流式请求失效，并尝试中断底层网络流 */
+  function invalidateActiveRequest() {
+    activeRequestIdRef.current += 1
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = null
   }
 
   /** 创建并选中一个新会话 */
@@ -154,11 +197,16 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
   }
 
   useEffect(() => {
+    invalidateActiveRequest()
     const nextSessions = loadAiChatSessions(vaultPath)
     setSessions(nextSessions)
     setCurrentSessionId(pickSessionIdForNote(nextSessions, notePath))
     setIsHistoryOpen(false)
-  }, [vaultPath, notePath])
+    setErrorMessage(null)
+    setIsSending(false)
+    setStreamingMessageId(null)
+    setCollapsedReasoningMessageIds({})
+  }, [notePath, vaultPath])
 
   useEffect(() => {
     if (previousNotePathRef.current === notePath) return
@@ -167,11 +215,20 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
   }, [notePath, sessions])
 
   useEffect(() => {
-    messageListRef.current?.scrollTo({
-      top: messageListRef.current.scrollHeight,
-      behavior: 'smooth',
+    return () => {
+      invalidateActiveRequest()
+    }
+  }, [])
+
+  useEffect(() => {
+    const messageList = messageListRef.current
+    if (!messageList) return
+
+    messageList.scrollTo({
+      top: messageList.scrollHeight,
+      behavior: streamingMessageId ? 'auto' : 'smooth',
     })
-  }, [currentSessionId, sessions, isSending])
+  }, [currentSessionId, sessions, streamingMessageId])
 
   useEffect(() => {
     if (!composerInputRef.current) return
@@ -230,67 +287,121 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
     commitSessions(nextSessions, nextCurrentSessionId)
   }
 
+  /** 切换某条 assistant 消息的思考折叠状态 */
+  function handleToggleReasoning(messageId: string) {
+    setCollapsedReasoningMessageIds((current) => {
+      if (current[messageId]) {
+        const nextState = { ...current }
+        delete nextState[messageId]
+        return nextState
+      }
+      return {
+        ...current,
+        [messageId]: true,
+      }
+    })
+  }
+
   /** 发送一条用户消息，并用当前笔记作为额外上下文 */
   async function handleSendMessage() {
     // 1. 先做基础校验，避免空消息和重复提交
     const trimmedMessage = draftMessage.trim()
     if (!trimmedMessage || isSending) return
 
-    // 2. 准备会话快照与 optimistic UI
+    // 2. 准备会话快照、占位 assistant 消息与 optimistic UI
     const baseSession = currentSession ?? createAndSelectSession()
     const userMessage = createUserMessage(trimmedMessage)
+    const assistantPlaceholderMessage = createAssistantPlaceholderMessage()
+    const requestId = activeRequestIdRef.current + 1
+    const abortController = new AbortController()
     const nextTitle =
       baseSession.messages.length === 0 ? createAiSessionTitle(trimmedMessage, noteTitle) : baseSession.title
     const previousSessions = currentSession ? sessions : [baseSession, ...sessions]
+    const remainingSessions = previousSessions.filter((session) => session.id !== baseSession.id)
     const optimisticSession: AiChatSession = {
       ...baseSession,
       title: nextTitle,
       notePath,
       noteTitle,
       updatedAt: userMessage.createdAt,
-      messages: [...baseSession.messages, userMessage],
+      messages: [...baseSession.messages, userMessage, assistantPlaceholderMessage],
     }
-    const nextSessions = [
-      optimisticSession,
-      ...sessions.filter((session) => session.id !== optimisticSession.id),
-    ]
 
     setDraftMessage('')
     setErrorMessage(null)
     setIsSending(true)
-    commitSessions(nextSessions, optimisticSession.id)
+    setStreamingMessageId(assistantPlaceholderMessage.id)
+    activeRequestIdRef.current = requestId
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = abortController
+    commitSessions([optimisticSession, ...remainingSessions], optimisticSession.id, false)
+
+    /** 把最新流式快照合并进 assistant 占位消息 */
+    function handleStreamUpdate(update: AiChatStreamUpdate) {
+      if (activeRequestIdRef.current !== requestId) return
+
+      // 1. 先把推理轨和正文轨映射到本地消息结构
+      const streamingMessage: AiChatMessage = {
+        ...assistantPlaceholderMessage,
+        content: update.content,
+      }
+      if (update.reasoningContent) {
+        streamingMessage.reasoningContent = update.reasoningContent
+        streamingMessage.reasoningDurationMs = update.reasoningDurationMs
+        streamingMessage.isReasoningComplete = update.isReasoningComplete
+      }
+
+      // 2. 再覆盖 optimistic 会话里的占位消息，让 UI 实时刷新
+      const streamingSession = replaceMessageInSession(optimisticSession, streamingMessage)
+      commitSessions([streamingSession, ...remainingSessions], streamingSession.id, false)
+    }
 
     try {
-      // 3. 发起模型请求，命中缓存时也走同一展示链路
-      const result = await requestAiChatReply({
-        vaultPath,
-        settings: activeRequestSettings,
-        session: baseSession,
-        noteContext: {
-          path: notePath,
-          title: noteTitle,
-          content: noteContent,
+      // 3. 发起流式请求；命中缓存时也复用同一条 assistant 消息落位
+      const result = await requestAiChatReply(
+        {
+          vaultPath,
+          settings: activeRequestSettings,
+          session: baseSession,
+          noteContext: {
+            path: notePath,
+            title: noteTitle,
+            content: noteContent,
+          },
+          userMessage: trimmedMessage,
         },
-        userMessage: trimmedMessage,
-      })
-
-      // 4. 把 assistant 消息补进刚才的 optimistic 会话，并刷新历史排序
-      const completedSession: AiChatSession = {
-        ...optimisticSession,
-        updatedAt: result.message.createdAt,
-        messages: [...optimisticSession.messages, result.message],
-      }
-      commitSessions(
-        [completedSession, ...nextSessions.filter((session) => session.id !== completedSession.id)],
-        completedSession.id
+        {
+          assistantMessageId: assistantPlaceholderMessage.id,
+          onUpdate: handleStreamUpdate,
+          signal: abortController.signal,
+        }
       )
+      if (activeRequestIdRef.current !== requestId) return
+
+      // 4. 最终把完成态 assistant 消息补进会话，并更新排序时间
+      const completedSession = replaceMessageInSession(
+        {
+          ...optimisticSession,
+          updatedAt: result.message.createdAt,
+        },
+        result.message
+      )
+      commitSessions([completedSession, ...remainingSessions], completedSession.id)
     } catch (error) {
+      if (activeRequestIdRef.current !== requestId || isAbortError(error)) return
+
       // 5. 请求失败时回滚 optimistic 结果，并恢复输入框，方便用户修改后重试
       commitSessions(previousSessions, baseSession.id)
       setDraftMessage(trimmedMessage)
       setErrorMessage(getAiErrorMessage(error))
     } finally {
+      if (activeAbortControllerRef.current === abortController) {
+        activeAbortControllerRef.current = null
+      }
+      if (activeRequestIdRef.current !== requestId) return
+
       setIsSending(false)
+      setStreamingMessageId(null)
     }
   }
 
@@ -340,18 +451,18 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
         {currentSession?.messages.length ? (
           currentSession.messages.map((message) => (
             <article key={message.id} className={`ai-message ai-message-${message.role}`}>
-              {message.isFromCache ? (
-                <div className="ai-message-label">
-                  <span>缓存命中</span>
-                </div>
-              ) : null}
-              <div className="ai-message-content">
-                {message.role === 'assistant' ? (
-                  <AiMarkdown content={message.content} />
-                ) : (
+              {message.role === 'assistant' ? (
+                <AiAssistantMessage
+                  message={message}
+                  isStreaming={streamingMessageId === message.id}
+                  isReasoningExpanded={!collapsedReasoningMessageIds[message.id]}
+                  onToggleReasoning={() => handleToggleReasoning(message.id)}
+                />
+              ) : (
+                <div className="ai-message-content">
                   <div className="ai-message-plain-text">{message.content}</div>
-                )}
-              </div>
+                </div>
+              )}
             </article>
           ))
         ) : (
@@ -360,7 +471,6 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
             <p>例如让它总结、追问、提炼结构，或者帮你把这篇笔记延展开来。</p>
           </div>
         )}
-        {isSending ? <div className="ai-loading-bubble">正在思考...</div> : null}
       </div>
 
       {errorMessage ? <div className="ai-error-banner">{errorMessage}</div> : null}
@@ -382,10 +492,7 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
             }}
           />
           <div className="ai-composer-controls">
-            <Select
-              value={composerModelValue}
-              onValueChange={handleComposerModelChange}
-            >
+            <Select value={composerModelValue} onValueChange={handleComposerModelChange}>
               <SelectTrigger>
                 <SelectValue placeholder="选择模型" />
               </SelectTrigger>

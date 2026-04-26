@@ -64,6 +64,9 @@ export interface AiChatMessage {
   content: string
   createdAt: string
   isFromCache?: boolean
+  reasoningContent?: string
+  reasoningDurationMs?: number | null
+  isReasoningComplete?: boolean
 }
 
 /** 单个聊天会话 */
