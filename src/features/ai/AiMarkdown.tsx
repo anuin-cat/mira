@@ -4,6 +4,7 @@ import rehypeKatex from 'rehype-katex'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
+import { remarkAiMarkdownCompat } from './aiMarkdownCompat'
 import './ai-markdown.css'
 
 interface Props {
@@ -55,7 +56,7 @@ export function AiMarkdown({ content }: Props) {
   return (
     <div className="ai-markdown">
       <Markdown
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkAiMarkdownCompat]}
         rehypePlugins={[rehypeKatex]}
         components={MARKDOWN_COMPONENTS}
       >
