@@ -1,5 +1,7 @@
 import { ChevronDown, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Progress } from '@/components/ui/progress'
 import type { AiChatMessage, AiTokenUsage } from '../../domain/ai'
 import { AiMarkdown } from './AiMarkdown'
 
@@ -69,27 +71,88 @@ function getPromptCacheStats(tokenUsage: AiTokenUsage | undefined): {
   return null
 }
 
-/** 生成 assistant 消息底部的缓存与 token 用量说明 */
-function getMessageMetaItems(message: AiChatMessage): string[] {
-  const items: string[] = []
+interface MessageMetaData {
+  cacheStats: { hitTokens: number; missTokens: number | null; hitRate: number } | null
+  promptTokens: string | null
+  completionTokens: string | null
+  reasoningTokens: string | null
+}
+
+/** 提取 assistant 消息底部所需的结构化数据 */
+function getMessageMetaData(message: AiChatMessage): MessageMetaData {
   const tokenUsage = message.tokenUsage
-  const cacheStats = getPromptCacheStats(tokenUsage)
-
-  if (cacheStats) {
-    items.push(`接口缓存 ${Math.round(cacheStats.hitRate * 100)}%`)
-    items.push(`命中 ${formatTokenCount(cacheStats.hitTokens)}`)
-    if (cacheStats.missTokens !== null) items.push(`未命中 ${formatTokenCount(cacheStats.missTokens)}`)
+  return {
+    cacheStats: getPromptCacheStats(tokenUsage),
+    promptTokens: formatTokenCount(tokenUsage?.promptTokens),
+    completionTokens: formatTokenCount(tokenUsage?.completionTokens),
+    reasoningTokens: formatTokenCount(tokenUsage?.reasoningTokens),
   }
+}
 
-  const promptTokens = formatTokenCount(tokenUsage?.promptTokens)
-  const completionTokens = formatTokenCount(tokenUsage?.completionTokens)
-  const reasoningTokens = formatTokenCount(tokenUsage?.reasoningTokens)
+/** 所有用量数据合并在一个胶囊内，各段 hover 显示 shadcn Tooltip */
+function MetaPill({ meta }: { meta: MessageMetaData }) {
+  const { cacheStats, promptTokens, completionTokens, reasoningTokens } = meta
+  const pct = cacheStats ? Math.round(cacheStats.hitRate * 100) : null
+  const hitFmt = cacheStats ? (formatTokenCount(cacheStats.hitTokens) ?? '') : ''
+  const missFmt = cacheStats?.missTokens != null ? (formatTokenCount(cacheStats.missTokens) ?? '') : null
 
-  if (promptTokens) items.push(`输入 ${promptTokens}`)
-  if (completionTokens) items.push(`输出 ${completionTokens}`)
-  if (reasoningTokens) items.push(`推理 ${reasoningTokens}`)
-
-  return items.filter(Boolean)
+  return (
+    <span className="ai-meta-pill">
+      {cacheStats && pct !== null ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="ai-meta-seg ai-meta-seg--cache">
+              <Progress value={pct} className="ai-meta-progress" />
+              <span className="ai-meta-cache-pct">{pct}%</span>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            缓存命中率：已命中 {hitFmt} token{missFmt ? `，未命中 ${missFmt} token` : ''}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+      {(promptTokens || completionTokens || reasoningTokens) ? (
+        <>
+          {cacheStats ? <span className="ai-meta-divider" aria-hidden="true" /> : null}
+          <span className="ai-meta-seg--tokens">
+          {promptTokens ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ai-meta-token-item">
+                  <span className="ai-meta-sym">↑</span>
+                  <span className="ai-meta-val">{promptTokens}</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>输入 token：发送给模型的提示词长度</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {completionTokens ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ai-meta-token-item ai-meta-token-item--out">
+                  <span className="ai-meta-sym">↓</span>
+                  <span className="ai-meta-val">{completionTokens}</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>输出 token：模型生成的回复长度</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {reasoningTokens ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ai-meta-token-item">
+                  <span className="ai-meta-sym">◈</span>
+                  <span className="ai-meta-val">{reasoningTokens}</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>推理 token：模型内部思考消耗的 token</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </span>
+        </>
+      ) : null}
+    </span>
+  )
 }
 
 /** assistant 消息：区分思考轨与正文轨，并负责思考折叠交互 */
@@ -103,7 +166,8 @@ export function AiAssistantMessage({
   const hasReasoningContent = Boolean(message.reasoningContent?.trim())
   const reasoningDurationLabel = formatReasoningDuration(message.reasoningDurationMs)
   const reasoningTitle = isStreaming && !message.isReasoningComplete ? '思考中' : '已思考'
-  const metaItems = getMessageMetaItems(message)
+  const meta = getMessageMetaData(message)
+  const hasMetaData = meta.cacheStats || meta.promptTokens || meta.completionTokens || meta.reasoningTokens
 
   return (
     <div className="ai-assistant-shell">
@@ -161,11 +225,9 @@ export function AiAssistantMessage({
         </div>
       ) : null}
 
-      {metaItems.length > 0 ? (
+      {hasMetaData ? (
         <div className="ai-message-meta" aria-label="缓存与用量">
-          {metaItems.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
+          <MetaPill meta={meta} />
         </div>
       ) : null}
     </div>

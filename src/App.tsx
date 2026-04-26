@@ -6,6 +6,7 @@ import {
   Separator as PanelResizeHandle,
   usePanelRef,
 } from 'react-resizable-panels'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   ensureVaultSystem,
   getVaultPath,
@@ -568,6 +569,7 @@ export default function App() {
   }
 
   return (
+    <TooltipProvider delayDuration={100}>
     <PanelGroup
       orientation="horizontal"
       className="app-layout"
@@ -638,5 +640,6 @@ export default function App() {
         />
       </Panel>
     </PanelGroup>
+    </TooltipProvider>
   )
 }

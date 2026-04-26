@@ -107,22 +107,111 @@
 
 .ai-message-meta {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
   margin-top: 12px;
-  font-size: 11px;
-  color: var(--theme-text-tertiary);
 }
 
-.ai-message-meta span {
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--theme-bg-secondary) 70%, transparent 30%);
-  color: var(--theme-text-secondary);
+/* ── 单一胶囊容器 ── */
+.ai-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  border-radius: 8px;
+  border: 1px solid var(--theme-border);
+  background: color-mix(in srgb, var(--theme-bg-sidebar) 55%, var(--theme-bg-primary) 45%);
+  cursor: default;
+  overflow: hidden;
+}
+
+/* 缓存段 */
+.ai-meta-seg--cache {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 100%;
+  transition: background 0.15s ease;
+}
+
+.ai-meta-seg--cache:hover {
+  background: color-mix(in srgb, var(--theme-accent) 10%, var(--theme-bg-primary) 90%);
+}
+
+/* 缓存段与 token 段之间的短竖线分隔符 */
+.ai-meta-divider {
+  width: 2px;
+  height: 10px;
+  background: var(--theme-border);
+  flex-shrink: 0;
+}
+
+/* token 段整体 */
+.ai-meta-seg--tokens {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 4px;
+  height: 100%;
+}
+
+/* token 单项，无分割线，hover 单独高亮 */
+.ai-meta-token-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  height: 100%;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.ai-meta-token-item:hover {
+  background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-bg-primary) 92%);
+}
+
+/* 进度条（shadcn Progress 覆盖） */
+.ai-meta-progress {
+  width: 44px;
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--theme-accent) 14%, var(--theme-border) 86%);
+  flex-shrink: 0;
+}
+
+.ai-meta-progress [data-slot="progress-indicator"] {
+  background: linear-gradient(
+    90deg,
+    var(--theme-accent),
+    color-mix(in srgb, var(--theme-accent) 55%, var(--theme-bg-primary) 45%)
+  );
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-meta-cache-pct {
   font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1.35;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--theme-accent) 80%, var(--theme-text-primary) 20%);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* 符号 + 数值 */
+.ai-meta-sym {
+  font-size: 9.5px;
+  color: var(--theme-text-tertiary);
+  line-height: 1;
+}
+
+.ai-meta-val {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--theme-text-secondary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.ai-meta-token-item--out .ai-meta-val {
+  color: color-mix(in srgb, var(--theme-accent) 72%, var(--theme-text-secondary) 28%);
 }
 
 .ai-message-content {
