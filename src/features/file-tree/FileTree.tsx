@@ -601,7 +601,7 @@ export function FileTree({
               >
                 新建文件夹
               </button>
-              <div className="context-menu-separator" />
+              {menuTarget ? <div className="context-menu-separator" /> : null}
             </>
           )}
           {menuTarget && (
