@@ -18,7 +18,9 @@ interface AppCommandContext {
   editorHandleRef: RefObject<MdxEditorHandle | null>
   aiSidebarRef: RefObject<AiSidebarHandle | null>
   setActiveCommandDialog: (dialog: ActiveCommandDialog) => void
+  isAiSidebarOpen: () => boolean
   openAiSidebar: () => void
+  handleToggleAiSidebar: () => void
   handleChangeVault: () => Promise<void>
   handleRefreshVault: () => Promise<void>
   handleUpdateMiraMap: () => Promise<void>
@@ -94,6 +96,14 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       break
     case 'toggle-file-sidebar':
       context.handleToggleFileSidebar()
+      break
+    case 'toggle-ai-sidebar':
+      if (context.isAiSidebarOpen() && context.aiSidebarRef.current?.isComposerFocused()) {
+        context.handleToggleAiSidebar()
+        break
+      }
+      context.openAiSidebar()
+      window.requestAnimationFrame(() => context.aiSidebarRef.current?.focusComposer())
       break
     case 'font-decrease':
       handleFontSizeStep(context, -1)

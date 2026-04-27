@@ -130,8 +130,8 @@
 .ai-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 0;
+  padding: 3px 5px;
   border-radius: 6px;
   border: none;
   background: transparent;
@@ -165,8 +165,8 @@
 .ai-meta-seg--cache {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
+  gap: 5px;
+  padding: 0 8px;
   height: 100%;
   transition: background 0.15s ease;
 }
@@ -188,7 +188,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0;
-  padding: 0 4px;
+  padding: 0 2px;
   height: 100%;
 }
 
@@ -196,8 +196,8 @@
 .ai-meta-token-item {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 0 6px;
+  gap: 2px;
+  padding: 0 5px;
   height: 100%;
   border-radius: 8px;
   transition: background 0.15s ease;

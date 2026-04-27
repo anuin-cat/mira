@@ -71,6 +71,7 @@
   - `Navigate > 返回上一个文件` → `history_back` → `menu:history-back`
   - `Navigate > 前进到下一个文件` → `history_forward` → `menu:history-forward`
   - `View > 显示/隐藏文件侧栏` → `toggle_file_sidebar` → `menu:toggle-file-sidebar`
+  - `View > 显示/隐藏 AI 对话栏` → `toggle_ai_sidebar` → `menu:toggle-ai-sidebar`
   - `View > 缩小字体` → `font_decrease` → `menu:font-decrease`
   - `View > 放大字体` → `font_increase` → `menu:font-increase`
   - `View > 重置字体大小` → `font_reset` → `menu:font-reset`

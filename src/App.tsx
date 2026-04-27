@@ -50,9 +50,9 @@ import type { FontSize, Theme, VaultEntryKind, VaultState, VaultTreeNode } from 
 const SIDEBAR_MIN_WIDTH = 160
 const SIDEBAR_MAX_WIDTH = 480
 const SIDEBAR_DEFAULT_WIDTH = 280
-const AI_SIDEBAR_MIN_WIDTH = 280
+const AI_SIDEBAR_MIN_WIDTH = 290
 const AI_SIDEBAR_MAX_WIDTH = 560
-const AI_SIDEBAR_DEFAULT_WIDTH = 360
+const AI_SIDEBAR_DEFAULT_WIDTH = 380
 
 const DEFAULT_VAULT_STATE: VaultState = {
   version: 1,
@@ -122,6 +122,11 @@ function toPanelPixels(width: number) {
   return Math.round(width)
 }
 
+/** 把面板宽度限制在允许范围内，避免异常值污染记忆宽度 */
+function clampPanelPixels(width: number, minWidth: number, maxWidth: number) {
+  return Math.min(Math.max(toPanelPixels(width), minWidth), maxWidth)
+}
+
 export default function App() {
   const isMacOS = isMacOSPlatform()
   const [vaultPath, setVaultPathState] = useState<string | null>(null)
@@ -153,25 +158,27 @@ export default function App() {
   /** 同步三栏最终宽度，避免拖拽过程触发 React 重渲染 */
   const handleLayoutChanged = useCallback(() => {
     // 1. 读取左侧文件树最终像素宽度
-    const nextSidebarWidth = fileSidebarPanelRef.current?.getSize().inPixels
-    if (nextSidebarWidth !== undefined) {
-      const isFileOpen = nextSidebarWidth > 1
+    const filePanel = fileSidebarPanelRef.current
+    const nextSidebarWidth = filePanel?.getSize().inPixels
+    if (filePanel && nextSidebarWidth !== undefined) {
+      const isFileOpen = !filePanel.isCollapsed()
       setIsFileSidebarOpen((currentValue) => (currentValue === isFileOpen ? currentValue : isFileOpen))
     }
-    if (nextSidebarWidth && nextSidebarWidth > 1) {
-      const nextPixels = toPanelPixels(nextSidebarWidth)
+    if (filePanel && !filePanel.isCollapsed() && nextSidebarWidth !== undefined && nextSidebarWidth > 0) {
+      const nextPixels = clampPanelPixels(nextSidebarWidth, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH)
       setSidebarWidth((currentWidth) => (currentWidth === nextPixels ? currentWidth : nextPixels))
     }
 
     // 2. 读取 AI 面板最终像素宽度，并同步开关状态与记忆宽度
-    const nextAiWidth = aiSidebarPanelRef.current?.getSize().inPixels
-    if (nextAiWidth === undefined) return
+    const aiPanel = aiSidebarPanelRef.current
+    const nextAiWidth = aiPanel?.getSize().inPixels
+    if (!aiPanel || nextAiWidth === undefined) return
 
-    const isAiOpen = nextAiWidth > 1
+    const isAiOpen = !aiPanel.isCollapsed()
     setIsAiSidebarOpen((currentValue) => (currentValue === isAiOpen ? currentValue : isAiOpen))
 
     if (!isAiOpen) return
-    const nextPixels = toPanelPixels(nextAiWidth)
+    const nextPixels = clampPanelPixels(nextAiWidth, AI_SIDEBAR_MIN_WIDTH, AI_SIDEBAR_MAX_WIDTH)
     setAiSidebarWidth((currentWidth) => (currentWidth === nextPixels ? currentWidth : nextPixels))
   }, [fileSidebarPanelRef, aiSidebarPanelRef])
 
@@ -184,10 +191,14 @@ export default function App() {
       return
     }
 
-    const isCurrentlyOpen = aiPanel.getSize().inPixels > 1
+    const isCurrentlyOpen = !aiPanel.isCollapsed()
     if (isCurrentlyOpen) {
       // 2. 关闭前记住当前宽度，方便下次恢复
-      const currentPixels = toPanelPixels(aiPanel.getSize().inPixels)
+      const currentPixels = clampPanelPixels(
+        aiPanel.getSize().inPixels,
+        AI_SIDEBAR_MIN_WIDTH,
+        AI_SIDEBAR_MAX_WIDTH
+      )
       setAiSidebarWidth((currentWidth) => (currentWidth === currentPixels ? currentWidth : currentPixels))
       aiPanel.collapse()
       setIsAiSidebarOpen(false)
@@ -195,7 +206,7 @@ export default function App() {
     }
 
     // 3. 展开时直接恢复记忆宽度，避免再走额外同步 effect
-    aiPanel.resize(aiSidebarWidth)
+    aiPanel.resize(clampPanelPixels(aiSidebarWidth, AI_SIDEBAR_MIN_WIDTH, AI_SIDEBAR_MAX_WIDTH))
     setIsAiSidebarOpen(true)
   }, [aiSidebarPanelRef, aiSidebarWidth])
 
@@ -207,16 +218,20 @@ export default function App() {
       return
     }
 
-    const isCurrentlyOpen = filePanel.getSize().inPixels > 1
+    const isCurrentlyOpen = !filePanel.isCollapsed()
     if (isCurrentlyOpen) {
-      const currentPixels = toPanelPixels(filePanel.getSize().inPixels)
+      const currentPixels = clampPanelPixels(
+        filePanel.getSize().inPixels,
+        SIDEBAR_MIN_WIDTH,
+        SIDEBAR_MAX_WIDTH
+      )
       setSidebarWidth((currentWidth) => (currentWidth === currentPixels ? currentWidth : currentPixels))
       filePanel.collapse()
       setIsFileSidebarOpen(false)
       return
     }
 
-    filePanel.resize(sidebarWidth)
+    filePanel.resize(clampPanelPixels(sidebarWidth, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH))
     setIsFileSidebarOpen(true)
   }
 
@@ -228,7 +243,9 @@ export default function App() {
       return
     }
 
-    if (aiPanel.getSize().inPixels <= 1) aiPanel.resize(aiSidebarWidth)
+    if (aiPanel.isCollapsed()) {
+      aiPanel.resize(clampPanelPixels(aiSidebarWidth, AI_SIDEBAR_MIN_WIDTH, AI_SIDEBAR_MAX_WIDTH))
+    }
     setIsAiSidebarOpen(true)
   }
 
@@ -239,7 +256,9 @@ export default function App() {
     editorHandleRef,
     aiSidebarRef,
     setActiveCommandDialog,
+    isAiSidebarOpen: () => isAiSidebarOpen,
     openAiSidebar,
+    handleToggleAiSidebar,
     handleChangeVault,
     handleRefreshVault,
     handleUpdateMiraMap,

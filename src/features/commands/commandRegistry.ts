@@ -17,6 +17,7 @@ export type CommandId =
   | 'history-back'
   | 'history-forward'
   | 'toggle-file-sidebar'
+  | 'toggle-ai-sidebar'
   | 'font-decrease'
   | 'font-increase'
   | 'font-reset'
@@ -58,6 +59,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'history-back', title: '返回上一个文件', group: 'navigate', menuEvent: 'menu:history-back', shortcut: '⌘[' },
   { id: 'history-forward', title: '前进到下一个文件', group: 'navigate', menuEvent: 'menu:history-forward', shortcut: '⌘]' },
   { id: 'toggle-file-sidebar', title: '显示/隐藏文件侧栏', group: 'view', menuEvent: 'menu:toggle-file-sidebar', shortcut: '⌘\\' },
+  { id: 'toggle-ai-sidebar', title: '显示/隐藏 AI 对话栏', group: 'view', menuEvent: 'menu:toggle-ai-sidebar', shortcut: '⌘L' },
   { id: 'font-decrease', title: '缩小字体', group: 'view', menuEvent: 'menu:font-decrease', shortcut: '⌘-' },
   { id: 'font-increase', title: '放大字体', group: 'view', menuEvent: 'menu:font-increase', shortcut: '⌘=' },
   { id: 'font-reset', title: '重置字体大小', group: 'view', menuEvent: 'menu:font-reset', shortcut: '⌘0' },

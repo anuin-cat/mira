@@ -76,6 +76,7 @@ pub fn run() {
 
             // 5. 构建 View 菜单
             let toggle_file_sidebar = MenuItem::with_id(app, "toggle_file_sidebar", "显示/隐藏文件侧栏", true, Some("CmdOrCtrl+Backslash"))?;
+            let toggle_ai_sidebar = MenuItem::with_id(app, "toggle_ai_sidebar", "显示/隐藏 AI 对话栏", true, Some("CmdOrCtrl+KeyL"))?;
             let font_decrease = MenuItem::with_id(app, "font_decrease", "缩小字体", true, Some("CmdOrCtrl+Minus"))?;
             let font_increase = MenuItem::with_id(app, "font_increase", "放大字体", true, Some("CmdOrCtrl+Equal"))?;
             let font_reset = MenuItem::with_id(app, "font_reset", "重置字体大小", true, Some("CmdOrCtrl+Digit0"))?;
@@ -97,6 +98,7 @@ pub fn run() {
                 true,
                 &[
                     &toggle_file_sidebar,
+                    &toggle_ai_sidebar,
                     &view_separator,
                     &font_decrease,
                     &font_increase,
@@ -136,6 +138,7 @@ pub fn run() {
                 "history_back" => "menu:history-back",
                 "history_forward" => "menu:history-forward",
                 "toggle_file_sidebar" => "menu:toggle-file-sidebar",
+                "toggle_ai_sidebar" => "menu:toggle-ai-sidebar",
                 "font_decrease" => "menu:font-decrease",
                 "font_increase" => "menu:font-increase",
                 "font_reset" => "menu:font-reset",

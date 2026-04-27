@@ -241,19 +241,19 @@ export function AiAssistantMessage({
               type="button"
               className="ai-action-btn"
               onClick={onCopy}
+              aria-label="复制"
               title="复制"
             >
               <Copy className="size-3.5" />
-              <span>复制</span>
             </button>
             <button
               type="button"
               className="ai-action-btn"
               onClick={onRegenerate}
+              aria-label="重新生成"
               title="重新生成"
             >
               <RefreshCw className="size-3.5" />
-              <span>重新生成</span>
             </button>
           </div>
         ) : null}
