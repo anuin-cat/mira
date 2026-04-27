@@ -84,13 +84,6 @@ pub struct GitCommitRequest {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GitHubInitRequest {
-    pub vault_path: String,
-    pub repo_name: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GitRemoteConnectRequest {
     pub vault_path: String,
     pub remote_url: String,

@@ -12,6 +12,11 @@ export async function getGitStatus(vaultPath: string): Promise<GitStatusResult> 
   return await invoke<GitStatusResult>('git_get_status', { vaultPath })
 }
 
+/** 初始化本地 Git 仓库，不创建 GitHub 远端 */
+export async function initLocalGitRepository(vaultPath: string): Promise<GitOperationResult> {
+  return await invoke<GitOperationResult>('git_init_local_repository', { vaultPath })
+}
+
 /** 读取指定文件的 staged 或 unstaged diff */
 export async function getGitDiff(
   vaultPath: string,
@@ -47,16 +52,6 @@ export async function commitGitChanges(vaultPath: string, message: string): Prom
 /** 推送当前分支 */
 export async function pushGitBranch(vaultPath: string): Promise<GitOperationResult> {
   return await invoke<GitOperationResult>('git_push', { vaultPath })
-}
-
-/** 用 GitHub CLI 创建私有仓库并连接当前 vault */
-export async function initGitHubRepository(
-  vaultPath: string,
-  repoName: string | null
-): Promise<GitOperationResult> {
-  return await invoke<GitOperationResult>('git_init_github_repository', {
-    request: { vaultPath, repoName },
-  })
 }
 
 /** 用用户粘贴的 remote URL 连接 GitHub 仓库 */

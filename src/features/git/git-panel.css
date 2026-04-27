@@ -141,26 +141,46 @@
   gap: 8px;
 }
 
+.git-setup-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.git-local-init-button {
+  justify-self: start;
+}
+
 .git-remote-band {
   padding: 10px 12px 12px;
+  display: grid;
+  gap: 8px;
 }
 
-.git-remote-toggle {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: var(--theme-text-secondary);
+.git-remote-heading h3 {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--theme-text-primary);
+}
+
+.git-remote-heading p {
+  margin-top: 4px;
   font-size: 12px;
-  height: 24px;
+  line-height: 1.5;
+  color: var(--theme-text-secondary);
+}
+
+.git-remote-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  gap: 8px;
 }
 
-.git-remote-toggle svg {
-  width: 14px;
-  height: 14px;
+.git-remote-recovery {
+  border-left: 2px solid color-mix(in srgb, #d97706 72%, var(--theme-border) 28%);
+  padding: 2px 0 2px 9px;
+  color: color-mix(in srgb, #92400e 74%, var(--theme-text-secondary) 26%);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .git-panel-grid {
@@ -490,6 +510,11 @@
   .git-setup-band,
   .git-panel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .git-remote-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .git-changes {

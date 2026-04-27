@@ -89,7 +89,7 @@ pub fn build_status(vault: &Path) -> Result<GitStatusResult, String> {
 pub fn ensure_repo_root(vault: &Path) -> Result<(), String> {
     let repo = inspect_repository(vault)?;
     if !repo.is_git_repository {
-        return Err("当前 vault 还不是 Git 仓库，请先初始化 GitHub 仓库。".to_string());
+        return Err("当前 vault 还不是 Git 仓库，请先初始化本地 Git 仓库。".to_string());
     }
     if !repo.is_vault_git_root {
         return Err(repo
@@ -104,7 +104,7 @@ pub fn ensure_repo_root_fast(vault: &Path) -> Result<(), String> {
     let output = run_git_checked(vault, &["rev-parse", "--show-toplevel"], DEFAULT_TIMEOUT)
         .map_err(|error| {
             if error.contains("not a git repository") {
-                "当前 vault 还不是 Git 仓库，请先初始化 GitHub 仓库。".to_string()
+                "当前 vault 还不是 Git 仓库，请先初始化本地 Git 仓库。".to_string()
             } else {
                 error
             }
@@ -120,8 +120,8 @@ pub fn ensure_repo_root_fast(vault: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/** 准备本地仓库：git init、忽略 .mira、必要时创建初始提交 */
-pub fn prepare_local_repository(vault: &Path) -> Result<(), String> {
+/** 初始化本地 Git 仓库，并写入默认忽略规则 */
+pub fn init_local_repository(vault: &Path) -> Result<(), String> {
     // 1. 非仓库时初始化为 main 分支
     let repo = inspect_repository(vault)?;
     if !repo.is_git_repository {
@@ -140,7 +140,14 @@ pub fn prepare_local_repository(vault: &Path) -> Result<(), String> {
     ensure_repo_root(vault)?;
     ensure_default_gitignore(vault)?;
 
-    // 3. 空仓库创建初始提交，供 GitHub 远端第一次推送
+    Ok(())
+}
+
+/** 准备本地仓库：git init、忽略 .mira、必要时创建初始提交 */
+pub fn prepare_local_repository(vault: &Path) -> Result<(), String> {
+    init_local_repository(vault)?;
+
+    // 1. 空仓库创建初始提交，供 GitHub 远端第一次推送
     if !has_head(vault) {
         let paths = collect_stageable_paths(vault)?;
         if !paths.is_empty() {

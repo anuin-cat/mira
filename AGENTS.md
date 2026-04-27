@@ -85,7 +85,7 @@
   - `View > 主题 > 森林绿` → `theme_forest` → `menu:theme-forest`
   - `View > 主题 > 经典深色` → `theme_dark_classic` → `menu:theme-dark-classic`
   - `Git > 打开 Git 面板` → `git_panel` → `menu:git-panel`
-  - `Git > 初始化 GitHub 仓库...` → `git_init_github` → `menu:git-init-github`
+  - `Git > 连接 GitHub 远端...` → `git_connect_remote` → `menu:git-connect-remote`
   - `Git > Stage 全部变更` → `git_stage_all` → `menu:git-stage-all`
   - `Git > Commit...` → `git_commit` → `menu:git-commit`
   - `Git > Push` → `git_push` → `menu:git-push`
@@ -117,7 +117,7 @@
 - `src/components`：UI 组件
 - `src/features`：功能模块
 - `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
-- `src/features/git`：Git 面板 UI，包括变更列表、diff、stage/unstage、commit、push 与 GitHub 初始化入口
+- `src/features/git`：Git 面板 UI，包括变更列表、diff、stage/unstage、commit、push、本地 Git 初始化与 GitHub 远端连接入口
 - `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
 - `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务
@@ -149,10 +149,10 @@ vault/
 ## Git 自动化约定
 
 - Git 功能要求 vault 根目录就是 Git 仓库根目录，不操作外层仓库
-- 用户触发的 `add` / `commit` / `push` / GitHub 初始化只能通过 Git 面板或原生 `Git` 菜单执行
+- 用户触发的 `add` / `commit` / `push` / remote 连接只能通过 Git 面板或原生 `Git` 菜单执行
 - agent 只能调用内置 allowlist 中已启用的 `git_readonly` 命令，禁止执行会改变仓库状态的 Git 命令
-- 初始化 GitHub 仓库默认创建 private repo，优先使用 `gh` CLI；失败时允许用户粘贴 GitHub remote URL
 - 初始化本地 Git 仓库时默认把 `.mira/` 与常见系统缓存规则写到 `.gitignore` 顶部
+- Mira 不负责创建 GitHub 远端仓库；用户在 GitHub 网页创建仓库后粘贴 remote URL，Mira 只执行本地 `git remote add/set-url` 与 `git push`
 
 ## 搜索性能约定
 

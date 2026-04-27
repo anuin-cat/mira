@@ -1,4 +1,6 @@
+use std::env;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -9,6 +11,15 @@ pub const PUSH_TIMEOUT: Duration = Duration::from_secs(120);
 pub const READONLY_TIMEOUT: Duration = Duration::from_secs(20);
 pub const READONLY_OUTPUT_LIMIT: usize = 80_000;
 pub const DIFF_OUTPUT_LIMIT: usize = 120_000;
+
+const MACOS_FALLBACK_EXECUTABLE_DIRS: [&str; 6] = [
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin",
+];
 
 #[derive(Debug)]
 pub struct ProcessOutput {
@@ -23,7 +34,7 @@ pub fn run_git_checked(
     args: &[&str],
     timeout: Duration,
 ) -> Result<ProcessOutput, String> {
-    checked_output(run_git(cwd, args, timeout)?)
+    checked_output("Git", run_git(cwd, args, timeout)?)
 }
 
 /** 动态拼接 git 参数并要求退出码为 0 */
@@ -38,7 +49,7 @@ pub fn run_git_dynamic_checked(
         .map(str::to_string)
         .chain(path_args.iter().cloned())
         .collect::<Vec<_>>();
-    checked_output(run_git_strings(cwd, &args, timeout)?)
+    checked_output("Git", run_git_strings(cwd, &args, timeout)?)
 }
 
 /** 运行 git，参数为字符串切片 */
@@ -58,22 +69,6 @@ pub fn run_git_strings(
     run_program("git", &final_args, cwd, timeout)
 }
 
-/** 运行外部程序并要求退出码为 0 */
-pub fn run_program_checked(
-    program: &str,
-    args: &[&str],
-    cwd: &Path,
-    timeout: Duration,
-) -> Result<ProcessOutput, String> {
-    let output = run_program(
-        program,
-        &args.iter().map(|arg| arg.to_string()).collect::<Vec<_>>(),
-        cwd,
-        timeout,
-    )?;
-    checked_output(output)
-}
-
 /** 运行外部程序并捕获输出 */
 fn run_program(
     program: &str,
@@ -81,16 +76,22 @@ fn run_program(
     cwd: &Path,
     timeout: Duration,
 ) -> Result<ProcessOutput, String> {
-    let mut child = Command::new(program)
+    let executable_path = resolve_program_path(program);
+    let executable_path = executable_path
+        .as_deref()
+        .unwrap_or_else(|| Path::new(program));
+    let command_path = enhanced_command_path();
+    let mut child = Command::new(executable_path)
         .args(args)
         .current_dir(cwd)
+        .env("PATH", &command_path)
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_PAGER", "cat")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| format!("启动命令失败：{} {}", program, error))?;
+        .map_err(|error| format_spawn_error(program, error))?;
 
     let started_at = Instant::now();
     loop {
@@ -127,14 +128,53 @@ fn run_program(
     }
 }
 
+/** 补齐双击启动 macOS App 时缺失的 Homebrew 命令路径 */
+fn enhanced_command_path() -> String {
+    let mut paths = env::var_os("PATH")
+        .map(|value| env::split_paths(&value).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    for path in MACOS_FALLBACK_EXECUTABLE_DIRS {
+        let path_buf = PathBuf::from(path);
+        if !paths.iter().any(|existing| existing == &path_buf) {
+            paths.push(path_buf);
+        }
+    }
+
+    env::join_paths(paths)
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|_| MACOS_FALLBACK_EXECUTABLE_DIRS.join(":"))
+}
+
+/** 在增强后的 PATH 中查找命令的绝对路径 */
+fn resolve_program_path(program: &str) -> Option<PathBuf> {
+    let program_path = Path::new(program);
+    if program_path.components().count() > 1 {
+        return Some(program_path.to_path_buf());
+    }
+
+    let command_path = enhanced_command_path();
+    env::split_paths(&command_path)
+        .map(|dir| dir.join(program))
+        .find(|candidate| candidate.is_file())
+}
+
+/** 将命令启动错误转换成用户可理解的提示 */
+fn format_spawn_error(program: &str, error: std::io::Error) -> String {
+    if error.kind() == ErrorKind::NotFound {
+        return format!("未找到 {} 命令：{}", program, error);
+    }
+    format!("启动命令失败：{} {}", program, error)
+}
+
 /** 将非 0 退出码转换为错误 */
-fn checked_output(output: ProcessOutput) -> Result<ProcessOutput, String> {
+fn checked_output(command_name: &str, output: ProcessOutput) -> Result<ProcessOutput, String> {
     if output.code == 0 {
         return Ok(output);
     }
     Err(format!(
-        "Git 命令执行失败（退出码 {}）：\n{}{}",
-        output.code, output.stdout, output.stderr
+        "{} 命令执行失败（退出码 {}）：\n{}{}",
+        command_name, output.code, output.stdout, output.stderr
     ))
 }
 
@@ -186,37 +226,6 @@ pub fn validate_relative_paths(paths: &[String]) -> Result<Vec<String>, String> 
         .iter()
         .map(|path| validate_relative_path(path))
         .collect()
-}
-
-/** 生成或清理 GitHub 仓库名 */
-pub fn normalize_repo_name(input: Option<&str>, vault: &Path) -> Result<String, String> {
-    let raw = input
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            vault
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())
-        })
-        .unwrap_or_else(|| "mira-vault".to_string());
-    let normalized = raw
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                ch
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>()
-        .trim_matches(&['-', '.', '_'][..])
-        .to_string();
-
-    if normalized.is_empty() {
-        return Err("GitHub 仓库名不能为空".to_string());
-    }
-    Ok(normalized)
 }
 
 /** 校验用户粘贴的 GitHub remote URL */

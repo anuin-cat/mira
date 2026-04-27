@@ -8,7 +8,7 @@ import { COMMAND_MENU_EVENTS, getCommandIdByMenuEvent, type CommandId } from './
 
 const FONT_SIZE_ORDER: FontSize[] = ['small', 'medium', 'large', 'xlarge']
 const CURRENT_NOTE_PROMPT = '请总结当前笔记，并提出 3 个值得继续追问的问题。'
-type GitCommandAction = 'init-github' | 'stage-all' | 'commit' | 'push'
+type GitCommandAction = 'connect-remote' | 'stage-all' | 'commit' | 'push'
 
 export type ActiveCommandDialog = 'command-palette' | 'quick-open' | 'vault-search' | null
 
@@ -146,8 +146,8 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
     case 'git-panel':
       context.openGitPanel()
       break
-    case 'git-init-github':
-      context.openGitPanel('init-github')
+    case 'git-connect-remote':
+      context.openGitPanel('connect-remote')
       break
     case 'git-stage-all':
       context.openGitPanel('stage-all')

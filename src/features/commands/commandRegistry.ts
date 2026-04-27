@@ -31,7 +31,7 @@ export type CommandId =
   | 'theme-forest'
   | 'theme-dark-classic'
   | 'git-panel'
-  | 'git-init-github'
+  | 'git-connect-remote'
   | 'git-stage-all'
   | 'git-commit'
   | 'git-push'
@@ -78,7 +78,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'theme-forest', title: '主题：森林绿', group: 'view', menuEvent: 'menu:theme-forest' },
   { id: 'theme-dark-classic', title: '主题：经典深色', group: 'view', menuEvent: 'menu:theme-dark-classic' },
   { id: 'git-panel', title: '打开 Git 面板', group: 'git', menuEvent: 'menu:git-panel', shortcut: '⇧⌘G' },
-  { id: 'git-init-github', title: '初始化 GitHub 仓库', group: 'git', menuEvent: 'menu:git-init-github' },
+  { id: 'git-connect-remote', title: '连接 GitHub 远端', group: 'git', menuEvent: 'menu:git-connect-remote' },
   { id: 'git-stage-all', title: 'Stage 全部变更', group: 'git', menuEvent: 'menu:git-stage-all' },
   { id: 'git-commit', title: 'Commit', group: 'git', menuEvent: 'menu:git-commit' },
   { id: 'git-push', title: 'Push', group: 'git', menuEvent: 'menu:git-push' },

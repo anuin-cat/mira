@@ -17,12 +17,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             git::git_get_status,
+            git::git_init_local_repository,
             git::git_get_diff,
             git::git_stage_paths,
             git::git_unstage_paths,
             git::git_commit,
             git::git_push,
-            git::git_init_github_repository,
             git::git_connect_remote_repository,
             git::git_run_readonly,
         ])
@@ -275,10 +275,10 @@ pub fn run() {
                 true,
                 Some("CmdOrCtrl+Shift+KeyG"),
             )?;
-            let git_init_github = MenuItem::with_id(
+            let git_connect_remote = MenuItem::with_id(
                 app,
-                "git_init_github",
-                "初始化 GitHub 仓库...",
+                "git_connect_remote",
+                "连接 GitHub 远端...",
                 true,
                 None::<&str>,
             )?;
@@ -295,7 +295,7 @@ pub fn run() {
                 &[
                     &git_panel,
                     &git_separator_1,
-                    &git_init_github,
+                    &git_connect_remote,
                     &git_separator_2,
                     &git_stage_all,
                     &git_commit,
@@ -373,7 +373,7 @@ pub fn run() {
                 "theme_forest" => "menu:theme-forest",
                 "theme_dark_classic" => "menu:theme-dark-classic",
                 "git_panel" => "menu:git-panel",
-                "git_init_github" => "menu:git-init-github",
+                "git_connect_remote" => "menu:git-connect-remote",
                 "git_stage_all" => "menu:git-stage-all",
                 "git_commit" => "menu:git-commit",
                 "git_push" => "menu:git-push",

@@ -1,19 +1,18 @@
 use crate::git_policy::validate_readonly_command;
 use crate::git_process::{
-    clip_output, clip_text, join_outputs, normalize_repo_name, normalize_vault_path,
-    optional_git_stdout, run_git_checked, run_git_dynamic_checked, run_git_strings,
-    run_program_checked, validate_relative_path, validate_relative_paths, validate_remote_url,
-    ProcessOutput, DEFAULT_TIMEOUT, DIFF_OUTPUT_LIMIT, PUSH_TIMEOUT, READONLY_OUTPUT_LIMIT,
-    READONLY_TIMEOUT,
+    clip_output, clip_text, join_outputs, normalize_vault_path, optional_git_stdout,
+    run_git_checked, run_git_dynamic_checked, run_git_strings, validate_relative_path,
+    validate_relative_paths, validate_remote_url, ProcessOutput, DEFAULT_TIMEOUT,
+    DIFF_OUTPUT_LIMIT, PUSH_TIMEOUT, READONLY_OUTPUT_LIMIT, READONLY_TIMEOUT,
 };
 use crate::git_status::{
     build_status, collect_stageable_paths, create_untracked_diff, current_branch,
-    ensure_repo_root_fast, is_untracked_path, prepare_local_repository, push_current_branch,
+    ensure_repo_root_fast, init_local_repository, is_untracked_path, prepare_local_repository,
+    push_current_branch,
 };
 use crate::git_types::{
-    GitCommitRequest, GitDiffRequest, GitDiffResult, GitHubInitRequest, GitOperationResult,
-    GitPathsRequest, GitReadonlyRequest, GitReadonlyResult, GitRemoteConnectRequest,
-    GitStatusResult,
+    GitCommitRequest, GitDiffRequest, GitDiffResult, GitOperationResult, GitPathsRequest,
+    GitReadonlyRequest, GitReadonlyResult, GitRemoteConnectRequest, GitStatusResult,
 };
 
 /** 查询当前 vault 的 Git 状态 */
@@ -21,6 +20,21 @@ use crate::git_types::{
 pub fn git_get_status(vault_path: String) -> Result<GitStatusResult, String> {
     let vault = normalize_vault_path(&vault_path)?;
     build_status(&vault)
+}
+
+/** 初始化本地 Git 仓库，不创建 GitHub 远端 */
+#[tauri::command]
+pub fn git_init_local_repository(vault_path: String) -> Result<GitOperationResult, String> {
+    let vault = normalize_vault_path(&vault_path)?;
+    init_local_repository(&vault)?;
+    create_operation_result(
+        &vault,
+        ProcessOutput {
+            code: 0,
+            stdout: "本地 Git 仓库已初始化。".to_string(),
+            stderr: String::new(),
+        },
+    )
 }
 
 /** 读取指定文件的 staged 或 unstaged diff */
@@ -147,47 +161,6 @@ pub fn git_push(vault_path: String) -> Result<GitOperationResult, String> {
     } else {
         run_git_checked(&vault, &["push", "-u", "origin", &branch], PUSH_TIMEOUT)?
     };
-    create_operation_result(&vault, output)
-}
-
-/** 使用 GitHub CLI 初始化私有 GitHub 仓库并推送 */
-#[tauri::command]
-pub fn git_init_github_repository(
-    request: GitHubInitRequest,
-) -> Result<GitOperationResult, String> {
-    let vault = normalize_vault_path(&request.vault_path)?;
-    let repo_name = normalize_repo_name(request.repo_name.as_deref(), &vault)?;
-    prepare_local_repository(&vault)?;
-
-    if optional_git_stdout(&vault, &["remote", "get-url", "origin"], DEFAULT_TIMEOUT).is_some() {
-        let push_output = push_current_branch(&vault)?;
-        return create_operation_result(&vault, push_output);
-    }
-
-    let source = vault.to_string_lossy().to_string();
-    let output = run_program_checked(
-        "gh",
-        &[
-            "repo",
-            "create",
-            &repo_name,
-            "--private",
-            "--source",
-            &source,
-            "--remote",
-            "origin",
-            "--push",
-        ],
-        &vault,
-        PUSH_TIMEOUT,
-    )
-    .map_err(|error| {
-        format!(
-            "{}\n\n可以先运行 gh auth login 登录 GitHub，或粘贴一个 GitHub remote URL 继续连接。",
-            error
-        )
-    })?;
-
     create_operation_result(&vault, output)
 }
 

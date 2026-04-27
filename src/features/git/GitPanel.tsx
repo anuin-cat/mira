@@ -1,11 +1,12 @@
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import {
   Check,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   GitBranch,
-  GitPullRequestCreate,
   Loader2,
   Minus,
   Plus,
@@ -23,14 +24,29 @@ import {
   connectGitRemoteRepository,
   getGitDiff,
   getGitStatus,
-  initGitHubRepository,
+  initLocalGitRepository,
   pushGitBranch,
   stageGitPaths,
   unstageGitPaths,
 } from '../../services/gitService'
 import './git-panel.css'
 
-export type GitPanelAction = 'init-github' | 'stage-all' | 'commit' | 'push'
+const REMOTE_RECONNECT_ERROR_MARKERS = [
+  'could not read from remote repository',
+  'does not appear to be a git repository',
+  'authentication failed',
+  'permission denied',
+  'access denied',
+  'not authorized',
+  'the requested url returned error: 403',
+  'the requested url returned error: 404',
+  'no such remote',
+  'no configured push destination',
+]
+const REMOTE_RECONNECT_MESSAGE =
+  '远端仓库可能已删除、不可访问，或当前 Git 凭据没有权限。可以重新在 GitHub 创建仓库，然后把新的 remote URL 粘贴到这里。'
+
+export type GitPanelAction = 'connect-remote' | 'stage-all' | 'commit' | 'push'
 
 export interface GitPanelRequest {
   id: number
@@ -46,17 +62,23 @@ interface GitPanelProps {
   onStatusChange: (status: GitStatusResult) => void
 }
 
+interface RunOperationOptions {
+  onSuccess?: (status: GitStatusResult) => void
+  onError?: (message: string) => void
+}
+
 /** 从未知异常中提取可展示消息 */
 function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
   return error instanceof Error ? error.message : 'Git 操作失败'
 }
 
-/** 基于 vault 路径推断默认 GitHub 仓库名 */
-function getDefaultRepoName(vaultPath: string): string {
-  const fallback = 'mira-vault'
-  const name = vaultPath.split('/').filter(Boolean).pop() ?? fallback
-  return name.replace(/[^\w.-]+/g, '-').replace(/^[-_.]+|[-_.]+$/g, '') || fallback
+/** 判断 Git 错误是否适合引导用户重新连接远端 */
+function shouldOfferRemoteReconnect(message: string): boolean {
+  const normalized = message.toLowerCase()
+  if (normalized.includes('repository') && normalized.includes('not found')) return true
+  if (normalized.includes('remote') && normalized.includes('not found')) return true
+  return REMOTE_RECONNECT_ERROR_MARKERS.some((marker) => normalized.includes(marker))
 }
 
 /** 将 Git 状态转换为短标签 */
@@ -108,9 +130,9 @@ export function GitPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null)
   const [commitMessage, setCommitMessage] = useState('')
-  const [repoName, setRepoName] = useState(() => getDefaultRepoName(vaultPath))
   const [remoteUrl, setRemoteUrl] = useState('')
-  const [isRemoteFallbackOpen, setIsRemoteFallbackOpen] = useState(false)
+  const [isRemoteSetupOpen, setIsRemoteSetupOpen] = useState(false)
+  const [remoteRecoveryMessage, setRemoteRecoveryMessage] = useState<string | null>(null)
   const [isUnstagedOpen, setIsUnstagedOpen] = useState(true)
   const [isStagedOpen, setIsStagedOpen] = useState(true)
   const commitInputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -129,6 +151,7 @@ export function GitPanel({
   const unstagedFiles = useMemo(() => status?.changedFiles.filter((file) => file.isUnstaged) ?? [], [status])
   const selectedLineStats = selectedFile ? getFileLineStats(selectedFile, diffMode) : null
   const canUseGit = Boolean(status?.isGitRepository && status.isVaultGitRoot)
+  const shouldShowRemoteSetup = isRemoteSetupOpen || Boolean(canUseGit && !status?.remoteUrl)
 
   /** 同步外部状态回调，避免父组件重渲染触发重复刷新 */
   useEffect(() => {
@@ -184,19 +207,27 @@ export function GitPanel({
   }, [vaultPath])
 
   /** 执行写操作并刷新状态 */
-  async function runOperation(operation: () => Promise<GitStatusResult>, successMessage: string) {
+  async function runOperation(
+    operation: () => Promise<GitStatusResult>,
+    successMessage: string,
+    options: RunOperationOptions = {}
+  ) {
     // 1. 先落盘当前编辑器内容，避免提交漏掉 debounce 中的正文
     setIsOperating(true)
     setErrorMessage(null)
     setNoticeMessage(null)
+    setRemoteRecoveryMessage(null)
     try {
       await onBeforeWrite()
       const nextStatus = await operation()
       setStatus(nextStatus)
       onStatusChangeRef.current(nextStatus)
       setNoticeMessage(successMessage)
+      options.onSuccess?.(nextStatus)
     } catch (error) {
-      setErrorMessage(getErrorMessage(error))
+      const message = getErrorMessage(error)
+      options.onError?.(message)
+      setErrorMessage(message)
     } finally {
       setIsOperating(false)
     }
@@ -222,37 +253,46 @@ export function GitPanel({
   }
 
   async function handlePush() {
-    await runOperation(async () => (await pushGitBranch(vaultPath)).status, 'Push 已完成')
+    await runOperation(async () => (await pushGitBranch(vaultPath)).status, 'Push 已完成', {
+      onError: (message) => {
+        if (!shouldOfferRemoteReconnect(message)) return
+        setIsRemoteSetupOpen(true)
+        setRemoteRecoveryMessage(REMOTE_RECONNECT_MESSAGE)
+      },
+    })
   }
 
-  async function handleInitGitHub() {
-    setIsOperating(true)
+  async function handleInitLocalRepository() {
+    await runOperation(async () => (await initLocalGitRepository(vaultPath)).status, '本地 Git 仓库已初始化')
+  }
+
+  async function handleOpenGitHubNewRepository() {
     setErrorMessage(null)
-    setNoticeMessage(null)
     try {
-      await onBeforeWrite()
-      const result = await initGitHubRepository(vaultPath, repoName.trim() || null)
-      setStatus(result.status)
-      onStatusChangeRef.current(result.status)
-      setNoticeMessage('GitHub 私有仓库已初始化并推送')
+      await openUrl('https://github.com/new')
     } catch (error) {
-      setIsRemoteFallbackOpen(true)
       setErrorMessage(getErrorMessage(error))
-    } finally {
-      setIsOperating(false)
     }
   }
 
   async function handleConnectRemote() {
     await runOperation(
       async () => (await connectGitRemoteRepository(vaultPath, remoteUrl)).status,
-      'Remote 已连接并推送'
+      'Remote 已连接并推送',
+      {
+        onSuccess: () => setIsRemoteSetupOpen(false),
+        onError: (message) => {
+          setIsRemoteSetupOpen(true)
+          if (shouldOfferRemoteReconnect(message)) {
+            setRemoteRecoveryMessage(REMOTE_RECONNECT_MESSAGE)
+          }
+        },
+      }
     )
   }
 
   useEffect(() => {
     if (!isOpen) return
-    setRepoName(getDefaultRepoName(vaultPath))
     void refreshStatus()
   }, [isOpen, refreshStatus, vaultPath])
 
@@ -262,6 +302,9 @@ export function GitPanel({
     setSelectedPath(null)
     setDiff('')
     setDiffMode('unstaged')
+    setRemoteUrl('')
+    setIsRemoteSetupOpen(false)
+    setRemoteRecoveryMessage(null)
   }, [vaultPath])
 
   useEffect(() => {
@@ -306,8 +349,9 @@ export function GitPanel({
       window.requestAnimationFrame(() => commitInputRef.current?.focus())
       return
     }
-    if (request.action === 'init-github') {
-      setIsRemoteFallbackOpen(true)
+    if (request.action === 'connect-remote') {
+      setRemoteRecoveryMessage(null)
+      setIsRemoteSetupOpen(true)
     }
   }, [isOpen, request])
 
@@ -406,34 +450,43 @@ export function GitPanel({
         {status && (!status.isGitRepository || !status.isVaultGitRoot) ? (
           <section className="git-setup-band">
             <div>
-              <h3>{status.isGitRepository ? 'Vault 不是仓库根目录' : '初始化 GitHub 私有仓库'}</h3>
+              <h3>{status.isGitRepository ? 'Vault 不是仓库根目录' : '初始化本地 Git 仓库'}</h3>
               <p>
                 {status.repositoryProblem ??
-                  'Mira 会在 vault 根目录执行 git init，默认忽略 .mira/，再通过 gh CLI 创建 private GitHub 仓库。'}
+                  '本地初始化只会在 vault 根目录执行 git init，并默认忽略 .mira/。远端仓库可以之后再连接。'}
               </p>
             </div>
             {!status.repositoryProblem ? (
               <div className="git-setup-actions">
-                <Input value={repoName} onChange={(event) => setRepoName(event.target.value)} placeholder="GitHub 仓库名" />
-                <Button onClick={handleInitGitHub} disabled={isOperating}>
-                  {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <GitPullRequestCreate aria-hidden />}
-                  用 gh 初始化
+                <Button className="git-local-init-button" onClick={handleInitLocalRepository} disabled={isOperating}>
+                  {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <GitBranch aria-hidden />}
+                  本地初始化
                 </Button>
               </div>
             ) : null}
           </section>
         ) : null}
 
-        {isRemoteFallbackOpen ? (
+        {shouldShowRemoteSetup ? (
           <section className="git-remote-band">
-            <button type="button" className="git-remote-toggle" onClick={() => setIsRemoteFallbackOpen((value) => !value)}>
-              <ChevronDown aria-hidden />
-              gh 失败时，粘贴 GitHub remote URL
-            </button>
+            <div className="git-remote-heading">
+              <h3>连接 GitHub 远端</h3>
+              <p>先在 GitHub 网页创建一个空仓库，再把仓库地址粘贴到这里；Mira 只会执行本地 git remote 与 git push。</p>
+            </div>
+            {remoteRecoveryMessage ? <div className="git-remote-recovery">{remoteRecoveryMessage}</div> : null}
+            <div className="git-remote-actions">
+              <Button variant="outline" onClick={handleOpenGitHubNewRepository} disabled={isOperating}>
+                <ExternalLink aria-hidden />
+                打开 GitHub 新建仓库
+              </Button>
+            </div>
             <div className="git-remote-row">
               <Input
                 value={remoteUrl}
-                onChange={(event) => setRemoteUrl(event.target.value)}
+                onChange={(event) => {
+                  setRemoteUrl(event.target.value)
+                  setRemoteRecoveryMessage(null)
+                }}
                 placeholder="https://github.com/you/repo.git 或 git@github.com:you/repo.git"
               />
               <Button variant="outline" onClick={handleConnectRemote} disabled={isOperating || !remoteUrl.trim()}>
