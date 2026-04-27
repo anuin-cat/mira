@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Toast, ToastClose, ToastProvider, ToastTitle, ToastViewport } from '@/components/ui/toast'
 import type { GitChangedFile, GitDiffMode, GitStatusResult } from '../../domain/git'
 import {
   commitGitChanges,
@@ -47,6 +48,7 @@ const REMOTE_RECONNECT_ERROR_MARKERS = [
 const REMOTE_RECONNECT_MESSAGE =
   '远端仓库可能已删除、不可访问，或当前 Git 凭据没有权限。可以重新在 GitHub 创建仓库，然后把新的 remote URL 粘贴到这里。'
 const MISSING_REMOTE_PUSH_MESSAGE = '目前没有连接远端。点击右上角“连接远端”按钮连接后，再 Push。'
+const COMMIT_INPUT_MAX_LINES = 3
 
 export type GitPanelAction = 'connect-remote' | 'stage-all' | 'commit' | 'push'
 
@@ -67,6 +69,12 @@ interface GitPanelProps {
 interface RunOperationOptions {
   onSuccess?: (status: GitStatusResult) => void
   onError?: (message: string) => void
+}
+
+interface GitToastState {
+  id: number
+  message: string
+  variant: 'success' | 'warning'
 }
 
 /** 从未知异常中提取可展示消息 */
@@ -130,7 +138,8 @@ export function GitPanel({
   const [isLoadingDiff, setIsLoadingDiff] = useState(false)
   const [isOperating, setIsOperating] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [noticeMessage, setNoticeMessage] = useState<string | null>(null)
+  const [toastState, setToastState] = useState<GitToastState | null>(null)
+  const [isToastOpen, setIsToastOpen] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
   const [remoteUrl, setRemoteUrl] = useState('')
   const [isRemoteSetupOpen, setIsRemoteSetupOpen] = useState(false)
@@ -222,18 +231,18 @@ export function GitPanel({
     // 1. 先落盘当前编辑器内容，避免提交漏掉 debounce 中的正文
     setIsOperating(true)
     setErrorMessage(null)
-    setNoticeMessage(null)
     setRemoteRecoveryMessage(null)
     try {
       await onBeforeWrite()
       const nextStatus = await operation()
       setStatus(nextStatus)
       onStatusChangeRef.current(nextStatus)
-      setNoticeMessage(successMessage)
+      showToastMessage(successMessage, 'success')
       options.onSuccess?.(nextStatus)
     } catch (error) {
       const message = getErrorMessage(error)
       options.onError?.(message)
+      setIsToastOpen(false)
       setErrorMessage(message)
     } finally {
       setIsOperating(false)
@@ -259,6 +268,42 @@ export function GitPanel({
     setCommitMessage('')
   }
 
+  /** 同步提交输入框高度，保持默认一行、最多三行 */
+  const syncCommitInputHeight = useCallback(() => {
+    // 1. 读取输入框与当前排版数据
+    const input = commitInputRef.current
+    if (!input) return
+    const styles = window.getComputedStyle(input)
+    const lineHeight = Number.parseFloat(styles.lineHeight) || 20
+    const paddingTop = Number.parseFloat(styles.paddingTop) || 0
+    const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0
+    const borderTop = Number.parseFloat(styles.borderTopWidth) || 0
+    const borderBottom = Number.parseFloat(styles.borderBottomWidth) || 0
+    const minHeight = lineHeight + paddingTop + paddingBottom + borderTop + borderBottom
+    const maxHeight = lineHeight * COMMIT_INPUT_MAX_LINES + paddingTop + paddingBottom + borderTop + borderBottom
+
+    // 2. 先重置高度，再按内容尺寸重新收缩或扩展
+    input.style.height = 'auto'
+    const nextHeight = Math.max(minHeight, Math.min(input.scrollHeight, maxHeight))
+    input.style.height = `${nextHeight}px`
+
+    // 3. 超过三行后改为内部滚动，避免继续撑高左栏
+    input.style.overflowY = input.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }, [])
+
+  /** 展示不阻塞布局的面板内浮动提示 */
+  function showToastMessage(message: string, variant: GitToastState['variant']) {
+    // 1. 用新 id 强制重建 toast，确保连续同文案也会重新播放
+    setToastState({
+      id: Date.now(),
+      message,
+      variant,
+    })
+
+    // 2. 重新打开 toast，交给 Radix 自动定时关闭
+    setIsToastOpen(true)
+  }
+
   /** 打开右上角入口对应的远端连接表单 */
   function handleOpenRemoteSetup() {
     setIsRemoteSetupOpen(true)
@@ -271,9 +316,9 @@ export function GitPanel({
     if (!currentStatus) return
     const canPushFromCurrentStatus = Boolean(currentStatus?.isGitRepository && currentStatus.isVaultGitRoot)
     if (canPushFromCurrentStatus && !currentStatus?.remoteUrl) {
-      setNoticeMessage(null)
       setRemoteRecoveryMessage(null)
-      setErrorMessage(MISSING_REMOTE_PUSH_MESSAGE)
+      setErrorMessage(null)
+      showToastMessage(MISSING_REMOTE_PUSH_MESSAGE, 'warning')
       return
     }
 
@@ -329,12 +374,18 @@ export function GitPanel({
     setRemoteUrl('')
     setIsRemoteSetupOpen(false)
     setRemoteRecoveryMessage(null)
+    setIsToastOpen(false)
   }, [vaultPath])
 
   useEffect(() => {
     if (!isRemoteSetupOpen) return
     window.requestAnimationFrame(() => remoteInputRef.current?.focus())
   }, [isRemoteSetupOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    window.requestAnimationFrame(syncCommitInputHeight)
+  }, [commitMessage, isOpen, syncCommitInputHeight])
 
   useEffect(() => {
     if (!isOpen || !selectedFile || !canUseGit) {
@@ -485,12 +536,17 @@ export function GitPanel({
           </div>
         </header>
 
-        {errorMessage ? (
-          <div className={`git-panel-alert ${errorMessage === MISSING_REMOTE_PUSH_MESSAGE ? 'warning' : 'error'}`}>
-            {errorMessage}
-          </div>
-        ) : null}
-        {noticeMessage ? <div className="git-panel-alert success">{noticeMessage}</div> : null}
+        <ToastProvider duration={2400}>
+          {toastState ? (
+            <Toast key={toastState.id} open={isToastOpen} onOpenChange={setIsToastOpen} variant={toastState.variant}>
+              <ToastTitle>{toastState.message}</ToastTitle>
+              <ToastClose />
+            </Toast>
+          ) : null}
+          <ToastViewport className="git-panel-toast-viewport" />
+        </ToastProvider>
+
+        {errorMessage ? <div className="git-panel-alert error">{errorMessage}</div> : null}
 
         {status && (!status.isGitRepository || !status.isVaultGitRoot) ? (
           <section className="git-setup-band">
@@ -555,10 +611,34 @@ export function GitPanel({
 
         <div className="git-panel-grid">
           <aside className="git-changes">
-            <div className="git-section-header">
-              <span>变更</span>
-              <span>{status?.changedFiles.length ?? 0}</span>
-            </div>
+            <section className="git-commit-box">
+              <div className="git-commit-meta">
+                <span>
+                  <ShieldCheck aria-hidden />
+                  {stagedCount} 个 staged 文件
+                </span>
+                <span>{unstagedCount} 个 working 变更</span>
+              </div>
+              <Textarea
+                ref={commitInputRef}
+                value={commitMessage}
+                onChange={(event) => setCommitMessage(event.target.value)}
+                placeholder="Commit message"
+                rows={1}
+                className="git-commit-input"
+              />
+              <div className="git-commit-actions">
+                <Button size="sm" onClick={handleCommit} disabled={!canUseGit || isOperating || stagedCount === 0}>
+                  {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <Check aria-hidden />}
+                  Commit
+                </Button>
+                <Button size="sm" variant="outline" onClick={handlePush} disabled={!canUseGit || isOperating}>
+                  <Send aria-hidden />
+                  Push
+                </Button>
+              </div>
+            </section>
+
             <div className="git-change-list">
               {!status?.changedFiles.length ? (
                 <div className="git-empty">没有未提交变更</div>
@@ -673,33 +753,6 @@ export function GitPanel({
             <pre className="git-diff-content">
               {isLoadingDiff ? '正在读取 diff...' : diff || '选择一个文件查看 diff'}
             </pre>
-
-            <section className="git-commit-box">
-              <div className="git-commit-meta">
-                <span>
-                  <ShieldCheck aria-hidden />
-                  {stagedCount} 个 staged 文件
-                </span>
-                <span>{unstagedCount} 个 working 变更</span>
-              </div>
-              <Textarea
-                ref={commitInputRef}
-                value={commitMessage}
-                onChange={(event) => setCommitMessage(event.target.value)}
-                placeholder="Commit message"
-                rows={3}
-              />
-              <div className="git-commit-actions">
-                <Button onClick={handleCommit} disabled={!canUseGit || isOperating || stagedCount === 0}>
-                  {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <Check aria-hidden />}
-                  Commit
-                </Button>
-                <Button variant="outline" onClick={handlePush} disabled={!canUseGit || isOperating}>
-                  <Send aria-hidden />
-                  Push
-                </Button>
-              </div>
-            </section>
           </main>
         </div>
       </section>

@@ -74,6 +74,14 @@
   gap: 4px;
 }
 
+.git-panel-toast-viewport {
+  position: absolute;
+  top: 72px;
+  right: 14px;
+  z-index: 2;
+  width: min(320px, calc(100% - 28px));
+}
+
 .git-connect-remote-button {
   margin-right: 4px;
 }
@@ -231,7 +239,6 @@
   flex-direction: column;
 }
 
-.git-section-header,
 .git-diff-toolbar {
   min-height: 42px;
   padding: 8px 10px;
@@ -240,12 +247,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-
-.git-section-header {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--theme-text-secondary);
 }
 
 .git-change-list {
@@ -487,10 +488,11 @@
 
 .git-commit-box {
   flex-shrink: 0;
-  border-top: 1px solid var(--theme-border);
-  padding: 10px;
+  border-bottom: 1px solid var(--theme-border);
+  padding: 8px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  background: color-mix(in srgb, var(--theme-bg-sidebar) 42%, var(--theme-bg-primary) 58%);
 }
 
 .git-commit-meta {
@@ -498,7 +500,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--theme-text-tertiary);
 }
 
@@ -514,11 +516,20 @@
   height: 14px;
 }
 
+.git-commit-input {
+  min-height: 38px;
+  max-height: 78px;
+  resize: none;
+  line-height: 1.5;
+  padding: 8px 10px;
+  overflow-y: hidden;
+}
+
 .git-commit-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 @media (max-width: 760px) {
