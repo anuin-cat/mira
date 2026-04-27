@@ -13,7 +13,6 @@ import {
   Plus,
   RefreshCcw,
   Send,
-  ShieldCheck,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -31,6 +30,7 @@ import {
   stageGitPaths,
   unstageGitPaths,
 } from '../../services/gitService'
+import { GitDiffView } from './GitDiffView'
 import './git-panel.css'
 
 const REMOTE_RECONNECT_ERROR_MARKERS = [
@@ -48,6 +48,7 @@ const REMOTE_RECONNECT_ERROR_MARKERS = [
 const REMOTE_RECONNECT_MESSAGE =
   '远端仓库可能已删除、不可访问，或当前 Git 凭据没有权限。可以重新在 GitHub 创建仓库，然后把新的 remote URL 粘贴到这里。'
 const MISSING_REMOTE_PUSH_MESSAGE = '目前没有连接远端。点击右上角“连接远端”按钮连接后，再 Push。'
+const COMMIT_INPUT_MIN_LINES = 2
 const COMMIT_INPUT_MAX_LINES = 3
 
 export type GitPanelAction = 'connect-remote' | 'stage-all' | 'commit' | 'push'
@@ -134,6 +135,7 @@ export function GitPanel({
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [diffMode, setDiffMode] = useState<GitDiffMode>('unstaged')
   const [diff, setDiff] = useState('')
+  const [isDiffTruncated, setIsDiffTruncated] = useState(false)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
   const [isLoadingDiff, setIsLoadingDiff] = useState(false)
   const [isOperating, setIsOperating] = useState(false)
@@ -158,7 +160,6 @@ export function GitPanel({
     [selectedPath, status]
   )
   const stagedCount = status?.changedFiles.filter((file) => file.isStaged).length ?? 0
-  const unstagedCount = status?.changedFiles.filter((file) => file.isUnstaged).length ?? 0
   const stagedFiles = useMemo(() => status?.changedFiles.filter((file) => file.isStaged) ?? [], [status])
   const unstagedFiles = useMemo(() => status?.changedFiles.filter((file) => file.isUnstaged) ?? [], [status])
   const selectedLineStats = selectedFile ? getFileLineStats(selectedFile, diffMode) : null
@@ -177,12 +178,6 @@ export function GitPanel({
     selectedPathRef.current = file.path
     selectedDiffModeRef.current = mode
     setSelectedPath(file.path)
-    setDiffMode(mode)
-  }
-
-  /** 切换当前文件的 diff 视图 */
-  function handleDiffModeChange(mode: GitDiffMode) {
-    selectedDiffModeRef.current = mode
     setDiffMode(mode)
   }
 
@@ -212,7 +207,10 @@ export function GitPanel({
       selectedDiffModeRef.current = nextDiffMode
       setSelectedPath(nextSelected?.path ?? null)
       setDiffMode(nextDiffMode)
-      if (!nextSelected) setDiff('')
+      if (!nextSelected) {
+        setDiff('')
+        setIsDiffTruncated(false)
+      }
       return nextStatus
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
@@ -268,7 +266,7 @@ export function GitPanel({
     setCommitMessage('')
   }
 
-  /** 同步提交输入框高度，保持默认一行、最多三行 */
+  /** 同步提交输入框高度，保持默认两行、最多三行 */
   const syncCommitInputHeight = useCallback(() => {
     // 1. 读取输入框与当前排版数据
     const input = commitInputRef.current
@@ -279,8 +277,9 @@ export function GitPanel({
     const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0
     const borderTop = Number.parseFloat(styles.borderTopWidth) || 0
     const borderBottom = Number.parseFloat(styles.borderBottomWidth) || 0
-    const minHeight = lineHeight + paddingTop + paddingBottom + borderTop + borderBottom
-    const maxHeight = lineHeight * COMMIT_INPUT_MAX_LINES + paddingTop + paddingBottom + borderTop + borderBottom
+    const verticalChrome = paddingTop + paddingBottom + borderTop + borderBottom
+    const minHeight = lineHeight * COMMIT_INPUT_MIN_LINES + verticalChrome
+    const maxHeight = lineHeight * COMMIT_INPUT_MAX_LINES + verticalChrome
 
     // 2. 先重置高度，再按内容尺寸重新收缩或扩展
     input.style.height = 'auto'
@@ -390,6 +389,7 @@ export function GitPanel({
   useEffect(() => {
     if (!isOpen || !selectedFile || !canUseGit) {
       setDiff('')
+      setIsDiffTruncated(false)
       return
     }
 
@@ -397,9 +397,13 @@ export function GitPanel({
     setIsLoadingDiff(true)
     setErrorMessage(null)
     setDiff('')
+    setIsDiffTruncated(false)
     void getGitDiff(vaultPath, selectedFile.path, diffMode)
       .then((result) => {
-        if (!isDisposed) setDiff(result.diff || '当前视图没有 diff')
+        if (!isDisposed) {
+          setDiff(result.diff || '')
+          setIsDiffTruncated(result.isTruncated)
+        }
       })
       .catch((error) => {
         if (!isDisposed) setErrorMessage(getErrorMessage(error))
@@ -612,30 +616,25 @@ export function GitPanel({
         <div className="git-panel-grid">
           <aside className="git-changes">
             <section className="git-commit-box">
-              <div className="git-commit-meta">
-                <span>
-                  <ShieldCheck aria-hidden />
-                  {stagedCount} 个 staged 文件
-                </span>
-                <span>{unstagedCount} 个 working 变更</span>
-              </div>
-              <Textarea
-                ref={commitInputRef}
-                value={commitMessage}
-                onChange={(event) => setCommitMessage(event.target.value)}
-                placeholder="Commit message"
-                rows={1}
-                className="git-commit-input"
-              />
-              <div className="git-commit-actions">
-                <Button size="sm" onClick={handleCommit} disabled={!canUseGit || isOperating || stagedCount === 0}>
-                  {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <Check aria-hidden />}
-                  Commit
-                </Button>
-                <Button size="sm" variant="outline" onClick={handlePush} disabled={!canUseGit || isOperating}>
-                  <Send aria-hidden />
-                  Push
-                </Button>
+              <div className="git-commit-row">
+                <Textarea
+                  ref={commitInputRef}
+                  value={commitMessage}
+                  onChange={(event) => setCommitMessage(event.target.value)}
+                  placeholder="Commit message"
+                  rows={COMMIT_INPUT_MIN_LINES}
+                  className="git-commit-input"
+                />
+                <div className="git-commit-actions">
+                  <Button size="sm" onClick={handleCommit} disabled={!canUseGit || isOperating || stagedCount === 0}>
+                    {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <Check aria-hidden />}
+                    Commit
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handlePush} disabled={!canUseGit || isOperating}>
+                    <Send aria-hidden />
+                    Push
+                  </Button>
+                </div>
               </div>
             </section>
 
@@ -644,35 +643,6 @@ export function GitPanel({
                 <div className="git-empty">没有未提交变更</div>
               ) : (
                 <>
-                  <section className="git-change-group">
-                    <header className="git-change-group-header">
-                      <button type="button" className="git-change-group-toggle" onClick={() => setIsUnstagedOpen((value) => !value)}>
-                        {isUnstagedOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
-                        <span>未 staged</span>
-                        <span>{unstagedFiles.length}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="git-change-group-action"
-                        onClick={() => void handleStage([])}
-                        disabled={!canUseGit || isOperating || unstagedFiles.length === 0}
-                        aria-label="Stage 全部未 staged 变更"
-                        title="Stage 全部"
-                      >
-                        <Plus aria-hidden />
-                      </button>
-                    </header>
-                    {isUnstagedOpen ? (
-                      <div className="git-change-group-list">
-                        {unstagedFiles.length ? (
-                          unstagedFiles.map((file) => renderChangeRow(file, 'unstaged'))
-                        ) : (
-                          <div className="git-change-group-empty">没有未 staged 变更</div>
-                        )}
-                      </div>
-                    ) : null}
-                  </section>
-
                   <section className="git-change-group">
                     <header className="git-change-group-header">
                       <button type="button" className="git-change-group-toggle" onClick={() => setIsStagedOpen((value) => !value)}>
@@ -701,6 +671,35 @@ export function GitPanel({
                       </div>
                     ) : null}
                   </section>
+
+                  <section className="git-change-group">
+                    <header className="git-change-group-header">
+                      <button type="button" className="git-change-group-toggle" onClick={() => setIsUnstagedOpen((value) => !value)}>
+                        {isUnstagedOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
+                        <span>未 staged</span>
+                        <span>{unstagedFiles.length}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="git-change-group-action"
+                        onClick={() => void handleStage([])}
+                        disabled={!canUseGit || isOperating || unstagedFiles.length === 0}
+                        aria-label="Stage 全部未 staged 变更"
+                        title="Stage 全部"
+                      >
+                        <Plus aria-hidden />
+                      </button>
+                    </header>
+                    {isUnstagedOpen ? (
+                      <div className="git-change-group-list">
+                        {unstagedFiles.length ? (
+                          unstagedFiles.map((file) => renderChangeRow(file, 'unstaged'))
+                        ) : (
+                          <div className="git-change-group-empty">没有未 staged 变更</div>
+                        )}
+                      </div>
+                    ) : null}
+                  </section>
                 </>
               )}
             </div>
@@ -713,24 +712,6 @@ export function GitPanel({
                 {selectedLineStats ? <span>+{selectedLineStats.additions} -{selectedLineStats.deletions}</span> : null}
               </div>
               <div className="git-diff-actions">
-                {selectedFile?.isUnstaged ? (
-                  <Button
-                    variant={diffMode === 'unstaged' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleDiffModeChange('unstaged')}
-                  >
-                    Working
-                  </Button>
-                ) : null}
-                {selectedFile?.isStaged ? (
-                  <Button
-                    variant={diffMode === 'staged' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => handleDiffModeChange('staged')}
-                  >
-                    Staged
-                  </Button>
-                ) : null}
                 <Button
                   variant="outline"
                   size="sm"
@@ -750,9 +731,12 @@ export function GitPanel({
                 </Button>
               </div>
             </div>
-            <pre className="git-diff-content">
-              {isLoadingDiff ? '正在读取 diff...' : diff || '选择一个文件查看 diff'}
-            </pre>
+            <GitDiffView
+              diff={diff}
+              emptyState={selectedFile ? '当前视图没有 diff' : '选择一个文件查看 diff'}
+              isLoading={isLoadingDiff}
+              isTruncated={isDiffTruncated}
+            />
           </main>
         </div>
       </section>

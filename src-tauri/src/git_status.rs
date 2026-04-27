@@ -230,10 +230,20 @@ pub fn create_untracked_diff(vault: &Path, path: &str) -> Result<String, String>
         "diff --git a/{0} b/{0}\nnew file mode 100644\n--- /dev/null\n+++ b/{0}\n",
         path
     );
-    for line in content.lines() {
+    let displayed_lines: Vec<&str> = content.lines().collect();
+    if !displayed_lines.is_empty() {
+        diff.push_str(&format!(
+            "@@ -0,0 +1{} @@\n",
+            format_diff_range_suffix(displayed_lines.len())
+        ));
+    }
+    for line in &displayed_lines {
         diff.push('+');
         diff.push_str(line);
         diff.push('\n');
+    }
+    if !content.is_empty() && !content.ends_with('\n') {
+        diff.push_str("\\ No newline at end of file\n");
     }
     if is_truncated {
         diff.push_str(&format!(
@@ -242,6 +252,15 @@ pub fn create_untracked_diff(vault: &Path, path: &str) -> Result<String, String>
         ));
     }
     Ok(diff)
+}
+
+/** 按 unified diff 习惯格式化行区间后缀。 */
+fn format_diff_range_suffix(line_count: usize) -> String {
+    if line_count == 1 {
+        String::new()
+    } else {
+        format!(",{}", line_count)
+    }
 }
 
 /** 推送当前分支并设置 upstream */

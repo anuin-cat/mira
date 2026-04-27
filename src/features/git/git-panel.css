@@ -490,35 +490,18 @@
   flex-shrink: 0;
   border-bottom: 1px solid var(--theme-border);
   padding: 8px;
-  display: grid;
-  gap: 6px;
   background: color-mix(in srgb, var(--theme-bg-sidebar) 42%, var(--theme-bg-primary) 58%);
 }
 
-.git-commit-meta {
+.git-commit-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 8px;
-  font-size: 11px;
-  color: var(--theme-text-tertiary);
-}
-
-.git-commit-meta span {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.git-commit-meta svg {
-  width: 14px;
-  height: 14px;
 }
 
 .git-commit-input {
-  min-height: 38px;
-  max-height: 78px;
+  flex: 1 1 auto;
+  min-width: 0;
   resize: none;
   line-height: 1.5;
   padding: 8px 10px;
@@ -527,9 +510,14 @@
 
 .git-commit-actions {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
+}
+
+.git-commit-actions > * {
+  width: 100%;
 }
 
 @media (max-width: 760px) {
