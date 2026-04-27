@@ -111,12 +111,24 @@ interface Props {
 export interface MdxEditorHandle {
   openSearch: () => void
   focusEditor: () => void
+  selectSearchMatch: (query: string, matchOrdinal: number) => boolean
 }
 
 interface EditorScrollSnapshot {
   element: HTMLElement
   left: number
   top: number
+}
+
+interface TextNodeRange {
+  node: Text
+  start: number
+  end: number
+}
+
+interface TextPosition {
+  node: Text
+  offset: number
 }
 
 /** 转义代码内容，避免高亮时把用户文本当作 HTML */
@@ -161,6 +173,11 @@ function getEditorScrollElement(shellElement: HTMLElement | null) {
   return shellElement?.querySelector<HTMLElement>(EDITOR_SCROLL_CONTAINER_SELECTOR) ?? null
 }
 
+/** 获取编辑器真实正文根节点 */
+function getEditorContentElement(shellElement: HTMLElement | null) {
+  return shellElement?.querySelector<HTMLElement>('.mira-mdx-content') ?? getEditorScrollElement(shellElement)
+}
+
 /** 记录编辑器当前滚动位置，避免工具栏异步聚焦后跳走 */
 function captureEditorScrollSnapshot(shellElement: HTMLElement | null): EditorScrollSnapshot | null {
   const element = getEditorScrollElement(shellElement)
@@ -185,6 +202,107 @@ function restoreEditorScrollSnapshot(snapshot: EditorScrollSnapshot | null) {
     left: snapshot.left,
     top: snapshot.top,
     behavior: 'auto',
+  })
+}
+
+/** 判断文本节点是否属于用户正文，而不是控件文案 */
+function isSearchableTextNode(node: Text) {
+  const parentElement = node.parentElement
+  if (!parentElement) return false
+  if (!node.textContent?.trim()) return false
+  return !parentElement.closest('button, input, textarea, select, [role="button"], [data-tool-cell]')
+}
+
+/** 为正文可见文本建立 DOM offset 映射 */
+function buildVisibleTextIndex(rootElement: HTMLElement) {
+  const ranges: TextNodeRange[] = []
+  const walker = document.createTreeWalker(rootElement, NodeFilter.SHOW_TEXT)
+  let allText = ''
+
+  // 1. 按 DOM 顺序收集正文文本节点，保留全局 offset
+  while (walker.nextNode()) {
+    const node = walker.currentNode
+    if (!(node instanceof Text) || !isSearchableTextNode(node)) continue
+
+    const start = allText.length
+    allText += node.textContent ?? ''
+    ranges.push({
+      node,
+      start,
+      end: allText.length,
+    })
+  }
+
+  // 2. 返回连续文本和 offset 映射，方便跨 inline 节点选区
+  return { allText, ranges }
+}
+
+/** 把全局文本 offset 映射回具体 DOM 文本节点位置 */
+function findTextPosition(ranges: TextNodeRange[], offset: number, isEndPosition = false): TextPosition | null {
+  for (const range of ranges) {
+    const isInsideStart = !isEndPosition && offset >= range.start && offset < range.end
+    const isInsideEnd = isEndPosition && offset > range.start && offset <= range.end
+    if (!isInsideStart && !isInsideEnd) continue
+
+    return {
+      node: range.node,
+      offset: offset - range.start,
+    }
+  }
+
+  return null
+}
+
+/** 让浏览器原生选区选中全局搜索命中的可见文本 */
+function selectVisibleTextMatch(rootElement: HTMLElement, query: string, matchOrdinal: number) {
+  const normalizedQuery = query.toLocaleLowerCase()
+  if (!normalizedQuery) return false
+
+  const { allText, ranges } = buildVisibleTextIndex(rootElement)
+  const normalizedText = allText.toLocaleLowerCase()
+  let currentOrdinal = 0
+  let searchStart = 0
+
+  // 1. 找到第 N 个可见文本命中
+  while (searchStart < normalizedText.length) {
+    const matchStart = normalizedText.indexOf(normalizedQuery, searchStart)
+    if (matchStart < 0) return false
+    const matchEnd = matchStart + query.length
+
+    if (currentOrdinal === matchOrdinal) {
+      const startPosition = findTextPosition(ranges, matchStart)
+      const endPosition = findTextPosition(ranges, matchEnd, true)
+      if (!startPosition || !endPosition) return false
+
+      // 2. 使用浏览器原生 Selection，后续粘贴会直接替换这段文字
+      const range = document.createRange()
+      range.setStart(startPosition.node, startPosition.offset)
+      range.setEnd(endPosition.node, endPosition.offset)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+      return true
+    }
+
+    currentOrdinal += 1
+    searchStart = matchEnd
+  }
+
+  return false
+}
+
+/** 把选区滚动到编辑器视口中部附近 */
+function scrollSelectionIntoView(shellElement: HTMLElement | null) {
+  const range = window.getSelection()?.rangeCount ? window.getSelection()?.getRangeAt(0) : null
+  const scrollElement = getEditorScrollElement(shellElement)
+  const rangeRect = range?.getBoundingClientRect()
+  const scrollRect = scrollElement?.getBoundingClientRect()
+  if (!rangeRect || !scrollElement || !scrollRect) return
+
+  const nextTop = scrollElement.scrollTop + rangeRect.top - scrollRect.top - scrollElement.clientHeight * 0.32
+  scrollElement.scrollTo({
+    top: Math.max(nextTop, 0),
+    behavior: 'smooth',
   })
 }
 
@@ -645,6 +763,15 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     },
     focusEditor() {
       editorRef.current?.focus()
+    },
+    selectSearchMatch(query, matchOrdinal) {
+      const contentElement = getEditorContentElement(shellRef.current)
+      if (!contentElement) return false
+
+      contentElement.focus({ preventScroll: true })
+      const isSelected = selectVisibleTextMatch(contentElement, query, matchOrdinal)
+      if (isSelected) scrollSelectionIntoView(shellRef.current)
+      return isSelected
     },
   }))
 

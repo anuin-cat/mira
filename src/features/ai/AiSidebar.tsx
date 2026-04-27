@@ -1,5 +1,5 @@
 import { BrushCleaning, History, Settings } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -36,6 +36,14 @@ interface Props {
   notePath: string | null
   noteTitle: string | null
   noteContent: string
+}
+
+export interface AiSidebarHandle {
+  createSession: () => void
+  focusComposer: () => void
+  fillCurrentNotePrompt: (prompt: string) => void
+  openSettings: () => void
+  isComposerFocused: () => boolean
 }
 
 /** 统一生成聊天消息 id */
@@ -146,7 +154,10 @@ function replaceMessageInSession(session: AiChatSession, nextMessage: AiChatMess
 }
 
 /** 侧边聊天栏：负责会话切换、设置编辑、流式发送与思考展示 */
-export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props) {
+export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
+  { vaultPath, notePath, noteTitle, noteContent },
+  ref
+) {
   const [settings, setSettings] = useState<AiSettingsState>(() => loadAiSettings())
   const [sessions, setSessions] = useState<AiChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -241,6 +252,27 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
   const composerModelValue = activeRequestSettings.model
     ? `${activeRequestSettings.providerId}::${activeRequestSettings.model}`
     : ''
+
+  useImperativeHandle(ref, () => ({
+    createSession() {
+      handleCreateSession()
+    },
+    focusComposer() {
+      window.requestAnimationFrame(() => composerInputRef.current?.focus())
+    },
+    fillCurrentNotePrompt(prompt: string) {
+      if (!draftMessage.trim()) setDraftMessage(prompt)
+      setIsHistoryOpen(false)
+      setErrorMessage(null)
+      window.requestAnimationFrame(() => composerInputRef.current?.focus())
+    },
+    openSettings() {
+      setIsSettingsOpen(true)
+    },
+    isComposerFocused() {
+      return document.activeElement === composerInputRef.current
+    },
+  }))
 
   /** 保存设置并立刻生效；closeDialog 为 true 时关闭设置弹层 */
   function handleSaveSettings(nextSettings: AiSettingsState, closeDialog: boolean) {
@@ -547,7 +579,7 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
             placeholder="基于当前笔记继续聊..."
             rows={AI_COMPOSER_MIN_ROWS}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
+              if (event.key === 'Enter' && ((event.metaKey || event.ctrlKey) || !event.shiftKey)) {
                 event.preventDefault()
                 void handleSendMessage()
               }
@@ -615,4 +647,4 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
       ) : null}
     </aside>
   )
-}
+})

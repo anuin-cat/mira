@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listen } from '@tauri-apps/api/event'
+import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import {
   Group as PanelGroup,
   Panel,
@@ -33,9 +33,18 @@ import {
   MIRA_MAP_FILE,
 } from './services/pathUtils'
 import { VaultSetup } from './features/vault/VaultSetup'
-import { FileTree } from './features/file-tree/FileTree'
-import { MdxEditor } from './features/editor/MdxEditor'
-import { AiSidebar } from './features/ai/AiSidebar'
+import { FileTree, type FileTreeHandle } from './features/file-tree/FileTree'
+import { MdxEditor, type MdxEditorHandle } from './features/editor/MdxEditor'
+import { AiSidebar, type AiSidebarHandle } from './features/ai/AiSidebar'
+import {
+  COMMAND_DEFINITIONS,
+  CommandPalette,
+  QuickOpenDialog,
+  VaultSearchDialog,
+  useAppCommands,
+  type ActiveCommandDialog,
+  type VaultSearchMatch,
+} from './features/commands'
 import type { FontSize, Theme, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 
 const SIDEBAR_MIN_WIDTH = 160
@@ -53,9 +62,15 @@ const DEFAULT_VAULT_STATE: VaultState = {
   theme: 'default',
 }
 
-/** 判断菜单传来的字体大小是否为支持值 */
-function isFontSize(value: unknown): value is FontSize {
-  return value === 'small' || value === 'medium' || value === 'large' || value === 'xlarge'
+interface NavigationHistory {
+  paths: string[]
+  index: number
+}
+
+interface PendingEditorSelection {
+  path: string
+  query: string
+  matchOrdinal: number
 }
 
 /** 从未知异常中提取可展示消息 */
@@ -117,14 +132,21 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
+  const [isFileSidebarOpen, setIsFileSidebarOpen] = useState(true)
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const [aiSidebarWidth, setAiSidebarWidth] = useState(AI_SIDEBAR_DEFAULT_WIDTH)
+  const [activeCommandDialog, setActiveCommandDialog] = useState<ActiveCommandDialog>(null)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vaultPathRef = useRef<string | null>(null)
   const vaultStateRef = useRef<VaultState>(DEFAULT_VAULT_STATE)
   const activePathRef = useRef<string | null>(null)
   const latestContentRef = useRef('')
+  const navigationHistoryRef = useRef<NavigationHistory>({ paths: [], index: -1 })
+  const pendingEditorSelectionRef = useRef<PendingEditorSelection | null>(null)
+  const fileTreeRef = useRef<FileTreeHandle>(null)
+  const editorHandleRef = useRef<MdxEditorHandle>(null)
+  const aiSidebarRef = useRef<AiSidebarHandle>(null)
   const fileSidebarPanelRef = usePanelRef()
   const aiSidebarPanelRef = usePanelRef()
 
@@ -132,7 +154,11 @@ export default function App() {
   const handleLayoutChanged = useCallback(() => {
     // 1. 读取左侧文件树最终像素宽度
     const nextSidebarWidth = fileSidebarPanelRef.current?.getSize().inPixels
-    if (nextSidebarWidth) {
+    if (nextSidebarWidth !== undefined) {
+      const isFileOpen = nextSidebarWidth > 1
+      setIsFileSidebarOpen((currentValue) => (currentValue === isFileOpen ? currentValue : isFileOpen))
+    }
+    if (nextSidebarWidth && nextSidebarWidth > 1) {
       const nextPixels = toPanelPixels(nextSidebarWidth)
       setSidebarWidth((currentWidth) => (currentWidth === nextPixels ? currentWidth : nextPixels))
     }
@@ -173,6 +199,58 @@ export default function App() {
     setIsAiSidebarOpen(true)
   }, [aiSidebarPanelRef, aiSidebarWidth])
 
+  /** 显式切换文件侧栏展开状态 */
+  function handleToggleFileSidebar() {
+    const filePanel = fileSidebarPanelRef.current
+    if (!filePanel) {
+      setIsFileSidebarOpen((currentValue) => !currentValue)
+      return
+    }
+
+    const isCurrentlyOpen = filePanel.getSize().inPixels > 1
+    if (isCurrentlyOpen) {
+      const currentPixels = toPanelPixels(filePanel.getSize().inPixels)
+      setSidebarWidth((currentWidth) => (currentWidth === currentPixels ? currentWidth : currentPixels))
+      filePanel.collapse()
+      setIsFileSidebarOpen(false)
+      return
+    }
+
+    filePanel.resize(sidebarWidth)
+    setIsFileSidebarOpen(true)
+  }
+
+  /** 展开 AI 侧栏但不反向关闭，供命令入口复用 */
+  function openAiSidebar() {
+    const aiPanel = aiSidebarPanelRef.current
+    if (!aiPanel) {
+      setIsAiSidebarOpen(true)
+      return
+    }
+
+    if (aiPanel.getSize().inPixels <= 1) aiPanel.resize(aiSidebarWidth)
+    setIsAiSidebarOpen(true)
+  }
+
+  const runCommand = useAppCommands({
+    vaultPathRef,
+    activePathRef,
+    fileTreeRef,
+    editorHandleRef,
+    aiSidebarRef,
+    setActiveCommandDialog,
+    openAiSidebar,
+    handleChangeVault,
+    handleRefreshVault,
+    handleUpdateMiraMap,
+    handleNavigateHistory,
+    handleRevealInFinder,
+    handleToggleFileSidebar,
+    handleFontSizeChange,
+    handleThemeChange,
+    flushActiveSave,
+  })
+
   useEffect(() => {
     const savedPath = getVaultPath()
     if (savedPath) {
@@ -182,46 +260,6 @@ export default function App() {
       })
     } else {
       setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    const unlistenChangeVault = listen('menu:change-vault', () => {
-      void handleChangeVault()
-    })
-    const unlistenRefreshVault = listen('menu:refresh-vault', () => {
-      void handleRefreshVault()
-    })
-    const unlistenUpdateMap = listen('menu:update-mira-map', () => {
-      void handleUpdateMiraMap()
-    })
-    const unlistenFontSize = listen<unknown>('menu:font-size', (event) => {
-      if (isFontSize(event.payload)) handleFontSizeChange(event.payload)
-    })
-    const unlistenFontSmall = listen('menu:font-size-small', () => handleFontSizeChange('small'))
-    const unlistenFontMedium = listen('menu:font-size-medium', () => handleFontSizeChange('medium'))
-    const unlistenFontLarge = listen('menu:font-size-large', () => handleFontSizeChange('large'))
-    const unlistenFontXlarge = listen('menu:font-size-xlarge', () => handleFontSizeChange('xlarge'))
-    const unlistenThemeDefault = listen('menu:theme-default', () => handleThemeChange('default'))
-    const unlistenThemeWarmPaper = listen('menu:theme-warm-paper', () => handleThemeChange('warm-paper'))
-    const unlistenThemeTwilight = listen('menu:theme-twilight', () => handleThemeChange('twilight'))
-    const unlistenThemeForest = listen('menu:theme-forest', () => handleThemeChange('forest'))
-    const unlistenThemeDarkClassic = listen('menu:theme-dark-classic', () => handleThemeChange('dark-classic'))
-
-    return () => {
-      unlistenChangeVault.then((fn) => fn())
-      unlistenRefreshVault.then((fn) => fn())
-      unlistenUpdateMap.then((fn) => fn())
-      unlistenFontSize.then((fn) => fn())
-      unlistenFontSmall.then((fn) => fn())
-      unlistenFontMedium.then((fn) => fn())
-      unlistenFontLarge.then((fn) => fn())
-      unlistenFontXlarge.then((fn) => fn())
-      unlistenThemeDefault.then((fn) => fn())
-      unlistenThemeWarmPaper.then((fn) => fn())
-      unlistenThemeTwilight.then((fn) => fn())
-      unlistenThemeForest.then((fn) => fn())
-      unlistenThemeDarkClassic.then((fn) => fn())
     }
   }, [])
 
@@ -241,6 +279,10 @@ export default function App() {
     }
   }, [vaultState.fontSize, vaultState.theme])
 
+  useEffect(() => {
+    schedulePendingEditorSelection()
+  }, [activePath, activeContent])
+
   /** 持久化 vault 状态，.mira 被删除时会自动重建 */
   function persistVaultState(patch: Partial<VaultState>) {
     const nextState: VaultState = {
@@ -256,8 +298,58 @@ export default function App() {
     if (path) void writeVaultState(path, nextState)
   }
 
+  /** 记录文件访问历史，用于菜单后退/前进 */
+  function recordNavigation(filePath: string) {
+    const history = navigationHistoryRef.current
+    if (history.paths[history.index] === filePath) return
+
+    const nextPaths = history.paths.slice(0, history.index + 1)
+    nextPaths.push(filePath)
+    if (nextPaths.length > 80) nextPaths.shift()
+
+    navigationHistoryRef.current = {
+      paths: nextPaths,
+      index: nextPaths.length - 1,
+    }
+  }
+
+  /** 在编辑器渲染完成后尝试恢复全局搜索命中选区 */
+  function schedulePendingEditorSelection() {
+    let attemptCount = 0
+
+    const trySelect = () => {
+      const pendingSelection = pendingEditorSelectionRef.current
+      if (!pendingSelection || activePathRef.current !== pendingSelection.path) return
+
+      const isSelected = editorHandleRef.current?.selectSearchMatch(
+        pendingSelection.query,
+        pendingSelection.matchOrdinal
+      ) ?? false
+      if (isSelected || attemptCount >= 12) {
+        pendingEditorSelectionRef.current = null
+        return
+      }
+
+      attemptCount += 1
+      window.setTimeout(() => window.requestAnimationFrame(trySelect), 30)
+    }
+
+    window.requestAnimationFrame(trySelect)
+  }
+
+  /** 暂存全局搜索命中，等待目标文件打开后由编辑器选中 */
+  function queueEditorSelection(filePath: string, match: VaultSearchMatch | null) {
+    if (match?.kind !== 'content' || !match.query || match.matchOrdinal === null) return
+
+    pendingEditorSelectionRef.current = {
+      path: filePath,
+      query: match.query,
+      matchOrdinal: match.matchOrdinal,
+    }
+  }
+
   /** 加载指定文件到编辑器 */
-  async function openFileFromDisk(path: string, filePath: string, shouldPersist = true) {
+  async function openFileFromDisk(path: string, filePath: string, shouldPersist = true, shouldRecordHistory = true) {
     const note = await readNote(path, filePath)
     if (!note) return false
 
@@ -267,6 +359,7 @@ export default function App() {
     setActiveContent(note.content)
 
     if (shouldPersist) persistVaultState({ lastOpenedPath: filePath })
+    if (shouldRecordHistory) recordNavigation(filePath)
     return true
   }
 
@@ -295,6 +388,7 @@ export default function App() {
   async function initVault(path: string) {
     setIsLoading(true)
     setLoadError(null)
+    navigationHistoryRef.current = { paths: [], index: -1 }
 
     await ensureVaultSystem(path)
     const [state, tree] = await Promise.all([readVaultState(path), scanVaultTree(path)])
@@ -344,6 +438,13 @@ export default function App() {
     await flushActiveSave()
     const opened = await openFileFromDisk(path, filePath)
     if (!opened) await reloadTree()
+  }
+
+  /** 打开全局搜索结果，并在编辑器中选中正文命中 */
+  async function handleOpenSearchResult(filePath: string, match: VaultSearchMatch | null) {
+    queueEditorSelection(filePath, match)
+    await handleOpenFile(filePath)
+    schedulePendingEditorSelection()
   }
 
   /** 新建 Markdown 文件并打开 */
@@ -405,6 +506,7 @@ export default function App() {
     if (nextActivePath && nextActivePath !== currentActivePath) {
       activePathRef.current = nextActivePath
       setActivePath(nextActivePath)
+      recordNavigation(nextActivePath)
       persistVaultState({ lastOpenedPath: nextActivePath })
     }
 
@@ -434,6 +536,7 @@ export default function App() {
     if (nextActivePath && nextActivePath !== currentActivePath) {
       activePathRef.current = nextActivePath
       setActivePath(nextActivePath)
+      recordNavigation(nextActivePath)
       persistVaultState({ lastOpenedPath: nextActivePath })
     }
   }
@@ -522,6 +625,36 @@ export default function App() {
     persistVaultState({ theme })
   }
 
+  /** 菜单：按访问历史后退或前进 */
+  async function handleNavigateHistory(offset: -1 | 1) {
+    const path = vaultPathRef.current
+    const history = navigationHistoryRef.current
+    const nextIndex = history.index + offset
+    const nextPath = history.paths[nextIndex]
+    if (!path || !nextPath) return
+
+    await flushActiveSave()
+    navigationHistoryRef.current = {
+      ...history,
+      index: nextIndex,
+    }
+    const opened = await openFileFromDisk(path, nextPath, true, false)
+    if (!opened) await reloadTree()
+  }
+
+  /** 菜单：在 Finder 中显示当前文件或 vault 根目录 */
+  async function handleRevealInFinder() {
+    const path = vaultPathRef.current
+    if (!path) return
+
+    const targetPath = activePathRef.current ? `${path}/${activePathRef.current}` : path
+    try {
+      await revealItemInDir(targetPath)
+    } catch (error) {
+      window.alert(getErrorMessage(error))
+    }
+  }
+
   /** 编辑器内容变化：debounce 1s 后保存 Markdown 文件 */
   const handleContentChange = useCallback((markdown: string) => {
     const path = vaultPathRef.current
@@ -548,6 +681,7 @@ export default function App() {
     <section className="editor-workspace">
       <MdxEditor
         key={activePath}
+        ref={editorHandleRef}
         initialContent={activeContent}
         isAiSidebarOpen={isAiSidebarOpen}
         onChange={handleContentChange}
@@ -570,76 +704,112 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={100}>
-    <PanelGroup
-      orientation="horizontal"
-      className="app-layout"
-      id="app-layout"
-      onLayoutChanged={handleLayoutChanged}
-      data-font-size={vaultState.fontSize || 'medium'}
-      data-theme={vaultState.theme || 'default'}
-      data-platform={isMacOS ? 'macos' : 'default'}
-    >
-      <Panel
-        id="file-sidebar-panel"
-        className="app-sidebar-panel"
-        defaultSize={sidebarWidth}
-        minSize={SIDEBAR_MIN_WIDTH}
-        maxSize={SIDEBAR_MAX_WIDTH}
-        groupResizeBehavior="preserve-pixel-size"
-        panelRef={fileSidebarPanelRef}
-      >
-        <FileTree
-          key={vaultPath}
+      <>
+        <PanelGroup
+          orientation="horizontal"
+          className="app-layout"
+          id="app-layout"
+          onLayoutChanged={handleLayoutChanged}
+          data-font-size={vaultState.fontSize || 'medium'}
+          data-theme={vaultState.theme || 'default'}
+          data-platform={isMacOS ? 'macos' : 'default'}
+        >
+          <Panel
+            id="file-sidebar-panel"
+            className="app-sidebar-panel"
+            defaultSize={sidebarWidth}
+            minSize={SIDEBAR_MIN_WIDTH}
+            maxSize={SIDEBAR_MAX_WIDTH}
+            collapsedSize={0}
+            collapsible
+            groupResizeBehavior="preserve-pixel-size"
+            panelRef={fileSidebarPanelRef}
+          >
+            <FileTree
+              key={vaultPath}
+              ref={fileTreeRef}
+              treeData={treeData}
+              activePath={activePath}
+              expandedDirs={vaultState.expandedDirs}
+              onOpenFile={handleOpenFile}
+              onCreateFile={handleCreateFile}
+              onCreateFolder={handleCreateFolder}
+              onRenameEntry={handleRenameEntry}
+              onMoveEntry={handleMoveEntry}
+              onDeleteEntry={handleDeleteEntry}
+              onExpandedDirsChange={handleExpandedDirsChange}
+            />
+          </Panel>
+          <PanelResizeHandle
+            id="file-sidebar-separator"
+            className={`panel-resizer${isFileSidebarOpen ? '' : ' panel-resizer-hidden'}`}
+            disabled={!isFileSidebarOpen}
+          />
+          <Panel
+            id="editor-workspace-panel"
+            className={`editor-pane${isAiSidebarOpen ? '' : ' is-ai-sidebar-collapsed'}`}
+          >
+            {activePath ? (
+              editorWorkspace
+            ) : (
+              <div className="editor-empty">
+                <p>右键左侧空白区域新建 Markdown 文件</p>
+              </div>
+            )}
+          </Panel>
+          <PanelResizeHandle
+            id="ai-sidebar-separator"
+            className={`panel-resizer${isAiSidebarOpen ? '' : ' panel-resizer-hidden'}`}
+            disabled={!isAiSidebarOpen}
+          />
+          <Panel
+            id="ai-sidebar-panel"
+            className="ai-sidebar-panel-shell"
+            defaultSize={0}
+            minSize={AI_SIDEBAR_MIN_WIDTH}
+            maxSize={AI_SIDEBAR_MAX_WIDTH}
+            collapsedSize={0}
+            collapsible
+            groupResizeBehavior="preserve-pixel-size"
+            panelRef={aiSidebarPanelRef}
+          >
+            <AiSidebar
+              key={vaultPath}
+              ref={aiSidebarRef}
+              vaultPath={vaultPath}
+              notePath={activePath}
+              noteTitle={activePath ? getDisplayName(activePath, 'file') : null}
+              noteContent={activeContent}
+            />
+          </Panel>
+        </PanelGroup>
+        <CommandPalette
+          isOpen={activeCommandDialog === 'command-palette'}
+          commands={COMMAND_DEFINITIONS}
+          onClose={() => setActiveCommandDialog(null)}
+          onRunCommand={(commandId) => {
+            runCommand(commandId)
+          }}
+        />
+        <QuickOpenDialog
+          isOpen={activeCommandDialog === 'quick-open'}
           treeData={treeData}
           activePath={activePath}
-          expandedDirs={vaultState.expandedDirs}
-          onOpenFile={handleOpenFile}
-          onCreateFile={handleCreateFile}
-          onCreateFolder={handleCreateFolder}
-          onRenameEntry={handleRenameEntry}
-          onMoveEntry={handleMoveEntry}
-          onDeleteEntry={handleDeleteEntry}
-          onExpandedDirsChange={handleExpandedDirsChange}
+          onClose={() => setActiveCommandDialog(null)}
+          onOpenFile={(filePath) => {
+            void handleOpenFile(filePath)
+          }}
         />
-      </Panel>
-      <PanelResizeHandle id="file-sidebar-separator" className="panel-resizer" />
-      <Panel
-        id="editor-workspace-panel"
-        className={`editor-pane${isAiSidebarOpen ? '' : ' is-ai-sidebar-collapsed'}`}
-      >
-        {activePath ? (
-          editorWorkspace
-        ) : (
-          <div className="editor-empty">
-            <p>右键左侧空白区域新建 Markdown 文件</p>
-          </div>
-        )}
-      </Panel>
-      <PanelResizeHandle
-        id="ai-sidebar-separator"
-        className={`panel-resizer${isAiSidebarOpen ? '' : ' panel-resizer-hidden'}`}
-        disabled={!isAiSidebarOpen}
-      />
-      <Panel
-        id="ai-sidebar-panel"
-        className="ai-sidebar-panel-shell"
-        defaultSize={0}
-        minSize={AI_SIDEBAR_MIN_WIDTH}
-        maxSize={AI_SIDEBAR_MAX_WIDTH}
-        collapsedSize={0}
-        collapsible
-        groupResizeBehavior="preserve-pixel-size"
-        panelRef={aiSidebarPanelRef}
-      >
-        <AiSidebar
-          key={vaultPath}
+        <VaultSearchDialog
+          isOpen={activeCommandDialog === 'vault-search'}
           vaultPath={vaultPath}
-          notePath={activePath}
-          noteTitle={activePath ? getDisplayName(activePath, 'file') : null}
-          noteContent={activeContent}
+          treeData={treeData}
+          onClose={() => setActiveCommandDialog(null)}
+          onOpenFile={(filePath, match) => {
+            void handleOpenSearchResult(filePath, match)
+          }}
         />
-      </Panel>
-    </PanelGroup>
+      </>
     </TooltipProvider>
   )
 }

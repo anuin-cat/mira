@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Tree } from 'react-arborist'
 import type { NodeApi, NodeRendererProps, RenameHandler, TreeApi } from 'react-arborist'
 import type { MouseEvent } from 'react'
@@ -34,6 +34,13 @@ interface FileTreeProps {
   style?: React.CSSProperties
 }
 
+export interface FileTreeHandle {
+  createFile: () => void
+  createFolder: () => void
+  renameActive: () => void
+  deleteActive: () => void
+}
+
 interface DragState {
   sourcePath: string
   sourceKind: VaultEntryKind
@@ -48,11 +55,25 @@ interface DragState {
 
 interface VaultNodeProps extends NodeRendererProps<VaultTreeNode> {
   onContextMenuOpen: (event: MouseEvent, node: VaultTreeNode) => void
+  onSelectNode: (node: VaultTreeNode) => void
 }
 
 /** 查找文件树节点是否已经出现在最新数据中 */
 function hasNode(nodes: VaultTreeNode[], id: string): boolean {
   return nodes.some((node) => node.id === id || hasNode(node.children ?? [], id))
+}
+
+/** 按路径查找文件树节点 */
+function findNodeByPath(nodes: VaultTreeNode[], path: string | null): VaultTreeNode | null {
+  if (!path) return null
+
+  for (const node of nodes) {
+    if (node.path === path) return node
+    const childNode = findNodeByPath(node.children ?? [], path)
+    if (childNode) return childNode
+  }
+
+  return null
 }
 
 /** 从未知异常中提取可展示消息 */
@@ -103,6 +124,7 @@ function VaultNode({
   style,
   dragHandle,
   onContextMenuOpen,
+  onSelectNode,
 }: VaultNodeProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const submittedRef = useRef(false)
@@ -117,6 +139,7 @@ function VaultNode({
 
   function handleNodeClick(event: MouseEvent) {
     event.stopPropagation()
+    onSelectNode(data)
     if (isDirectory) {
       node.toggle()
       return
@@ -173,24 +196,28 @@ function VaultNode({
 }
 
 /** 左侧 Markdown 文件树 */
-export function FileTree({
-  treeData,
-  activePath,
-  expandedDirs,
-  onOpenFile,
-  onCreateFile,
-  onCreateFolder,
-  onRenameEntry,
-  onMoveEntry,
-  onDeleteEntry,
-  onExpandedDirsChange,
-  style,
-}: FileTreeProps) {
+export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileTree(
+  {
+    treeData,
+    activePath,
+    expandedDirs,
+    onOpenFile,
+    onCreateFile,
+    onCreateFolder,
+    onRenameEntry,
+    onMoveEntry,
+    onDeleteEntry,
+    onExpandedDirsChange,
+    style,
+  },
+  ref
+) {
   const treeRef = useRef<TreeApi<VaultTreeNode> | undefined>(undefined)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const [treeHeight, setTreeHeight] = useState(600)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [pendingEditId, setPendingEditId] = useState<string | null>(null)
+  const [selectedEntry, setSelectedEntry] = useState<VaultTreeNode | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const onMoveEntryRef = useRef(onMoveEntry)
   onMoveEntryRef.current = onMoveEntry
@@ -240,7 +267,12 @@ export function FileTree({
     })
   }, [pendingEditId, treeData])
 
-  // 4. 收集当前已展开目录
+  // 4. 文件树刷新后清理已不存在的选中项
+  useEffect(() => {
+    if (selectedEntry && !findNodeByPath(treeData, selectedEntry.path)) setSelectedEntry(null)
+  }, [selectedEntry, treeData])
+
+  // 5. 收集当前已展开目录
   function collectOpenDirs(): string[] {
     const openState = treeRef.current?.openState ?? {}
     return Object.entries(openState)
@@ -489,6 +521,7 @@ export function FileTree({
   function openContextMenu(event: MouseEvent, target: VaultTreeNode | null) {
     event.preventDefault()
     event.stopPropagation()
+    setSelectedEntry(target)
     setContextMenu({ x: event.clientX, y: event.clientY, target })
   }
 
@@ -520,8 +553,51 @@ export function FileTree({
       : getParentPath(contextMenu.target.path)
   }
 
-  const defaultCreateParent = activePath ? getParentPath(activePath) : null
+  /** 获取命令默认作用的文件树节点 */
+  function getCommandTarget(): VaultTreeNode | null {
+    const selectedNode = findNodeByPath(treeData, selectedEntry?.path ?? null)
+    if (selectedNode) return selectedNode
+    return findNodeByPath(treeData, activePath)
+  }
+
+  /** 确认后删除指定文件树节点 */
+  function confirmAndDeleteEntry(target: VaultTreeNode) {
+    const label = target.kind === 'file'
+      ? `${target.name}${MARKDOWN_EXTENSION}`
+      : target.name
+    if (!window.confirm(`确认删除「${label}」？`)) return
+
+    onDeleteEntry(target.path, target.kind).catch((error) => {
+      window.alert(getErrorMessage(error))
+    })
+  }
+
+  useImperativeHandle(ref, () => ({
+    createFile() {
+      void handleCreateFile(defaultCreateParent)
+    },
+    createFolder() {
+      void handleCreateFolder(defaultCreateParent)
+    },
+    renameActive() {
+      const target = getCommandTarget()
+      if (target) treeRef.current?.edit(target.id)
+    },
+    deleteActive() {
+      const target = getCommandTarget()
+      if (target) confirmAndDeleteEntry(target)
+    },
+  }))
+
+  const defaultCreateParent = selectedEntry
+    ? selectedEntry.kind === 'directory'
+      ? selectedEntry.path
+      : getParentPath(selectedEntry.path)
+    : activePath
+      ? getParentPath(activePath)
+      : null
   const menuTarget = contextMenu?.target ?? null
+  const selectedPath = selectedEntry?.path ?? activePath ?? undefined
 
   return (
     <aside className="file-sidebar" style={style}>
@@ -560,7 +636,7 @@ export function FileTree({
             indent={16}
             paddingTop={TREE_VERTICAL_PADDING}
             paddingBottom={TREE_VERTICAL_PADDING}
-            selection={activePath ?? undefined}
+            selection={selectedPath}
             initialOpenState={initialOpenState}
             openByDefault={false}
             disableMultiSelection
@@ -572,7 +648,13 @@ export function FileTree({
             onRename={handleRename}
             onToggle={() => onExpandedDirsChange(collectOpenDirs())}
           >
-            {(props) => <VaultNode {...props} onContextMenuOpen={openContextMenu} />}
+            {(props) => (
+              <VaultNode
+                {...props}
+                onContextMenuOpen={openContextMenu}
+                onSelectNode={(node) => setSelectedEntry(node)}
+              />
+            )}
           </Tree>
         )}
       </div>
@@ -617,14 +699,8 @@ export function FileTree({
               <button
                 className="danger"
                 onClick={() => {
-                  const label = menuTarget.kind === 'file'
-                    ? `${menuTarget.name}${MARKDOWN_EXTENSION}`
-                    : menuTarget.name
-                  if (!window.confirm(`确认删除「${label}」？`)) return
                   setContextMenu(null)
-                  onDeleteEntry(menuTarget.path, menuTarget.kind).catch((error) => {
-                    window.alert(getErrorMessage(error))
-                  })
+                  confirmAndDeleteEntry(menuTarget)
                 }}
               >
                 删除
@@ -635,4 +711,4 @@ export function FileTree({
       )}
     </aside>
   )
-}
+})

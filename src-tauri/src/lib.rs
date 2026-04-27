@@ -10,9 +10,36 @@ pub fn run() {
         .setup(|app| {
             // 1. 构建 File 菜单
             let change_vault = MenuItem::with_id(app, "change_vault", "更换 Vault...", true, None::<&str>)?;
-            let refresh_vault = MenuItem::with_id(app, "refresh_vault", "刷新 Vault", true, None::<&str>)?;
-            let update_mira_map = MenuItem::with_id(app, "update_mira_map", "更新 Mira Map", true, None::<&str>)?;
-            let file_menu = Submenu::with_items(app, "File", true, &[&change_vault, &refresh_vault, &update_mira_map])?;
+            let new_file = MenuItem::with_id(app, "new_file", "新建文件", true, Some("CmdOrCtrl+KeyN"))?;
+            let new_folder = MenuItem::with_id(app, "new_folder", "新建文件夹", true, Some("CmdOrCtrl+Shift+KeyN"))?;
+            let save_file = MenuItem::with_id(app, "save_file", "保存当前文件", true, Some("CmdOrCtrl+KeyS"))?;
+            let refresh_vault = MenuItem::with_id(app, "refresh_vault", "刷新 Vault", true, Some("CmdOrCtrl+KeyR"))?;
+            let rename_entry = MenuItem::with_id(app, "rename_entry", "重命名", true, Some("F2"))?;
+            let delete_entry = MenuItem::with_id(app, "delete_entry", "删除", true, Some("CmdOrCtrl+Backspace"))?;
+            let reveal_in_finder = MenuItem::with_id(app, "reveal_in_finder", "在 Finder 中显示", true, Some("CmdOrCtrl+Alt+KeyR"))?;
+            let update_mira_map = MenuItem::with_id(app, "update_mira_map", "更新 Mira Map", true, Some("CmdOrCtrl+Shift+KeyM"))?;
+            let file_separator_1 = PredefinedMenuItem::separator(app)?;
+            let file_separator_2 = PredefinedMenuItem::separator(app)?;
+            let file_separator_3 = PredefinedMenuItem::separator(app)?;
+            let file_menu = Submenu::with_items(
+                app,
+                "File",
+                true,
+                &[
+                    &new_file,
+                    &new_folder,
+                    &file_separator_1,
+                    &save_file,
+                    &refresh_vault,
+                    &change_vault,
+                    &file_separator_2,
+                    &rename_entry,
+                    &delete_entry,
+                    &reveal_in_finder,
+                    &file_separator_3,
+                    &update_mira_map,
+                ],
+            )?;
 
             // 2. 构建 Edit 菜单，承接 macOS 原生文本编辑快捷键
             let undo = PredefinedMenuItem::undo(app, None::<&str>)?;
@@ -29,55 +56,104 @@ pub fn run() {
                 &[&undo, &redo, &edit_separator, &cut, &copy, &paste, &select_all],
             )?;
 
-            // 3. 构建 View 菜单
-            // 3.1 字体大小子菜单
+            // 3. 构建 Search 菜单
+            let find_in_file = MenuItem::with_id(app, "find_in_file", "当前文件内搜索", true, Some("CmdOrCtrl+KeyF"))?;
+            let search_vault = MenuItem::with_id(app, "search_vault", "全 Vault 搜索", true, Some("CmdOrCtrl+Shift+KeyF"))?;
+            let search_menu = Submenu::with_items(app, "Search", true, &[&find_in_file, &search_vault])?;
+
+            // 4. 构建 Navigate 菜单
+            let quick_open = MenuItem::with_id(app, "quick_open", "快速打开文件", true, Some("CmdOrCtrl+KeyP"))?;
+            let command_palette = MenuItem::with_id(app, "command_palette", "命令面板", true, Some("CmdOrCtrl+Shift+KeyP"))?;
+            let history_back = MenuItem::with_id(app, "history_back", "返回上一个文件", true, Some("CmdOrCtrl+BracketLeft"))?;
+            let history_forward = MenuItem::with_id(app, "history_forward", "前进到下一个文件", true, Some("CmdOrCtrl+BracketRight"))?;
+            let navigate_separator = PredefinedMenuItem::separator(app)?;
+            let navigate_menu = Submenu::with_items(
+                app,
+                "Navigate",
+                true,
+                &[&quick_open, &command_palette, &navigate_separator, &history_back, &history_forward],
+            )?;
+
+            // 5. 构建 View 菜单
+            let toggle_file_sidebar = MenuItem::with_id(app, "toggle_file_sidebar", "显示/隐藏文件侧栏", true, Some("CmdOrCtrl+Backslash"))?;
+            let font_decrease = MenuItem::with_id(app, "font_decrease", "缩小字体", true, Some("CmdOrCtrl+Minus"))?;
+            let font_increase = MenuItem::with_id(app, "font_increase", "放大字体", true, Some("CmdOrCtrl+Equal"))?;
+            let font_reset = MenuItem::with_id(app, "font_reset", "重置字体大小", true, Some("CmdOrCtrl+Digit0"))?;
             let font_small = MenuItem::with_id(app, "font_small", "小", true, None::<&str>)?;
             let font_medium = MenuItem::with_id(app, "font_medium", "中", true, None::<&str>)?;
             let font_large = MenuItem::with_id(app, "font_large", "大", true, None::<&str>)?;
             let font_xlarge = MenuItem::with_id(app, "font_xlarge", "特大", true, None::<&str>)?;
             let font_size_menu = Submenu::with_items(app, "字体大小", true, &[&font_small, &font_medium, &font_large, &font_xlarge])?;
-
-            // 3.2 主题子菜单
             let theme_default = MenuItem::with_id(app, "theme_default", "默认", true, None::<&str>)?;
             let theme_warm_paper = MenuItem::with_id(app, "theme_warm_paper", "纸质书页", true, None::<&str>)?;
             let theme_twilight = MenuItem::with_id(app, "theme_twilight", "暮光蓝", true, None::<&str>)?;
             let theme_forest = MenuItem::with_id(app, "theme_forest", "森林绿", true, None::<&str>)?;
             let theme_dark_classic = MenuItem::with_id(app, "theme_dark_classic", "经典深色", true, None::<&str>)?;
             let theme_menu = Submenu::with_items(app, "主题", true, &[&theme_default, &theme_warm_paper, &theme_twilight, &theme_forest, &theme_dark_classic])?;
+            let view_separator = PredefinedMenuItem::separator(app)?;
+            let view_menu = Submenu::with_items(
+                app,
+                "View",
+                true,
+                &[
+                    &toggle_file_sidebar,
+                    &view_separator,
+                    &font_decrease,
+                    &font_increase,
+                    &font_reset,
+                    &font_size_menu,
+                    &theme_menu,
+                ],
+            )?;
 
-            let view_menu = Submenu::with_items(app, "View", true, &[&font_size_menu, &theme_menu])?;
+            // 6. 构建 AI 与 App 菜单
+            let ai_new_chat = MenuItem::with_id(app, "ai_new_chat", "新建 AI 对话", true, Some("CmdOrCtrl+Alt+KeyN"))?;
+            let ai_ask_current_note = MenuItem::with_id(app, "ai_ask_current_note", "基于当前笔记提问", true, Some("CmdOrCtrl+Alt+Enter"))?;
+            let ai_menu = Submenu::with_items(app, "AI", true, &[&ai_new_chat, &ai_ask_current_note])?;
+            let app_settings = MenuItem::with_id(app, "app_settings", "设置", true, Some("CmdOrCtrl+Comma"))?;
+            let app_menu = Submenu::with_items(app, "App", true, &[&app_settings])?;
 
-            let menu = Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu])?;
+            let menu = Menu::with_items(app, &[&file_menu, &edit_menu, &search_menu, &navigate_menu, &view_menu, &ai_menu, &app_menu])?;
             app.set_menu(menu)?;
             Ok(())
         })
         .on_menu_event(|app, event| {
-            // 2. 菜单点击时向前端发送事件
-            if event.id() == "change_vault" {
-                app.emit("menu:change-vault", ()).unwrap();
-            } else if event.id() == "refresh_vault" {
-                app.emit("menu:refresh-vault", ()).unwrap();
-            } else if event.id() == "update_mira_map" {
-                app.emit("menu:update-mira-map", ()).unwrap();
-            } else if event.id() == "font_small" {
-                app.emit("menu:font-size-small", ()).unwrap();
-            } else if event.id() == "font_medium" {
-                app.emit("menu:font-size-medium", ()).unwrap();
-            } else if event.id() == "font_large" {
-                app.emit("menu:font-size-large", ()).unwrap();
-            } else if event.id() == "font_xlarge" {
-                app.emit("menu:font-size-xlarge", ()).unwrap();
-            } else if event.id() == "theme_default" {
-                app.emit("menu:theme-default", ()).unwrap();
-            } else if event.id() == "theme_warm_paper" {
-                app.emit("menu:theme-warm-paper", ()).unwrap();
-            } else if event.id() == "theme_twilight" {
-                app.emit("menu:theme-twilight", ()).unwrap();
-            } else if event.id() == "theme_forest" {
-                app.emit("menu:theme-forest", ()).unwrap();
-            } else if event.id() == "theme_dark_classic" {
-                app.emit("menu:theme-dark-classic", ()).unwrap();
-            }
+            // 7. 菜单点击时向前端发送事件
+            let event_name = match event.id().as_ref() {
+                "change_vault" => "menu:change-vault",
+                "new_file" => "menu:new-file",
+                "new_folder" => "menu:new-folder",
+                "save_file" => "menu:save-file",
+                "refresh_vault" => "menu:refresh-vault",
+                "rename_entry" => "menu:rename-entry",
+                "delete_entry" => "menu:delete-entry",
+                "reveal_in_finder" => "menu:reveal-in-finder",
+                "update_mira_map" => "menu:update-mira-map",
+                "find_in_file" => "menu:find-in-file",
+                "search_vault" => "menu:search-vault",
+                "quick_open" => "menu:quick-open",
+                "command_palette" => "menu:command-palette",
+                "history_back" => "menu:history-back",
+                "history_forward" => "menu:history-forward",
+                "toggle_file_sidebar" => "menu:toggle-file-sidebar",
+                "font_decrease" => "menu:font-decrease",
+                "font_increase" => "menu:font-increase",
+                "font_reset" => "menu:font-reset",
+                "font_small" => "menu:font-size-small",
+                "font_medium" => "menu:font-size-medium",
+                "font_large" => "menu:font-size-large",
+                "font_xlarge" => "menu:font-size-xlarge",
+                "theme_default" => "menu:theme-default",
+                "theme_warm_paper" => "menu:theme-warm-paper",
+                "theme_twilight" => "menu:theme-twilight",
+                "theme_forest" => "menu:theme-forest",
+                "theme_dark_classic" => "menu:theme-dark-classic",
+                "ai_new_chat" => "menu:ai-new-chat",
+                "ai_ask_current_note" => "menu:ai-ask-current-note",
+                "app_settings" => "menu:app-settings",
+                _ => return,
+            };
+            app.emit(event_name, ()).unwrap();
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
