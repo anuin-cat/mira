@@ -1,6 +1,5 @@
 import type OpenAI from 'openai'
 import type {
-  ChatCompletionAssistantMessageParam,
   ChatCompletionMessageParam,
   ChatCompletionMessageToolCall,
 } from 'openai/resources/chat/completions'
@@ -42,14 +41,6 @@ interface ModelTurnResult {
   tokenUsage: AiTokenUsage | null
 }
 
-type ReasoningAssistantMessageParam = ChatCompletionAssistantMessageParam & {
-  reasoning_content?: string
-}
-
-type ReasoningChatCompletionMessageParam = ChatCompletionMessageParam & {
-  reasoning_content?: string
-}
-
 /** 创建统一的取消异常，方便上层识别主动中断 */
 function createAbortError(): Error {
   try {
@@ -77,7 +68,7 @@ function readUsageNumber(source: Record<string, unknown> | null, key: string): n
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
 }
 
-/** 提取 OpenAI 标准 usage 以及 DeepSeek 扩展的缓存字段 */
+/** 提取 OpenAI 标准 usage 以及兼容接口扩展的缓存字段 */
 function extractTokenUsage(value: unknown): AiTokenUsage | null {
   const usage = toRecord(value)
   if (!usage) return null
@@ -145,7 +136,7 @@ function extractContentDelta(delta: unknown): string {
   return extractDeltaText(candidate.content)
 }
 
-/** 提取兼容接口 chunk 中的思考增量，兼容 DeepSeek 的非标准字段 */
+/** 提取兼容接口 chunk 中的思考增量，兼容 DeepSeek / 硅基流动的非标准字段 */
 function extractReasoningDelta(delta: unknown): string {
   const candidate = toRecord(delta)
   if (!candidate) return ''
@@ -221,10 +212,9 @@ function appendToolCallDeltas(toolCallDrafts: Map<number, ToolCallDraft>, delta:
 /** 把内部 tool call 转成 Chat Completions 的 assistant 消息格式 */
 function createAssistantToolCallMessage(
   content: string,
-  reasoningContent: string,
   toolCalls: AgentToolCall[]
-): ReasoningAssistantMessageParam {
-  const message: ReasoningAssistantMessageParam = {
+): ChatCompletionMessageParam {
+  return {
     role: 'assistant',
     content,
     tool_calls: toolCalls.map(
@@ -238,12 +228,6 @@ function createAssistantToolCallMessage(
       })
     ),
   }
-
-  if (reasoningContent) {
-    message.reasoning_content = reasoningContent
-  }
-
-  return message
 }
 
 /** 把 agent 内部工具调用转换为可持久化 transcript */
@@ -289,12 +273,11 @@ export function convertAgentTranscriptToCompletionMessages(
       ]
     }
 
-    const assistantMessage: ReasoningChatCompletionMessageParam = {
+    const assistantMessage: ChatCompletionMessageParam = {
       role: 'assistant',
       content: message.content,
     }
 
-    if (message.reasoningContent) assistantMessage.reasoning_content = message.reasoningContent
     if (message.toolCalls?.length) {
       assistantMessage.tool_calls = message.toolCalls.map(
         (toolCall): ChatCompletionMessageToolCall => ({
@@ -346,7 +329,7 @@ async function runModelTurn(
 
   for await (const chunk of stream) {
     throwIfAborted(options.signal)
-    tokenUsage = mergeTokenUsage(tokenUsage, extractTokenUsage(chunk.usage))
+    tokenUsage = extractTokenUsage(chunk.usage) ?? tokenUsage
 
     const choice = chunk.choices[0]
     if (!choice) continue
@@ -450,7 +433,7 @@ export async function runChatCompletionAgent(
       }
     }
 
-    workingMessages.push(createAssistantToolCallMessage(turn.content, turn.reasoningContent, turn.toolCalls))
+    workingMessages.push(createAssistantToolCallMessage(turn.content, turn.toolCalls))
     agentTranscript.push(createAssistantTranscriptMessage(turn.content, turn.reasoningContent, turn.toolCalls))
 
     for (const toolCall of turn.toolCalls) {

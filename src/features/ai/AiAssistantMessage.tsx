@@ -1,4 +1,4 @@
-import { ChevronDown, Sparkles } from 'lucide-react'
+import { ChevronDown, Copy, RefreshCw, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Progress } from '@/components/ui/progress'
@@ -10,6 +10,8 @@ interface Props {
   isStreaming: boolean
   isReasoningExpanded: boolean
   onToggleReasoning: () => void
+  onCopy: () => void
+  onRegenerate: () => void
 }
 
 /** 把思考耗时整理成适合标题展示的短文本 */
@@ -161,6 +163,8 @@ export function AiAssistantMessage({
   isStreaming,
   isReasoningExpanded,
   onToggleReasoning,
+  onCopy,
+  onRegenerate,
 }: Props) {
   const hasReasoningBlock = shouldShowReasoningBlock(message, isStreaming)
   const hasReasoningContent = Boolean(message.reasoningContent?.trim())
@@ -225,11 +229,35 @@ export function AiAssistantMessage({
         </div>
       ) : null}
 
-      {hasMetaData ? (
-        <div className="ai-message-meta" aria-label="缓存与用量">
-          <MetaPill meta={meta} />
-        </div>
-      ) : null}
+      <div className="ai-message-footer">
+        {hasMetaData ? (
+          <div className="ai-message-meta" aria-label="缓存与用量">
+            <MetaPill meta={meta} />
+          </div>
+        ) : null}
+        {!isStreaming ? (
+          <div className="ai-assistant-actions">
+            <button
+              type="button"
+              className="ai-action-btn"
+              onClick={onCopy}
+              title="复制"
+            >
+              <Copy className="size-3.5" />
+              <span>复制</span>
+            </button>
+            <button
+              type="button"
+              className="ai-action-btn"
+              onClick={onRegenerate}
+              title="重新生成"
+            >
+              <RefreshCw className="size-3.5" />
+              <span>重新生成</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

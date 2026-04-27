@@ -302,21 +302,29 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
     })
   }
 
-  /** 发送一条用户消息，并用当前笔记作为额外上下文 */
-  async function handleSendMessage() {
-    // 1. 先做基础校验，避免空消息和重复提交
-    const trimmedMessage = draftMessage.trim()
-    if (!trimmedMessage || isSending) return
+  /** 复制文本到剪贴板 */
+  async function handleCopy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // 静默失败
+    }
+  }
 
-    // 2. 准备会话快照、占位 assistant 消息与 optimistic UI
-    const baseSession = currentSession ?? createAndSelectSession()
+  /** 核心发送逻辑：用指定内容和会话发起 AI 请求 */
+  async function doSendMessage(
+    trimmedMessage: string,
+    baseSession: AiChatSession,
+    previousSessions: AiChatSession[]
+  ) {
+    if (isSending) return
+
     const userMessage = createUserMessage(trimmedMessage)
     const assistantPlaceholderMessage = createAssistantPlaceholderMessage()
     const requestId = activeRequestIdRef.current + 1
     const abortController = new AbortController()
     const nextTitle =
       baseSession.messages.length === 0 ? createAiSessionTitle(trimmedMessage, noteTitle) : baseSession.title
-    const previousSessions = currentSession ? sessions : [baseSession, ...sessions]
     const remainingSessions = previousSessions.filter((session) => session.id !== baseSession.id)
     const optimisticSession: AiChatSession = {
       ...baseSession,
@@ -327,7 +335,6 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
       messages: [...baseSession.messages, userMessage, assistantPlaceholderMessage],
     }
 
-    setDraftMessage('')
     setErrorMessage(null)
     setIsSending(true)
     setStreamingMessageId(assistantPlaceholderMessage.id)
@@ -405,6 +412,53 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
     }
   }
 
+  /** 从输入框发送一条用户消息 */
+  async function handleSendMessage() {
+    const trimmedMessage = draftMessage.trim()
+    if (!trimmedMessage || isSending) return
+
+    const baseSession = currentSession ?? createAndSelectSession()
+    const previousSessions = currentSession ? sessions : [baseSession, ...sessions]
+
+    await doSendMessage(trimmedMessage, baseSession, previousSessions)
+    setDraftMessage('')
+  }
+
+  /** 重新生成某条 assistant 消息的回复 */
+  async function handleRegenerate(assistantMessageId: string) {
+    if (!currentSession || isSending) return
+
+    const assistantIndex = currentSession.messages.findIndex((m) => m.id === assistantMessageId)
+    if (assistantIndex <= 0) return
+
+    // 1. 找到上一条 user 消息
+    let userMessageIndex = -1
+    for (let i = assistantIndex - 1; i >= 0; i--) {
+      if (currentSession.messages[i].role === 'user') {
+        userMessageIndex = i
+        break
+      }
+    }
+    if (userMessageIndex === -1) return
+
+    const userMessage = currentSession.messages[userMessageIndex]
+
+    // 2. 截断历史到 userMessage 之前（不包含 userMessage）
+    const truncatedMessages = currentSession.messages.slice(0, userMessageIndex)
+    const truncatedSession: AiChatSession = {
+      ...currentSession,
+      messages: truncatedMessages,
+      updatedAt: new Date().toISOString(),
+    }
+
+    const otherSessions = sessions.filter((s) => s.id !== currentSession.id)
+    const previousSessions = [truncatedSession, ...otherSessions]
+    commitSessions(previousSessions, truncatedSession.id, false)
+
+    // 3. 用那条 user 消息重新发送
+    await doSendMessage(userMessage.content, truncatedSession, previousSessions)
+  }
+
   return (
     <aside className="ai-sidebar">
       <header className="ai-sidebar-header">
@@ -449,22 +503,26 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
 
       <div ref={messageListRef} className="ai-message-list">
         {currentSession?.messages.length ? (
-          currentSession.messages.map((message) => (
-            <article key={message.id} className={`ai-message ai-message-${message.role}`}>
-              {message.role === 'assistant' ? (
+          currentSession.messages.map((message) =>
+            message.role === 'assistant' ? (
+              <article key={message.id} className="ai-message ai-message-assistant">
                 <AiAssistantMessage
                   message={message}
                   isStreaming={streamingMessageId === message.id}
                   isReasoningExpanded={!collapsedReasoningMessageIds[message.id]}
                   onToggleReasoning={() => handleToggleReasoning(message.id)}
+                  onCopy={() => void handleCopy(message.content)}
+                  onRegenerate={() => void handleRegenerate(message.id)}
                 />
-              ) : (
+              </article>
+            ) : (
+              <article key={message.id} className="ai-message ai-message-user">
                 <div className="ai-message-content">
                   <div className="ai-message-plain-text">{message.content}</div>
                 </div>
-              )}
-            </article>
-          ))
+              </article>
+            )
+          )
         ) : (
           <div className="ai-empty-state">
             <strong>可以直接围绕当前笔记提问</strong>
