@@ -507,6 +507,35 @@
   gap: 10px;
 }
 
+.ai-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ai-composer-new-session-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  color: var(--theme-text-tertiary);
+  transition:
+    background 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-composer-new-session-btn:hover {
+  background: color-mix(in srgb, var(--theme-selection) 18%, transparent 82%);
+  color: color-mix(in srgb, var(--theme-accent) 78%, var(--theme-text-primary) 22%);
+  transform: translateY(-1px);
+}
+
+.ai-composer-new-session-btn:active {
+  transform: translateY(0);
+}
+
 .ai-history-panel {
   position: absolute;
   top: var(--mira-window-toolbar-height);

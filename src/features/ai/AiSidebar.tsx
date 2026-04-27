@@ -1,4 +1,4 @@
-import { History, Settings } from 'lucide-react'
+import { BrushCleaning, History, Settings } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -270,9 +270,13 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
 
   /** 新建会话并关闭历史面板 */
   function handleCreateSession() {
-    createAndSelectSession()
+    if (isSending) return
+
+    if (!currentSession || currentSession.messages.length) createAndSelectSession()
     setIsHistoryOpen(false)
     setErrorMessage(null)
+    setDraftMessage('')
+    window.requestAnimationFrame(() => composerInputRef.current?.focus())
   }
 
   /** 删除会话，并尽量保留合理的当前选中项 */
@@ -567,23 +571,37 @@ export function AiSidebar({ vaultPath, notePath, noteTitle, noteContent }: Props
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              type="button"
-              variant="default"
-              size="icon"
-              className="size-8 shrink-0 rounded-full shadow-[0_4px_12px_color-mix(in_srgb,var(--theme-text-primary)_18%,transparent_82%)] transition-[transform,box-shadow,opacity] hover:-translate-y-px hover:shadow-[0_8px_18px_color-mix(in_srgb,var(--theme-text-primary)_22%,transparent_78%)] active:translate-y-0 active:shadow-[0_3px_10px_color-mix(in_srgb,var(--theme-text-primary)_14%,transparent_86%)] disabled:opacity-[0.36] disabled:shadow-none disabled:hover:translate-y-0"
-              onClick={() => void handleSendMessage()}
-              disabled={!draftMessage.trim() || isSending}
-              aria-label="发送消息"
-            >
-              <svg
-                className="size-[18px] fill-none stroke-current stroke-[2.2] [stroke-linecap:round] [stroke-linejoin:round]"
-                viewBox="0 0 20 20"
-                aria-hidden="true"
+            <div className="ai-composer-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="ai-composer-new-session-btn"
+                onClick={handleCreateSession}
+                disabled={isSending}
+                aria-label="开启新对话"
+                title="开启新对话"
               >
-                <path d="M10 16V4m0 0L5.5 8.5M10 4l4.5 4.5" />
-              </svg>
-            </Button>
+                <BrushCleaning className="size-[17px]" aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                className="size-8 shrink-0 rounded-full shadow-[0_4px_12px_color-mix(in_srgb,var(--theme-text-primary)_18%,transparent_82%)] transition-[transform,box-shadow,opacity] hover:-translate-y-px hover:shadow-[0_8px_18px_color-mix(in_srgb,var(--theme-text-primary)_22%,transparent_78%)] active:translate-y-0 active:shadow-[0_3px_10px_color-mix(in_srgb,var(--theme-text-primary)_14%,transparent_86%)] disabled:opacity-[0.36] disabled:shadow-none disabled:hover:translate-y-0"
+                onClick={() => void handleSendMessage()}
+                disabled={!draftMessage.trim() || isSending}
+                aria-label="发送消息"
+              >
+                <svg
+                  className="size-[18px] fill-none stroke-current stroke-[2.2] [stroke-linecap:round] [stroke-linejoin:round]"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path d="M10 16V4m0 0L5.5 8.5M10 4l4.5 4.5" />
+                </svg>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
