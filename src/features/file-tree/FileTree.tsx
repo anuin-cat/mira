@@ -3,6 +3,7 @@ import { Tree } from 'react-arborist'
 import type { NodeApi, NodeRendererProps, RenameHandler, TreeApi } from 'react-arborist'
 import type { MouseEvent } from 'react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
+import { isImeComposing } from '../../lib/keyboard'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
 import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
 
@@ -185,7 +186,7 @@ function VaultNode({
               submittedRef.current = true
               node.reset()
             }
-            if (event.key === 'Enter') submitRename()
+            if (event.key === 'Enter' && !isImeComposing(event)) submitRename()
           }}
         />
       ) : (

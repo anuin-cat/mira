@@ -8,4 +8,4 @@ export {
 } from './commandRegistry'
 export { CommandPalette, QuickOpenDialog, VaultSearchDialog } from './CommandDialogs'
 export { useAppCommands, type ActiveCommandDialog } from './useAppCommands'
-export type { VaultSearchMatch } from './commandSearch'
+export type { VaultSearchMatch } from '../vault/search'

@@ -110,6 +110,8 @@
 
 - `src/components`：UI 组件
 - `src/features`：功能模块
+- `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
+- `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
 - `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务
 - `src/services/agent`：AI agent 内核；`tools` 放可控工具，`utils` 放工具共享辅助逻辑
@@ -135,6 +137,12 @@ vault/
 * `.mira/` 是应用内部目录，只能存放可丢弃、可重建的状态、索引或缓存
 * 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复
 * `Mira Map.md` 是普通 Markdown 文件，用于描述目录结构和文件摘要，用户可直接阅读和修改
+
+## 搜索性能约定
+
+- 全 Vault 搜索必须按 vault 规模选择策略：小 vault 可构建轻量内存索引，大 vault 或大文件按需逐文件扫描，避免打开搜索面板就把所有正文读入内存
+- 文件树扫描应保留 Markdown 文件 `sizeBytes`，搜索策略用文件数、总字节数和单文件大小判断是否降级
+- 当前文件搜索只扫描已打开编辑器内容；高亮与跳转逻辑集中在 `src/features/editor/currentFileSearch.ts`
 
 ## 平台限制与解决方案
 

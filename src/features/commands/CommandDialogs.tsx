@@ -6,12 +6,16 @@ import { filterCommands } from './commandRegistry'
 import {
   collectVaultFiles,
   filterVaultFiles,
+  getVaultSearchHint,
+  prepareVaultSearch,
   searchVaultNotes,
+  type PreparedVaultSearch,
   type VaultFileItem,
   type VaultSearchMatch,
   type VaultSearchResult,
-} from './commandSearch'
+} from '../vault/search'
 import type { VaultTreeNode } from '../../domain/note'
+import { isImeComposing } from '../../lib/keyboard'
 import './commands.css'
 
 interface DialogShellProps {
@@ -106,6 +110,8 @@ export function CommandPalette({ isOpen, commands, onClose, onRunCommand }: Comm
 
   /** 处理命令面板键盘选择 */
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (isImeComposing(event)) return
+
     if (event.key === 'Escape') {
       event.preventDefault()
       onClose()
@@ -200,6 +206,8 @@ export function QuickOpenDialog({
 
   /** 处理快速打开键盘选择 */
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (isImeComposing(event)) return
+
     if (event.key === 'Escape') {
       event.preventDefault()
       onClose()
@@ -263,21 +271,54 @@ export function VaultSearchDialog({
 }: VaultSearchDialogProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<VaultSearchResult[]>([])
+  const [preparedSearch, setPreparedSearch] = useState<PreparedVaultSearch | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [isPreparing, setIsPreparing] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const prepareRequestIdRef = useRef(0)
   const requestIdRef = useRef(0)
 
   useEffect(() => {
     if (!isOpen) {
       setQuery('')
       setResults([])
+      setPreparedSearch(null)
       setSelectedIndex(0)
+      setIsPreparing(false)
       setIsSearching(false)
     }
   }, [isOpen])
 
   useEffect(() => {
-    if (!isOpen || !vaultPath || !query.trim()) {
+    if (!isOpen || !vaultPath) {
+      prepareRequestIdRef.current += 1
+      setPreparedSearch(null)
+      setIsPreparing(false)
+      return
+    }
+
+    const requestId = prepareRequestIdRef.current + 1
+    prepareRequestIdRef.current = requestId
+    setIsPreparing(true)
+    setResults([])
+
+    prepareVaultSearch(vaultPath, treeData)
+      .then((nextPreparedSearch) => {
+        if (prepareRequestIdRef.current !== requestId) return
+        setPreparedSearch(nextPreparedSearch)
+      })
+      .catch(() => {
+        if (prepareRequestIdRef.current !== requestId) return
+        setPreparedSearch(null)
+      })
+      .finally(() => {
+        if (prepareRequestIdRef.current === requestId) setIsPreparing(false)
+      })
+  }, [isOpen, treeData, vaultPath])
+
+  useEffect(() => {
+    if (!isOpen || isPreparing || !preparedSearch || !vaultPath || !query.trim()) {
+      requestIdRef.current += 1
       setResults([])
       setIsSearching(false)
       return
@@ -288,7 +329,9 @@ export function VaultSearchDialog({
     setIsSearching(true)
 
     const timerId = window.setTimeout(() => {
-      searchVaultNotes(vaultPath, treeData, query)
+      searchVaultNotes(vaultPath, preparedSearch, query, {
+        shouldCancel: () => requestIdRef.current !== requestId,
+      })
         .then((nextResults) => {
           if (requestIdRef.current !== requestId) return
           setResults(nextResults)
@@ -301,12 +344,15 @@ export function VaultSearchDialog({
         .finally(() => {
           if (requestIdRef.current === requestId) setIsSearching(false)
         })
-    }, 180)
+    }, 120)
 
     return () => window.clearTimeout(timerId)
-  }, [isOpen, query, treeData, vaultPath])
+  }, [isOpen, isPreparing, preparedSearch, query, vaultPath])
 
   if (!isOpen) return null
+
+  const isBodyQueryTooShort =
+    Boolean(preparedSearch && preparedSearch.mode !== 'indexed' && query.trim() && query.trim().length < 2)
 
   /** 优先使用正文命中，路径命中只负责打开文件 */
   function getPrimaryMatch(result: VaultSearchResult): VaultSearchMatch | null {
@@ -322,6 +368,8 @@ export function VaultSearchDialog({
 
   /** 处理全库搜索键盘选择 */
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (isImeComposing(event)) return
+
     if (event.key === 'Escape') {
       event.preventDefault()
       onClose()
@@ -352,11 +400,17 @@ export function VaultSearchDialog({
       onClose={onClose}
       onKeyDown={handleKeyDown}
     >
-      {isSearching ? <div className="command-empty">搜索中...</div> : null}
-      {!isSearching && query.trim() && results.length === 0 ? (
+      {isPreparing ? <div className="command-empty">正在准备搜索...</div> : null}
+      {!isPreparing && isSearching ? <div className="command-empty">搜索中...</div> : null}
+      {!isPreparing && !isSearching && query.trim() && !isBodyQueryTooShort && results.length === 0 ? (
         <div className="command-empty">没有匹配的内容</div>
       ) : null}
-      {!query.trim() ? <div className="command-empty">输入关键词后开始搜索</div> : null}
+      {!isPreparing && !query.trim() ? (
+        <div className="command-empty">{getVaultSearchHint(preparedSearch, query)}</div>
+      ) : null}
+      {!isPreparing && isBodyQueryTooShort ? (
+        <div className="command-empty">{getVaultSearchHint(preparedSearch, query)}</div>
+      ) : null}
       {results.map((result, index) => (
         <button
           key={result.path}

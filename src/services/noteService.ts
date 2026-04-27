@@ -72,6 +72,7 @@ async function scanDirectory(vaultPath: string, relativeDir: string | null): Pro
         name: entry.name,
         kind: 'directory',
         updatedAt: toIsoString(info?.mtime),
+        sizeBytes: null,
         children: await scanDirectory(vaultPath, relativePath),
       })
       continue
@@ -85,6 +86,7 @@ async function scanDirectory(vaultPath: string, relativeDir: string | null): Pro
         name: stripMarkdownExtension(entry.name),
         kind: 'file',
         updatedAt: toIsoString(info?.mtime),
+        sizeBytes: info?.size ?? null,
       })
     }
   }
@@ -133,6 +135,11 @@ export async function readNote(vaultPath: string, relativePath: string): Promise
   }
 
   return { meta, content }
+}
+
+/** 只读取 Markdown 正文内容，用于搜索等不需要元数据的路径 */
+export async function readNoteContent(vaultPath: string, relativePath: string): Promise<string | null> {
+  return await readFile(absoluteVaultPath(vaultPath, relativePath))
 }
 
 /** 保存 Markdown 文件内容 */

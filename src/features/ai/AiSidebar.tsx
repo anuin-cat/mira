@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '../../components/ui/select'
 import type { AiChatMessage, AiChatSession, AiSettingsState } from '../../domain/ai'
+import { isImeComposing } from '../../lib/keyboard'
 import { requestAiChatReply, type AiChatStreamUpdate } from '../../services/aiService'
 import {
   createAiChatSession,
@@ -580,6 +581,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
             rows={AI_COMPOSER_MIN_ROWS}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && ((event.metaKey || event.ctrlKey) || !event.shiftKey)) {
+                if (isImeComposing(event)) return
                 event.preventDefault()
                 void handleSendMessage()
               }

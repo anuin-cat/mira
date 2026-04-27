@@ -7,6 +7,7 @@ export interface VaultTreeNode {
   name: string
   kind: VaultEntryKind
   updatedAt: string | null
+  sizeBytes?: number | null
   children?: VaultTreeNode[]
 }
 
