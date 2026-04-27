@@ -1,0 +1,346 @@
+/* Mira Markdown 表格模块：只覆盖编辑器正文里的表格展示与 MDXEditor 表格编辑态 */
+.mira-mdx-editor .mira-mdx-content {
+  --mira-mdx-table-line-height: 1.42;
+  --mira-mdx-table-editor-line-height: 1.38;
+  --mira-mdx-table-cell-padding-block: 0.28em;
+  --mira-mdx-table-cell-padding-inline: 0.58em;
+  --mira-mdx-table-editor-cell-padding-block: 0.24em;
+  --mira-mdx-table-editor-cell-padding-inline: 0.52em;
+  --mira-mdx-table-key-column-width: 1%;
+  --mira-mdx-table-tool-column-width: 22px;
+  --mira-mdx-table-tool-button-size: 18px;
+  --mira-mdx-table-grid: color-mix(in srgb, var(--theme-border) 86%, var(--theme-text-primary) 14%);
+}
+
+/* 1. 表格参与正文块间距，但节奏规则留在本模块内 */
+.mira-mdx-editor .mira-mdx-content > table {
+  margin: 0;
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  > :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block)
+  + table,
+.mira-mdx-editor
+  .mira-mdx-content
+  > table
+  + :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block) {
+  margin-top: var(--mira-space-block);
+}
+
+.mira-mdx-editor .mira-mdx-content > h1 + table {
+  margin-top: var(--mira-space-heading-1-after);
+}
+
+.mira-mdx-editor .mira-mdx-content > h2 + table {
+  margin-top: var(--mira-space-heading-2-after);
+}
+
+.mira-mdx-editor .mira-mdx-content > h3 + table {
+  margin-top: var(--mira-space-heading-3-after);
+}
+
+.mira-mdx-editor .mira-mdx-content > :is(h4, h5, h6) + table {
+  margin-top: var(--mira-space-heading-4-after);
+}
+
+.mira-mdx-editor .mira-mdx-content > table + h1 {
+  margin-top: var(--mira-space-heading-1-before);
+}
+
+.mira-mdx-editor .mira-mdx-content > table + h2 {
+  margin-top: var(--mira-space-heading-2-before);
+}
+
+.mira-mdx-editor .mira-mdx-content > table + h3 {
+  margin-top: var(--mira-space-heading-3-before);
+}
+
+.mira-mdx-editor .mira-mdx-content > table + :is(h4, h5, h6) {
+  margin-top: var(--mira-space-heading-4-before);
+}
+
+.mira-mdx-editor .mira-mdx-content li > table,
+.mira-mdx-editor .mira-mdx-content li > p + table {
+  margin-top: 0.34em;
+}
+
+/* 2. 普通 Markdown 表格展示：紧凑、轻边框，并尊重 GFM 对齐属性 */
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) {
+  width: 100%;
+  table-layout: auto;
+  border: 1px solid var(--theme-border);
+  border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--theme-editor-table-bg);
+  font-size: inherit;
+  line-height: var(--mira-mdx-table-line-height);
+}
+
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) thead th {
+  background: var(--theme-editor-table-head-bg);
+  color: var(--theme-text-primary);
+  font-weight: 640;
+}
+
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) :is(th, td) {
+  padding: var(--mira-mdx-table-cell-padding-block) var(--mira-mdx-table-cell-padding-inline);
+  border-bottom: 1px solid var(--theme-border);
+  vertical-align: middle;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) tr > :is(th, td):first-child {
+  width: var(--mira-mdx-table-key-column-width);
+}
+
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) :is(th, td):not([align]) {
+  text-align: left;
+}
+
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) :is(th, td)[align='center'] {
+  text-align: center;
+}
+
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) :is(th, td)[align='right'] {
+  text-align: right;
+}
+
+.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) tr:last-child :is(th, td) {
+  border-bottom: none;
+}
+
+.mira-mdx-editor .mira-mdx-content :is(th, td) > code {
+  padding: 0.1em 0.38em;
+  border: 1px solid var(--theme-editor-inline-code-border);
+  border-radius: 6px;
+  background: var(--theme-editor-inline-code-bg);
+  color: var(--theme-editor-inline-code-text);
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+/* 3. MDXEditor 编辑态：真实单元格成表格，工具列不参与外框视觉 */
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] {
+  table-layout: auto;
+  margin: 0.72em 0;
+  width: 100%;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.96em;
+  line-height: var(--mira-mdx-table-editor-line-height);
+  overflow: visible !important;
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > thead > tr > th,
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > tfoot > tr > th,
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] [data-tool-cell] {
+  height: var(--mira-mdx-table-tool-button-size);
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  vertical-align: middle;
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > colgroup > col:first-child,
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > colgroup > col:last-child {
+  width: var(--mira-mdx-table-tool-column-width) !important;
+  min-width: var(--mira-mdx-table-tool-column-width);
+  max-width: var(--mira-mdx-table-tool-column-width);
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > colgroup > col:not(:first-child):not(:last-child) {
+  width: auto !important;
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > colgroup > col:nth-child(2) {
+  width: var(--mira-mdx-table-key-column-width) !important;
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] [class*='_tableToolsColumn_'],
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] [class*='_toolCell_'],
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > tbody > tr > th[data-tool-cell]:last-child {
+  width: var(--mira-mdx-table-tool-column-width) !important;
+  min-width: var(--mira-mdx-table-tool-column-width);
+  max-width: var(--mira-mdx-table-tool-column-width);
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > thead > tr > th,
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > tfoot > tr > th {
+  line-height: 1;
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > thead
+  > tr
+  > th:not(:first-child):not(:last-child) {
+  text-align: center;
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > tbody > tr > :is(td, th):not([data-tool-cell]) {
+  padding: var(--mira-mdx-table-editor-cell-padding-block) var(--mira-mdx-table-editor-cell-padding-inline);
+  border: 1px solid var(--mira-mdx-table-grid);
+  background: var(--theme-editor-table-bg);
+  vertical-align: middle;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr
+  > [data-tool-cell]:first-child
+  + :is(td, th),
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr
+  > :is(td, th):first-child:not([data-tool-cell]) {
+  width: var(--mira-mdx-table-key-column-width);
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr:first-child
+  > th:not([data-tool-cell]) {
+  background: var(--theme-editor-table-head-bg);
+  color: var(--theme-text-primary);
+  font-weight: 640;
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr
+  > :is(td, th):not([data-tool-cell])
+  > div {
+  min-height: var(--mira-mdx-table-editor-line-height);
+  padding: 0;
+  background: transparent;
+  outline: none;
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr
+  > :is(td, th):not([data-tool-cell])
+  > div
+  > p {
+  min-height: var(--mira-mdx-table-editor-line-height);
+  margin: 0;
+  line-height: var(--mira-mdx-table-editor-line-height);
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr
+  > :is(td, th):not([data-tool-cell])[data-active='true'] {
+  outline: 1px solid color-mix(in srgb, var(--theme-accent) 62%, var(--theme-border) 38%);
+  outline-offset: -1px;
+}
+
+.mdx-editor-shell.mira-mdx-table-selecting,
+.mdx-editor-shell.mira-mdx-table-selecting * {
+  cursor: cell;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr
+  > :is(td, th):not([data-tool-cell])[data-mira-table-cell-selected='true'] {
+  background: color-mix(in srgb, var(--theme-selection) 72%, var(--theme-editor-table-bg) 28%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--theme-accent) 62%, var(--theme-border) 38%),
+    inset 0 0 0 999px color-mix(in srgb, var(--theme-selection) 32%, transparent);
+}
+
+.mira-mdx-editor
+  .mira-mdx-content
+  table[class*='_tableEditor_']
+  > tbody
+  > tr:first-child
+  > th:not([data-tool-cell])[data-mira-table-cell-selected='true'] {
+  background: color-mix(in srgb, var(--theme-selection) 64%, var(--theme-editor-table-head-bg) 36%);
+}
+
+/* 4. 表格工具按钮默认隐藏，hover/focus/open 时轻量浮现 */
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] :is(
+  [class*='_tableColumnEditorTrigger_'],
+  [class*='_tableRowEditorTrigger_'],
+  [class*='_addRowButton_'],
+  [class*='_addColumnButton_'],
+  [class*='_iconButton_']
+) {
+  width: var(--mira-mdx-table-tool-button-size);
+  height: var(--mira-mdx-table-tool-button-size);
+  padding: 0 !important;
+  border-radius: 999px;
+  opacity: 0;
+  color: var(--theme-text-tertiary);
+  transition:
+    opacity 0.14s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.14s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.14s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_']:is(:hover, :focus-within) :is(
+  [class*='_tableColumnEditorTrigger_'],
+  [class*='_tableRowEditorTrigger_'],
+  [class*='_addRowButton_'],
+  [class*='_addColumnButton_'],
+  [class*='_iconButton_']
+) {
+  opacity: 0.32;
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] :is(
+  [class*='_tableColumnEditorTrigger_'],
+  [class*='_tableRowEditorTrigger_'],
+  [class*='_addRowButton_'],
+  [class*='_addColumnButton_'],
+  [class*='_iconButton_']
+):is(:hover, :focus-visible, [data-active='true'], [data-state='open']) {
+  opacity: 1 !important;
+  color: var(--theme-text-secondary);
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] :is(
+  [class*='_addRowButton_'],
+  [class*='_addColumnButton_']
+) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--mira-mdx-table-tool-button-size);
+  min-height: var(--mira-mdx-table-tool-button-size);
+  background: transparent;
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] [class*='_addRowButton_'] {
+  height: var(--mira-mdx-table-tool-button-size);
+}
+
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] [class*='_addColumnButton_'] {
+  width: var(--mira-mdx-table-tool-button-size);
+}

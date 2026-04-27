@@ -1,6 +1,7 @@
 @import '@mdxeditor/editor/style.css';
 /* 当前 Markdown 正文主题，后续切换时优先替换这里的主题文件 */
 @import './mdx-editor-theme-typora-compact.css';
+@import '../features/editor/table/mdx-table.css';
 @import './themes.css';
 
 .mdx-editor-shell {

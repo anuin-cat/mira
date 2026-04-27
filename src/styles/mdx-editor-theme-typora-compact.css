@@ -27,8 +27,7 @@
 
 .mira-mdx-content p,
 .mira-mdx-content li,
-.mira-mdx-content blockquote,
-.mira-mdx-content table {
+.mira-mdx-content blockquote {
   font-size: inherit;
   line-height: inherit;
 }
@@ -44,7 +43,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -60,8 +58,8 @@
 }
 
 .mira-mdx-content
-  > :where(p, ul, ol, blockquote, pre, table, hr, img, figure, .mira-code-block)
-  + :where(p, ul, ol, blockquote, pre, table, hr, img, figure, .mira-code-block) {
+  > :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block)
+  + :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block) {
   margin-top: var(--mira-space-block);
 }
 
@@ -84,7 +82,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -105,7 +102,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -126,7 +122,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -147,7 +142,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -168,7 +162,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -189,7 +182,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -210,7 +202,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -231,7 +222,6 @@
   ol,
   blockquote,
   pre,
-  table,
   hr,
   img,
   figure,
@@ -344,8 +334,8 @@
   margin-top: 0.46em;
 }
 
-.mira-mdx-content li > :is(ul, ol, blockquote, pre, table, .mira-code-block),
-.mira-mdx-content li > p + :is(ul, ol, blockquote, pre, table, .mira-code-block) {
+.mira-mdx-content li > :is(ul, ol, blockquote, pre, .mira-code-block),
+.mira-mdx-content li > p + :is(ul, ol, blockquote, pre, .mira-code-block) {
   margin-top: 0.34em;
 }
 
@@ -378,7 +368,7 @@
   color: var(--theme-text-secondary);
 }
 
-.mira-mdx-content :is(p, li, blockquote, h1, h2, h3, h4, h5, h6, th, td) > code {
+.mira-mdx-content :is(p, li, blockquote, h1, h2, h3, h4, h5, h6) > code {
   padding: 0.1em 0.38em;
   border: 1px solid var(--theme-editor-inline-code-border);
   border-radius: 6px;
@@ -412,34 +402,7 @@
   border-radius: 12px;
 }
 
-/* 5. 表格与代码块保留轻量背景，兼顾笔记感和可扫描性 */
-.mira-mdx-content table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid var(--theme-border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--theme-editor-table-bg);
-}
-
-.mira-mdx-content thead th {
-  background: var(--theme-editor-table-head-bg);
-  color: var(--theme-text-primary);
-  font-weight: 640;
-}
-
-.mira-mdx-content th,
-.mira-mdx-content td {
-  padding: 0.48em 0.72em;
-  border-bottom: 1px solid var(--theme-border);
-  text-align: left;
-  vertical-align: top;
-}
-
-.mira-mdx-content tr:last-child td {
-  border-bottom: none;
-}
-
+/* 5. 代码块保留轻量背景，兼顾笔记感和可扫描性 */
 .mira-mdx-content pre,
 .mira-code-block {
   overflow: hidden;
