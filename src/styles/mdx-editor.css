@@ -287,10 +287,19 @@
 }
 
 .mdx-editor-root .mdxeditor-root-contenteditable {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  cursor: text;
+}
+
+/* MDXEditor 会在真正的 contenteditable 外套一层 div，这层也需要撑满空文档高度 */
+.mdx-editor-root .mdxeditor-root-contenteditable > div:first-child {
+  flex: 1;
+  min-height: 100%;
 }
 
 .mdx-editor-root .mdxeditor :where(button, input, select, textarea) {
