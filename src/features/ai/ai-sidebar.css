@@ -356,7 +356,7 @@
 .ai-reasoning-body .ai-markdown ol,
 .ai-reasoning-body .ai-markdown blockquote,
 .ai-reasoning-body .ai-markdown pre,
-.ai-reasoning-body .ai-markdown table,
+.ai-reasoning-body .ai-markdown .ai-markdown-table-scroll,
 .ai-reasoning-body .ai-markdown hr {
   margin-bottom: 10px;
 }

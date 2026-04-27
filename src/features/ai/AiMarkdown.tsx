@@ -49,6 +49,13 @@ const MARKDOWN_COMPONENTS: Components = {
       </a>
     )
   },
+  table({ node: _node, children, ...props }) {
+    return (
+      <div className="ai-markdown-table-scroll">
+        <table {...props}>{children}</table>
+      </div>
+    )
+  },
 }
 
 /** AI 回复的只读 Markdown 渲染组件 */

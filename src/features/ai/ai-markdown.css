@@ -19,7 +19,7 @@
 .ai-markdown ol,
 .ai-markdown blockquote,
 .ai-markdown pre,
-.ai-markdown table,
+.ai-markdown .ai-markdown-table-scroll,
 .ai-markdown hr {
   margin: 0 0 12px;
 }
@@ -156,22 +156,41 @@
   overflow-wrap: normal;
 }
 
-.ai-markdown table {
+.ai-markdown-table-scroll {
   display: block;
-  width: max-content;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ai-markdown table {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
   border-collapse: collapse;
   border-spacing: 0;
+  table-layout: auto;
+  font-size: 14px;
+  line-height: 1.58;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .ai-markdown th,
 .ai-markdown td {
   min-width: 72px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--theme-border) 45%, transparent 55%);
   text-align: left;
   vertical-align: top;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.ai-markdown th code,
+.ai-markdown td code {
+  white-space: nowrap;
 }
 
 .ai-markdown th {
