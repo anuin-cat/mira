@@ -341,7 +341,7 @@ fn empty_repo_info(
 }
 
 /** 是否已有 HEAD 提交 */
-fn has_head(vault: &Path) -> bool {
+pub fn has_head(vault: &Path) -> bool {
     run_git(vault, &["rev-parse", "--verify", "HEAD"], DEFAULT_TIMEOUT)
         .map(|output| output.code == 0)
         .unwrap_or(false)

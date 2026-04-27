@@ -7,8 +7,8 @@ use crate::git_process::{
 };
 use crate::git_status::{
     build_status, collect_stageable_paths, create_untracked_diff, current_branch,
-    ensure_repo_root_fast, init_local_repository, is_untracked_path, prepare_local_repository,
-    push_current_branch,
+    ensure_repo_root_fast, has_head, init_local_repository, is_untracked_path,
+    prepare_local_repository, push_current_branch,
 };
 use crate::git_types::{
     GitCommitRequest, GitDiffRequest, GitDiffResult, GitOperationResult, GitPathsRequest,
@@ -113,15 +113,32 @@ pub fn git_unstage_paths(request: GitPathsRequest) -> Result<GitOperationResult,
     let vault = normalize_vault_path(&request.vault_path)?;
     ensure_repo_root_fast(&vault)?;
     let output = if request.paths.is_empty() {
-        run_git_checked(&vault, &["restore", "--staged", "--", "."], DEFAULT_TIMEOUT)?
+        if has_head(&vault) {
+            run_git_checked(&vault, &["restore", "--staged", "--", "."], DEFAULT_TIMEOUT)?
+        } else {
+            run_git_checked(
+                &vault,
+                &["rm", "--cached", "-r", "--ignore-unmatch", "--", "."],
+                DEFAULT_TIMEOUT,
+            )?
+        }
     } else {
         let paths = validate_relative_paths(&request.paths)?;
-        run_git_dynamic_checked(
-            &vault,
-            vec!["restore", "--staged", "--"],
-            &paths,
-            DEFAULT_TIMEOUT,
-        )?
+        if has_head(&vault) {
+            run_git_dynamic_checked(
+                &vault,
+                vec!["restore", "--staged", "--"],
+                &paths,
+                DEFAULT_TIMEOUT,
+            )?
+        } else {
+            run_git_dynamic_checked(
+                &vault,
+                vec!["rm", "--cached", "--ignore-unmatch", "--"],
+                &paths,
+                DEFAULT_TIMEOUT,
+            )?
+        }
     };
     create_operation_result(&vault, output)
 }
