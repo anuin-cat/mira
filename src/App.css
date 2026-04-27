@@ -134,16 +134,24 @@ body {
   align-items: center;
 }
 
+.file-sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .app-layout[data-platform='macos'] .file-sidebar-header {
   padding-left: 78px;
 }
 
+.btn-sidebar-icon,
 .btn-new {
+  position: relative;
   width: 28px;
   height: 28px;
   border: none;
   background: none;
-  font-size: 22px;
   color: var(--theme-text-secondary);
   cursor: pointer;
   border-radius: 6px;
@@ -151,16 +159,24 @@ body {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  padding-bottom: 1px;
   -webkit-user-select: none;
   user-select: none;
 }
 
+.btn-sidebar-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-sidebar-icon:hover,
 .btn-new:hover {
   background: var(--theme-hover-bg);
   color: var(--theme-text-primary);
 }
 
+.btn-sidebar-icon:focus,
+.btn-sidebar-icon:focus-visible,
+.btn-sidebar-icon:active,
 .btn-new:focus,
 .btn-new:focus-visible,
 .btn-new:active {
@@ -168,6 +184,27 @@ body {
   outline: none;
 }
 
+.git-sidebar-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  background: var(--theme-accent);
+  color: var(--theme-bg-primary);
+  font-size: 8px;
+  line-height: 10px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  text-align: center;
+  /* 角标挂到按钮右上角外侧，少压住分叉图标 */
+  transform: translate(35%, -30%);
+}
+
+.btn-sidebar-icon::selection,
 .btn-new::selection {
   background: transparent;
 }

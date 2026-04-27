@@ -2,6 +2,7 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo
 import { Tree } from 'react-arborist'
 import type { NodeApi, NodeRendererProps, RenameHandler, TreeApi } from 'react-arborist'
 import type { MouseEvent } from 'react'
+import { GitFork, Plus } from 'lucide-react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
 import { isImeComposing } from '../../lib/keyboard'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
@@ -32,6 +33,8 @@ interface FileTreeProps {
   onMoveEntry: (path: string, targetDir: string | null, kind: VaultEntryKind) => Promise<void>
   onDeleteEntry: (path: string, kind: VaultEntryKind) => Promise<void>
   onExpandedDirsChange: (paths: string[]) => void
+  onOpenGitPanel: () => void
+  gitChangeCount?: number
   style?: React.CSSProperties
 }
 
@@ -209,6 +212,8 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     onMoveEntry,
     onDeleteEntry,
     onExpandedDirsChange,
+    onOpenGitPanel,
+    gitChangeCount = 0,
     style,
   },
   ref
@@ -608,13 +613,25 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
         onDoubleClick={handleHeaderDoubleClick}
       >
         <div className="file-sidebar-header-title" />
-        <button
-          className="btn-new"
-          onClick={() => handleCreateFile(defaultCreateParent)}
-          title="新建 Markdown 文件"
-        >
-          +
-        </button>
+        <div className="file-sidebar-header-actions">
+          <button
+            className="btn-sidebar-icon"
+            onClick={onOpenGitPanel}
+            title="Git 操作"
+            aria-label="打开 Git 面板"
+          >
+            <GitFork aria-hidden />
+            {gitChangeCount > 0 ? <span className="git-sidebar-badge">{gitChangeCount}</span> : null}
+          </button>
+          <button
+            className="btn-new btn-sidebar-icon"
+            onClick={() => handleCreateFile(defaultCreateParent)}
+            title="新建 Markdown 文件"
+            aria-label="新建 Markdown 文件"
+          >
+            <Plus aria-hidden />
+          </button>
+        </div>
       </div>
 
       <div

@@ -25,16 +25,17 @@ export function resolveAiCompatibilityMode(identity: AiProviderIdentity): AiComp
   if (identity.presetId === 'siliconflow') return 'siliconflow'
 
   // 2. 自定义 provider 只做轻量识别；未命中时保持普通 OpenAI 兼容格式
-  const markers = [
+  const providerMarkers = [
     identity.id,
     identity.label,
     identity.baseURL,
-    identity.model,
   ].map((value) => value.toLowerCase())
+  const modelName = identity.model.toLowerCase()
 
-  if (markers.some((value) => value.includes('deepseek'))) return 'deepseek'
-  if (markers.some((value) => value.includes('moonshot') || value.includes('kimi'))) return 'kimi'
-  if (markers.some((value) => value.includes('siliconflow'))) return 'siliconflow'
+  if (providerMarkers.some((value) => value.includes('siliconflow'))) return 'siliconflow'
+  if (providerMarkers.some((value) => value.includes('moonshot') || value.includes('kimi'))) return 'kimi'
+  if (providerMarkers.some((value) => value.includes('deepseek'))) return 'deepseek'
+  if (modelName.includes('moonshot') || modelName.includes('kimi')) return 'kimi'
   return 'openai'
 }
 

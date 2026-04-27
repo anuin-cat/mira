@@ -36,6 +36,7 @@ import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree, type FileTreeHandle } from './features/file-tree/FileTree'
 import { MdxEditor, type MdxEditorHandle } from './features/editor/MdxEditor'
 import { AiSidebar, type AiSidebarHandle } from './features/ai/AiSidebar'
+import { GitPanel, type GitPanelAction, type GitPanelRequest } from './features/git/GitPanel'
 import {
   COMMAND_DEFINITIONS,
   CommandPalette,
@@ -45,6 +46,8 @@ import {
   type ActiveCommandDialog,
   type VaultSearchMatch,
 } from './features/commands'
+import { getGitStatus } from './services/gitService'
+import type { GitStatusResult } from './domain/git'
 import type { FontSize, Theme, VaultEntryKind, VaultState, VaultTreeNode } from './domain/note'
 
 const SIDEBAR_MIN_WIDTH = 160
@@ -141,6 +144,9 @@ export default function App() {
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const [aiSidebarWidth, setAiSidebarWidth] = useState(AI_SIDEBAR_DEFAULT_WIDTH)
   const [activeCommandDialog, setActiveCommandDialog] = useState<ActiveCommandDialog>(null)
+  const [isGitPanelOpen, setIsGitPanelOpen] = useState(false)
+  const [gitPanelRequest, setGitPanelRequest] = useState<GitPanelRequest | null>(null)
+  const [gitChangeCount, setGitChangeCount] = useState(0)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vaultPathRef = useRef<string | null>(null)
@@ -249,6 +255,38 @@ export default function App() {
     setIsAiSidebarOpen(true)
   }
 
+  /** 打开 Git 面板，可选择触发一个菜单动作 */
+  function openGitPanel(action: GitPanelAction | null = null) {
+    setIsGitPanelOpen(true)
+    if (action) {
+      setGitPanelRequest({
+        id: Date.now(),
+        action,
+      })
+    }
+  }
+
+  /** 根据 Git 状态更新左侧入口 badge */
+  function handleGitStatusChange(status: GitStatusResult) {
+    const nextCount = status.isGitRepository && status.isVaultGitRoot ? status.changedFiles.length : 0
+    setGitChangeCount(nextCount)
+  }
+
+  /** 轻量刷新 Git badge，失败时不打断笔记编辑 */
+  async function refreshGitStatusBadge(path = vaultPathRef.current) {
+    if (!path) {
+      setGitChangeCount(0)
+      return
+    }
+
+    try {
+      const status = await getGitStatus(path)
+      handleGitStatusChange(status)
+    } catch {
+      setGitChangeCount(0)
+    }
+  }
+
   const runCommand = useAppCommands({
     vaultPathRef,
     activePathRef,
@@ -259,6 +297,7 @@ export default function App() {
     isAiSidebarOpen: () => isAiSidebarOpen,
     openAiSidebar,
     handleToggleAiSidebar,
+    openGitPanel,
     handleChangeVault,
     handleRefreshVault,
     handleUpdateMiraMap,
@@ -417,6 +456,7 @@ export default function App() {
     setVaultPathState(path)
     setVaultState(state)
     setTreeData(tree)
+    void refreshGitStatusBadge(path)
 
     const openPath = chooseOpenPath(tree, state.lastOpenedPath)
     if (openPath) {
@@ -439,6 +479,7 @@ export default function App() {
     const nextActivePath = chooseOpenPath(tree, preferredActivePath)
     if (!nextActivePath) {
       clearActiveFile()
+      void refreshGitStatusBadge(path)
       return tree
     }
 
@@ -446,6 +487,7 @@ export default function App() {
       await openFileFromDisk(path, nextActivePath)
     }
 
+    void refreshGitStatusBadge(path)
     return tree
   }
 
@@ -689,6 +731,7 @@ export default function App() {
       saveNote(path, filePath, markdown)
         .then(() => {
           if (activePathRef.current === filePath) void reloadTree(filePath)
+          void refreshGitStatusBadge(path)
         })
         .catch((error) => {
           window.alert(getErrorMessage(error))
@@ -757,6 +800,8 @@ export default function App() {
               onMoveEntry={handleMoveEntry}
               onDeleteEntry={handleDeleteEntry}
               onExpandedDirsChange={handleExpandedDirsChange}
+              onOpenGitPanel={() => openGitPanel()}
+              gitChangeCount={gitChangeCount}
             />
           </Panel>
           <PanelResizeHandle
@@ -827,6 +872,14 @@ export default function App() {
           onOpenFile={(filePath, match) => {
             void handleOpenSearchResult(filePath, match)
           }}
+        />
+        <GitPanel
+          isOpen={isGitPanelOpen}
+          vaultPath={vaultPath}
+          request={gitPanelRequest}
+          onClose={() => setIsGitPanelOpen(false)}
+          onBeforeWrite={flushActiveSave}
+          onStatusChange={handleGitStatusChange}
         />
       </>
     </TooltipProvider>

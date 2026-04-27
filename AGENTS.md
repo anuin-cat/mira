@@ -84,6 +84,11 @@
   - `View > 主题 > 暮光蓝` → `theme_twilight` → `menu:theme-twilight`
   - `View > 主题 > 森林绿` → `theme_forest` → `menu:theme-forest`
   - `View > 主题 > 经典深色` → `theme_dark_classic` → `menu:theme-dark-classic`
+  - `Git > 打开 Git 面板` → `git_panel` → `menu:git-panel`
+  - `Git > 初始化 GitHub 仓库...` → `git_init_github` → `menu:git-init-github`
+  - `Git > Stage 全部变更` → `git_stage_all` → `menu:git-stage-all`
+  - `Git > Commit...` → `git_commit` → `menu:git-commit`
+  - `Git > Push` → `git_push` → `menu:git-push`
   - `AI > 新建 AI 对话` → `ai_new_chat` → `menu:ai-new-chat`
   - `AI > 基于当前笔记提问` → `ai_ask_current_note` → `menu:ai-ask-current-note`
   - `App > 设置` → `app_settings` → `menu:app-settings`
@@ -112,10 +117,12 @@
 - `src/components`：UI 组件
 - `src/features`：功能模块
 - `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
+- `src/features/git`：Git 面板 UI，包括变更列表、diff、stage/unstage、commit、push 与 GitHub 初始化入口
 - `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
 - `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务
 - `src/services/agent`：AI agent 内核；`tools` 放可控工具，`utils` 放工具共享辅助逻辑
+- `src/services/aiCompatibility`：AI provider 兼容层；DeepSeek、KIMI、硅基流动等平台差异必须分文件维护，主流程只调用统一 adapter
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装
 
@@ -138,6 +145,14 @@ vault/
 * `.mira/` 是应用内部目录，只能存放可丢弃、可重建的状态、索引或缓存
 * 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复
 * `Mira Map.md` 是普通 Markdown 文件，用于描述目录结构和文件摘要，用户可直接阅读和修改
+
+## Git 自动化约定
+
+- Git 功能要求 vault 根目录就是 Git 仓库根目录，不操作外层仓库
+- 用户触发的 `add` / `commit` / `push` / GitHub 初始化只能通过 Git 面板或原生 `Git` 菜单执行
+- agent 只能调用内置 allowlist 中已启用的 `git_readonly` 命令，禁止执行会改变仓库状态的 Git 命令
+- 初始化 GitHub 仓库默认创建 private repo，优先使用 `gh` CLI；失败时允许用户粘贴 GitHub remote URL
+- 初始化本地 Git 仓库时默认把 `.mira/` 与常见系统缓存规则写到 `.gitignore` 顶部
 
 ## 搜索性能约定
 
