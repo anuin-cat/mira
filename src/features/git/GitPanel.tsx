@@ -222,10 +222,10 @@ export function GitPanel({
     }
   }, [vaultPath])
 
-  /** 执行写操作并刷新状态 */
+  /** 执行写操作并刷新状态；successMessage 为 null 时不弹出成功 toast */
   async function runOperation(
     operation: () => Promise<GitStatusResult>,
-    successMessage: string,
+    successMessage: string | null,
     options: RunOperationOptions = {}
   ) {
     // 1. 先落盘当前编辑器内容，避免提交漏掉 debounce 中的正文
@@ -237,7 +237,7 @@ export function GitPanel({
       const nextStatus = await operation()
       setStatus(nextStatus)
       onStatusChangeRef.current(nextStatus)
-      showToastMessage(successMessage, 'success')
+      if (successMessage !== null) showToastMessage(successMessage, 'success')
       options.onSuccess?.(nextStatus)
     } catch (error) {
       const message = getErrorMessage(error)
@@ -249,12 +249,12 @@ export function GitPanel({
     }
   }
 
-  async function handleStage(paths: string[], successMessage: string) {
-    await runOperation(async () => (await stageGitPaths(vaultPath, paths)).status, successMessage)
+  async function handleStage(paths: string[]) {
+    await runOperation(async () => (await stageGitPaths(vaultPath, paths)).status, null)
   }
 
-  async function handleUnstage(paths: string[], successMessage: string) {
-    await runOperation(async () => (await unstageGitPaths(vaultPath, paths)).status, successMessage)
+  async function handleUnstage(paths: string[]) {
+    await runOperation(async () => (await unstageGitPaths(vaultPath, paths)).status, null)
   }
 
   async function handleCommit() {
@@ -264,7 +264,7 @@ export function GitPanel({
       commitInputRef.current?.focus()
       return
     }
-    await runOperation(async () => (await commitGitChanges(vaultPath, message)).status, 'Commit 已完成')
+    await runOperation(async () => (await commitGitChanges(vaultPath, message)).status, null)
     setCommitMessage('')
   }
 
@@ -418,7 +418,7 @@ export function GitPanel({
     handledRequestIdRef.current = request.id
 
     if (request.action === 'stage-all') {
-      void handleStage([], '全部变更已 staged')
+      void handleStage([])
       return
     }
     if (request.action === 'push') {
@@ -450,13 +450,13 @@ export function GitPanel({
         ? {
             icon: <Minus aria-hidden />,
             label: `Unstage ${file.path}`,
-            handler: () => handleUnstage([file.path], '文件已 unstaged'),
+            handler: () => handleUnstage([file.path]),
             disabled: isOperating,
           }
         : {
             icon: <Plus aria-hidden />,
             label: `Stage ${file.path}`,
-            handler: () => handleStage([file.path], '文件已 staged'),
+            handler: () => handleStage([file.path]),
             disabled: isOperating,
           }
 
@@ -654,7 +654,7 @@ export function GitPanel({
                       <button
                         type="button"
                         className="git-change-group-action"
-                        onClick={() => void handleStage([], '全部变更已 staged')}
+                        onClick={() => void handleStage([])}
                         disabled={!canUseGit || isOperating || unstagedFiles.length === 0}
                         aria-label="Stage 全部未 staged 变更"
                         title="Stage 全部"
@@ -683,7 +683,7 @@ export function GitPanel({
                       <button
                         type="button"
                         className="git-change-group-action"
-                        onClick={() => void handleUnstage([], '全部变更已 unstaged')}
+                        onClick={() => void handleUnstage([])}
                         disabled={!canUseGit || isOperating || stagedFiles.length === 0}
                         aria-label="Unstage 全部 staged 变更"
                         title="Unstage 全部"
@@ -734,7 +734,7 @@ export function GitPanel({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => selectedFile && handleStage([selectedFile.path], '文件已 staged')}
+                  onClick={() => selectedFile && handleStage([selectedFile.path])}
                   disabled={!selectedFile?.isUnstaged || isOperating}
                 >
                   <Check aria-hidden />
@@ -743,7 +743,7 @@ export function GitPanel({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => selectedFile && handleUnstage([selectedFile.path], '文件已 unstaged')}
+                  onClick={() => selectedFile && handleUnstage([selectedFile.path])}
                   disabled={!selectedFile?.isStaged || isOperating}
                 >
                   Unstage
