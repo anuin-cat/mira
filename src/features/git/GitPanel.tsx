@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ExternalLink,
   GitBranch,
+  Link as LinkIcon,
   Loader2,
   Minus,
   Plus,
@@ -45,6 +46,7 @@ const REMOTE_RECONNECT_ERROR_MARKERS = [
 ]
 const REMOTE_RECONNECT_MESSAGE =
   '远端仓库可能已删除、不可访问，或当前 Git 凭据没有权限。可以重新在 GitHub 创建仓库，然后把新的 remote URL 粘贴到这里。'
+const MISSING_REMOTE_PUSH_MESSAGE = '目前没有连接远端。点击右上角“连接远端”按钮连接后，再 Push。'
 
 export type GitPanelAction = 'connect-remote' | 'stage-all' | 'commit' | 'push'
 
@@ -136,6 +138,7 @@ export function GitPanel({
   const [isUnstagedOpen, setIsUnstagedOpen] = useState(true)
   const [isStagedOpen, setIsStagedOpen] = useState(true)
   const commitInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const remoteInputRef = useRef<HTMLInputElement | null>(null)
   const handledRequestIdRef = useRef<number | null>(null)
   const selectedPathRef = useRef<string | null>(null)
   const selectedDiffModeRef = useRef<GitDiffMode>('unstaged')
@@ -151,7 +154,9 @@ export function GitPanel({
   const unstagedFiles = useMemo(() => status?.changedFiles.filter((file) => file.isUnstaged) ?? [], [status])
   const selectedLineStats = selectedFile ? getFileLineStats(selectedFile, diffMode) : null
   const canUseGit = Boolean(status?.isGitRepository && status.isVaultGitRoot)
-  const shouldShowRemoteSetup = isRemoteSetupOpen || Boolean(canUseGit && !status?.remoteUrl)
+  const hasRemote = Boolean(status?.remoteUrl)
+  const shouldShowRemoteButton = Boolean(canUseGit && !hasRemote)
+  const shouldShowRemoteSetup = Boolean(canUseGit && isRemoteSetupOpen)
 
   /** 同步外部状态回调，避免父组件重渲染触发重复刷新 */
   useEffect(() => {
@@ -199,8 +204,10 @@ export function GitPanel({
       setSelectedPath(nextSelected?.path ?? null)
       setDiffMode(nextDiffMode)
       if (!nextSelected) setDiff('')
+      return nextStatus
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
+      return null
     } finally {
       setIsLoadingStatus(false)
     }
@@ -252,7 +259,24 @@ export function GitPanel({
     setCommitMessage('')
   }
 
+  /** 打开右上角入口对应的远端连接表单 */
+  function handleOpenRemoteSetup() {
+    setIsRemoteSetupOpen(true)
+    setRemoteRecoveryMessage(null)
+    setErrorMessage((message) => (message === MISSING_REMOTE_PUSH_MESSAGE ? null : message))
+  }
+
   async function handlePush() {
+    const currentStatus = status ?? (await refreshStatus())
+    if (!currentStatus) return
+    const canPushFromCurrentStatus = Boolean(currentStatus?.isGitRepository && currentStatus.isVaultGitRoot)
+    if (canPushFromCurrentStatus && !currentStatus?.remoteUrl) {
+      setNoticeMessage(null)
+      setRemoteRecoveryMessage(null)
+      setErrorMessage(MISSING_REMOTE_PUSH_MESSAGE)
+      return
+    }
+
     await runOperation(async () => (await pushGitBranch(vaultPath)).status, 'Push 已完成', {
       onError: (message) => {
         if (!shouldOfferRemoteReconnect(message)) return
@@ -308,6 +332,11 @@ export function GitPanel({
   }, [vaultPath])
 
   useEffect(() => {
+    if (!isRemoteSetupOpen) return
+    window.requestAnimationFrame(() => remoteInputRef.current?.focus())
+  }, [isRemoteSetupOpen])
+
+  useEffect(() => {
     if (!isOpen || !selectedFile || !canUseGit) {
       setDiff('')
       return
@@ -350,8 +379,7 @@ export function GitPanel({
       return
     }
     if (request.action === 'connect-remote') {
-      setRemoteRecoveryMessage(null)
-      setIsRemoteSetupOpen(true)
+      handleOpenRemoteSetup()
     }
   }, [isOpen, request])
 
@@ -435,6 +463,19 @@ export function GitPanel({
             </div>
           </div>
           <div className="git-panel-header-actions">
+            {shouldShowRemoteButton ? (
+              <Button
+                className="git-connect-remote-button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenRemoteSetup}
+                disabled={isOperating}
+                aria-expanded={isRemoteSetupOpen}
+              >
+                <LinkIcon aria-hidden />
+                连接远端
+              </Button>
+            ) : null}
             <Button variant="ghost" size="icon-sm" onClick={refreshStatus} disabled={isLoadingStatus || isOperating}>
               {isLoadingStatus ? <Loader2 className="git-spin" aria-hidden /> : <RefreshCcw aria-hidden />}
             </Button>
@@ -444,7 +485,11 @@ export function GitPanel({
           </div>
         </header>
 
-        {errorMessage ? <div className="git-panel-alert error">{errorMessage}</div> : null}
+        {errorMessage ? (
+          <div className={`git-panel-alert ${errorMessage === MISSING_REMOTE_PUSH_MESSAGE ? 'warning' : 'error'}`}>
+            {errorMessage}
+          </div>
+        ) : null}
         {noticeMessage ? <div className="git-panel-alert success">{noticeMessage}</div> : null}
 
         {status && (!status.isGitRepository || !status.isVaultGitRoot) ? (
@@ -470,8 +515,19 @@ export function GitPanel({
         {shouldShowRemoteSetup ? (
           <section className="git-remote-band">
             <div className="git-remote-heading">
-              <h3>连接 GitHub 远端</h3>
-              <p>先在 GitHub 网页创建一个空仓库，再把仓库地址粘贴到这里；Mira 只会执行本地 git remote 与 git push。</p>
+              <div className="git-remote-heading-text">
+                <h3>连接 GitHub 远端</h3>
+                <p>先在 GitHub 网页创建一个空仓库，再把仓库地址粘贴到这里；Mira 只会执行本地 git remote 与 git push。</p>
+              </div>
+              <Button
+                className="git-remote-close-button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setIsRemoteSetupOpen(false)}
+                aria-label="收起连接远端"
+              >
+                <X aria-hidden />
+              </Button>
             </div>
             {remoteRecoveryMessage ? <div className="git-remote-recovery">{remoteRecoveryMessage}</div> : null}
             <div className="git-remote-actions">
@@ -482,6 +538,7 @@ export function GitPanel({
             </div>
             <div className="git-remote-row">
               <Input
+                ref={remoteInputRef}
                 value={remoteUrl}
                 onChange={(event) => {
                   setRemoteUrl(event.target.value)

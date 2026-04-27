@@ -74,6 +74,10 @@
   gap: 4px;
 }
 
+.git-connect-remote-button {
+  margin-right: 4px;
+}
+
 .git-spin {
   animation: git-spin 0.8s linear infinite;
 }
@@ -103,6 +107,12 @@
   background: color-mix(in srgb, #15803d 10%, var(--theme-bg-primary) 90%);
   color: color-mix(in srgb, #14532d 84%, var(--theme-text-primary) 16%);
   border: 1px solid color-mix(in srgb, #15803d 26%, transparent 74%);
+}
+
+.git-panel-alert.warning {
+  background: color-mix(in srgb, #d97706 10%, var(--theme-bg-primary) 90%);
+  color: color-mix(in srgb, #92400e 84%, var(--theme-text-primary) 16%);
+  border: 1px solid color-mix(in srgb, #d97706 28%, transparent 72%);
 }
 
 .git-setup-band,
@@ -156,6 +166,17 @@
   gap: 8px;
 }
 
+.git-remote-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.git-remote-heading-text {
+  min-width: 0;
+}
+
 .git-remote-heading h3 {
   font-size: 13px;
   font-weight: 650;
@@ -173,6 +194,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.git-remote-close-button {
+  flex-shrink: 0;
 }
 
 .git-remote-recovery {
