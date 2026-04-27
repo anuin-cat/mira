@@ -8,6 +8,7 @@ import type {
   AiRequestSettings,
   AiSettingsState,
 } from '../domain/ai'
+import { resolveAiCompatibilityMode } from './aiCompatibility'
 
 const AI_SETTINGS_STORAGE_KEY = 'mira:ai:settings:v2'
 const AI_SESSIONS_STORAGE_PREFIX = 'mira:ai:sessions:'
@@ -419,6 +420,13 @@ export function resolveActiveAiRequestSettings(settings: AiSettingsState): AiReq
     apiKey: activeProvider.apiKey,
     baseURL: activeProvider.baseURL,
     model: selectedModelId,
+    compatibilityMode: resolveAiCompatibilityMode({
+      id: activeProvider.id,
+      presetId: activeProvider.presetId,
+      label: activeProvider.label,
+      baseURL: activeProvider.baseURL,
+      model: selectedModelId,
+    }),
     systemPrompt: settings.systemPrompt,
     temperature: settings.temperature,
   }

@@ -1,5 +1,6 @@
 export type AiBuiltinProviderId = 'deepseek' | 'siliconflow' | 'kimi'
 export type AiProviderSource = 'builtin' | 'custom'
+export type AiCompatibilityMode = 'openai' | 'deepseek' | 'siliconflow' | 'kimi'
 
 /** OpenAI 兼容提供商预设 */
 export interface AiProviderPreset {
@@ -44,6 +45,7 @@ export interface AiRequestSettings {
   apiKey: string
   baseURL: string
   model: string
+  compatibilityMode: AiCompatibilityMode
   systemPrompt: string
   temperature: number
 }

@@ -3,9 +3,11 @@ import type { AiChatMessage, AiChatRequest, AiChatResult, AiNoteContext, AiToken
 import {
   AgentToolRegistry,
   convertAgentTranscriptToCompletionMessages,
+  createGitAgentTools,
   createVaultAgentTools,
   runChatCompletionAgent,
 } from './agent'
+import { getAiCompatibilityAdapter, type AiCompatibilityAdapter } from './aiCompatibility'
 
 const NOTE_CONTEXT_CHAR_LIMIT = 12000
 
@@ -66,7 +68,7 @@ function buildNoteContextPrompt(noteContext: AiNoteContext): string | null {
 }
 
 /** 把内部聊天消息转换为 OpenAI 兼容消息数组 */
-function buildCompletionMessages(request: AiChatRequest): ChatCompletionMessageParam[] {
+function buildCompletionMessages(request: AiChatRequest, compatibility: AiCompatibilityAdapter): ChatCompletionMessageParam[] {
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: request.settings.systemPrompt },
   ]
@@ -83,14 +85,15 @@ function buildCompletionMessages(request: AiChatRequest): ChatCompletionMessageP
       ]
     }
 
-    const transcriptMessages = convertAgentTranscriptToCompletionMessages(message.agentTranscript)
+    const transcriptMessages = convertAgentTranscriptToCompletionMessages(message.agentTranscript, compatibility)
     if (transcriptMessages.length > 0) return transcriptMessages
 
     return [
-      {
-        role: 'assistant',
+      compatibility.createAssistantMessage({
         content: message.content,
-      },
+        reasoningContent: message.reasoningContent ?? '',
+        toolCalls: [],
+      }),
     ]
   })
 
@@ -148,8 +151,9 @@ export async function requestAiChatReply(
   if (!baseURL.trim()) throw new Error('请先在设置中填写 Base URL')
   if (!model.trim()) throw new Error('请先在设置中填写模型名称')
 
-  // 2. 生成消息数组；展示元数据不发送，但持久化的 agent transcript 会原样重放
-  const messages = buildCompletionMessages(request)
+  // 2. 生成消息数组；展示元数据不发送，但持久化的 agent transcript 会按 provider 兼容策略重放
+  const compatibility = getAiCompatibilityAdapter(request.settings.compatibilityMode)
+  const messages = buildCompletionMessages(request, compatibility)
 
   // 3. 走 agent 循环，把工具调用结果追加在原始消息之后
   const { default: OpenAI } = await import('openai')
@@ -159,7 +163,7 @@ export async function requestAiChatReply(
     dangerouslyAllowBrowser: true,
   })
 
-  const toolRegistry = new AgentToolRegistry(createVaultAgentTools())
+  const toolRegistry = new AgentToolRegistry([...createVaultAgentTools(), ...createGitAgentTools()])
   const agentResult = await runChatCompletionAgent({
     client,
     model,
@@ -167,6 +171,7 @@ export async function requestAiChatReply(
     messages,
     vaultPath: request.vaultPath,
     toolRegistry,
+    compatibility,
     onUpdate: options.onUpdate,
     signal: options.signal,
   })
