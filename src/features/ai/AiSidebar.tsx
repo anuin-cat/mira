@@ -172,9 +172,16 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
 
   const messageListRef = useRef<HTMLDivElement | null>(null)
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const draftMessageRef = useRef('')
   const previousNotePathRef = useRef<string | null>(notePath)
   const activeRequestIdRef = useRef(0)
   const activeAbortControllerRef = useRef<AbortController | null>(null)
+
+  /** 更新输入草稿，并同步 ref，避免异步发送期间读到旧值 */
+  function updateDraftMessage(nextMessage: string) {
+    draftMessageRef.current = nextMessage
+    setDraftMessage(nextMessage)
+  }
 
   /** 同步会话到内存与 localStorage */
   function commitSessions(
@@ -262,7 +269,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
       window.requestAnimationFrame(() => composerInputRef.current?.focus())
     },
     fillCurrentNotePrompt(prompt: string) {
-      if (!draftMessage.trim()) setDraftMessage(prompt)
+      if (!draftMessageRef.current.trim()) updateDraftMessage(prompt)
       setIsHistoryOpen(false)
       setErrorMessage(null)
       window.requestAnimationFrame(() => composerInputRef.current?.focus())
@@ -308,7 +315,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     if (!currentSession || currentSession.messages.length) createAndSelectSession()
     setIsHistoryOpen(false)
     setErrorMessage(null)
-    setDraftMessage('')
+    updateDraftMessage('')
     window.requestAnimationFrame(() => composerInputRef.current?.focus())
   }
 
@@ -436,7 +443,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
 
       // 5. 请求失败时回滚 optimistic 结果，并恢复输入框，方便用户修改后重试
       commitSessions(previousSessions, baseSession.id)
-      setDraftMessage(trimmedMessage)
+      if (!draftMessageRef.current.trim()) updateDraftMessage(trimmedMessage)
       setErrorMessage(getAiErrorMessage(error))
     } finally {
       if (activeAbortControllerRef.current === abortController) {
@@ -451,14 +458,14 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
 
   /** 从输入框发送一条用户消息 */
   async function handleSendMessage() {
-    const trimmedMessage = draftMessage.trim()
+    const trimmedMessage = draftMessageRef.current.trim()
     if (!trimmedMessage || isSending) return
 
     const baseSession = currentSession ?? createAndSelectSession()
     const previousSessions = currentSession ? sessions : [baseSession, ...sessions]
 
+    updateDraftMessage('')
     await doSendMessage(trimmedMessage, baseSession, previousSessions)
-    setDraftMessage('')
   }
 
   /** 重新生成某条 assistant 消息的回复 */
@@ -576,7 +583,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
             ref={composerInputRef}
             className="ai-composer-input"
             value={draftMessage}
-            onChange={(event) => setDraftMessage(event.target.value)}
+            onChange={(event) => updateDraftMessage(event.target.value)}
             placeholder="基于当前笔记继续聊..."
             rows={AI_COMPOSER_MIN_ROWS}
             onKeyDown={(event) => {
