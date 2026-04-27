@@ -86,25 +86,35 @@ function findTextPosition(ranges: TextNodeRange[], offset: number, isEndPosition
   return null
 }
 
+/** 获取 CSS Custom Highlight 注册表，旧 WebView 不支持时返回空 */
+function getCssHighlightRegistry() {
+  const css = globalThis.CSS as (typeof CSS & { highlights?: CssHighlightRegistry }) | undefined
+  return css?.highlights ?? null
+}
+
 /** 获取 CSS Custom Highlight API，旧 WebView 不支持时返回空 */
 function getCssHighlightTools() {
-  const css = globalThis.CSS as (typeof CSS & { highlights?: CssHighlightRegistry }) | undefined
+  const registry = getCssHighlightRegistry()
   const HighlightConstructor = (globalThis as typeof globalThis & {
     Highlight?: CssHighlightConstructor
   }).Highlight
-  if (!css?.highlights || !HighlightConstructor) return null
+  if (!registry || !HighlightConstructor) return null
 
   return {
-    registry: css.highlights,
+    registry,
     HighlightConstructor,
   }
 }
 
 /** 清理当前文件搜索的自定义高亮 */
 export function clearCurrentFileSearchHighlights() {
-  const tools = getCssHighlightTools()
-  tools?.registry.delete(CURRENT_FILE_SEARCH_HIGHLIGHT_NAME)
-  tools?.registry.delete(CURRENT_FILE_SEARCH_FOCUS_HIGHLIGHT_NAME)
+  const registry = getCssHighlightRegistry()
+  if (registry) {
+    registry.delete(CURRENT_FILE_SEARCH_HIGHLIGHT_NAME)
+    registry.delete(CURRENT_FILE_SEARCH_FOCUS_HIGHLIGHT_NAME)
+  }
+
+  document.getElementById(CURRENT_FILE_SEARCH_STYLE_ID)?.remove()
 }
 
 /** 注入 CSS Highlight 样式，避开构建器对新伪元素的误报 */
@@ -182,8 +192,12 @@ export function selectCurrentFileSearchMatch(
   query: string,
   matchOrdinal: number
 ): EditorSearchSelectionResult {
+  if (!query.trim()) {
+    clearCurrentFileSearchHighlights()
+    return { total: 0, cursor: 0, selected: false }
+  }
+
   clearCurrentFileSearchHighlights()
-  if (!query) return { total: 0, cursor: 0, selected: false }
 
   const contentElement = getEditorContentElement(shellElement)
   if (!contentElement) return { total: 0, cursor: 0, selected: false }

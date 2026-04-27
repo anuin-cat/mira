@@ -74,7 +74,7 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       await context.handleUpdateMiraMap()
       break
     case 'find-in-file':
-      context.editorHandleRef.current?.openSearch()
+      context.editorHandleRef.current?.toggleSearch()
       break
     case 'search-vault':
       await context.flushActiveSave()
@@ -157,16 +157,34 @@ export function useAppCommands(context: AppCommandContext) {
   }, [])
 
   useEffect(() => {
-    const unlisteners = COMMAND_MENU_EVENTS.map((menuEvent) =>
-      listen(menuEvent, () => {
+    const unlisteners: Array<() => void | Promise<void>> = []
+    let isDisposed = false
+
+    COMMAND_MENU_EVENTS.forEach((menuEvent) => {
+      void listen(menuEvent, () => {
         const commandId = getCommandIdByMenuEvent(menuEvent)
         if (commandId) runCommand(commandId)
       })
-    )
+        .then((unlisten) => {
+          if (isDisposed) {
+            void Promise.resolve(unlisten()).catch((error) => {
+              console.warn('菜单事件监听清理失败', error)
+            })
+          } else {
+            unlisteners.push(unlisten)
+          }
+        })
+        .catch((error) => {
+          console.warn('菜单事件监听注册失败', error)
+        })
+    })
 
     return () => {
-      unlisteners.forEach((unlisten) => {
-        unlisten.then((fn) => fn())
+      isDisposed = true
+      unlisteners.splice(0).forEach((unlisten) => {
+        void Promise.resolve(unlisten()).catch((error) => {
+          console.warn('菜单事件监听清理失败', error)
+        })
       })
     }
   }, [runCommand])

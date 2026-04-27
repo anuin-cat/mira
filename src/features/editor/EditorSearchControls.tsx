@@ -7,6 +7,7 @@ const SEARCH_SYNC_DELAY_MS = 160
 
 export interface EditorSearchControlsHandle {
   openSearch: () => void
+  closeSearch: () => void
 }
 
 interface EditorSearchControlsProps {
@@ -77,6 +78,11 @@ export const EditorSearchControls = forwardRef<EditorSearchControlsHandle, Edito
     selectedOrdinalRef.current = 0
     setCurrentCursor(0)
     setResultCount(0)
+    if (!nextSearch) {
+      clearPendingSearchSync()
+      applySearch('', 0)
+      return
+    }
     if (!isComposingRef.current) scheduleSearchSync(nextSearch)
   }
 
@@ -93,6 +99,9 @@ export const EditorSearchControls = forwardRef<EditorSearchControlsHandle, Edito
         inputRef.current?.focus()
         if (draftSearchRef.current) applySearch(draftSearchRef.current, selectedOrdinalRef.current)
       })
+    },
+    closeSearch() {
+      handleCloseSearch()
     },
   }))
 

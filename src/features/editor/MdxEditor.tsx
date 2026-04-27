@@ -118,6 +118,7 @@ interface Props {
 
 export interface MdxEditorHandle {
   openSearch: () => void
+  toggleSearch: () => void
   focusEditor: () => void
   selectSearchMatch: (query: string, matchOrdinal: number) => boolean
 }
@@ -700,6 +701,18 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     openSearch() {
       searchControlsRef.current?.openSearch()
     },
+    toggleSearch() {
+      if (isEditorSearchOpen) {
+        if (searchControlsRef.current) {
+          searchControlsRef.current.closeSearch()
+        } else {
+          clearCurrentFileSearchHighlights()
+          setIsEditorSearchOpen(false)
+        }
+      } else {
+        searchControlsRef.current?.openSearch()
+      }
+    },
     focusEditor() {
       editorRef.current?.focus()
     },
@@ -775,6 +788,10 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       restoreTimerIds.forEach((timerId) => window.clearTimeout(timerId))
     }
   }, [])
+
+  useEffect(() => {
+    if (!isEditorSearchOpen) clearCurrentFileSearchHighlights()
+  }, [isEditorSearchOpen])
 
   useEffect(() => () => clearCurrentFileSearchHighlights(), [])
 
