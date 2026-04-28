@@ -330,8 +330,8 @@ export function getMarkdownAfterTableCut(sourceMarkdown: string, payload: Select
   return null
 }
 
-/** 把表格选区内容写入剪贴板 */
-export function writeTableMarkdownToClipboard(event: ClipboardWriteEvent, markdown: string) {
+/** 把 Markdown 文本写入剪贴板 */
+export function writeMarkdownToClipboard(event: ClipboardWriteEvent, markdown: string) {
   // 1. 接管本次复制/剪切，避免浏览器输出破碎 DOM 文本
   event.preventDefault()
   event.stopPropagation()
@@ -341,4 +341,9 @@ export function writeTableMarkdownToClipboard(event: ClipboardWriteEvent, markdo
   // 2. text/plain 方便外部编辑器，text/markdown 方便支持 Markdown 的目标
   event.clipboardData?.setData('text/plain', markdown)
   event.clipboardData?.setData('text/markdown', markdown)
+}
+
+/** 把表格选区内容写入剪贴板 */
+export function writeTableMarkdownToClipboard(event: ClipboardWriteEvent, markdown: string) {
+  writeMarkdownToClipboard(event, markdown)
 }

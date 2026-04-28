@@ -49,10 +49,12 @@ import {
   selectVisibleTextMatch,
   type EditorSearchSelectionResult,
 } from './currentFileSearch'
+import { getSelectionMarkdownFromDom } from './markdownCopy'
 import { looksLikeMarkdown, sanitizeMarkdownForMdxPaste } from './markdownPaste'
 import {
   getMarkdownAfterTableCut,
   getSelectedTablePayload,
+  writeMarkdownToClipboard,
   writeTableMarkdownToClipboard,
 } from './table/tableClipboard'
 import {
@@ -94,6 +96,11 @@ const TOOLBAR_LAYOUT_GAP = 6
 const TOOLBAR_OVERFLOW_TRIGGER_FALLBACK_WIDTH = 30
 const TOOLBAR_FIXED_CONTROLS_FALLBACK_WIDTH = 30
 const EDITOR_SCROLL_CONTAINER_SELECTOR = '.mdxeditor-root-contenteditable'
+const EDITOR_CONTENT_SELECTOR = [
+  '.mira-mdx-content[contenteditable="true"]',
+  '.mira-mdx-content [contenteditable="true"]',
+  '[contenteditable="true"].mira-mdx-content',
+].join(', ')
 const BLOCK_TYPE_SELECT_INTERACTION_SELECTOR = [
   '.mira-toolbar-primary [class*="_selectTrigger_"][data-toolbar-item="true"]',
   'body > .mdxeditor-popup-container.mira-mdx-editor .mdxeditor-select-content[class*="_selectContainer_"]',
@@ -154,6 +161,48 @@ function isWindowDragIgnoredTarget(target: EventTarget | null): boolean {
 /** 获取 MDXEditor 正文滚动容器 */
 function getEditorScrollElement(shellElement: HTMLElement | null) {
   return shellElement?.querySelector<HTMLElement>(EDITOR_SCROLL_CONTAINER_SELECTOR) ?? null
+}
+
+/** 获取 MDXEditor 正文可编辑节点 */
+function getEditorContentElement(shellElement: HTMLElement | null) {
+  return shellElement?.querySelector<HTMLElement>(EDITOR_CONTENT_SELECTOR) ?? null
+}
+
+/** 规整浏览器选区文本，用于判断是否覆盖整篇正文 */
+function normalizeSelectionText(value: string) {
+  return value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** 判断当前浏览器选区是否覆盖了整篇编辑器正文 */
+function isWholeEditorContentSelected(shellElement: HTMLElement | null) {
+  const contentElement = getEditorContentElement(shellElement)
+  const selection = window.getSelection()
+  if (!contentElement || !selection || selection.rangeCount === 0 || selection.isCollapsed) return false
+
+  // 1. 先确认选区确实落在编辑器正文里，避免页面其它区域全选时误接管
+  let hasContentRange = false
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    const range = selection.getRangeAt(index)
+    if (doesRangeIntersectNode(range, contentElement)) {
+      hasContentRange = true
+      break
+    }
+  }
+  if (!hasContentRange) return false
+
+  // 2. MDXEditor 隐藏了 Markdown 标记，只能用渲染文本判断是否整篇选中
+  const selectedText = normalizeSelectionText(selection.toString())
+  const contentText = normalizeSelectionText(contentElement.innerText || contentElement.textContent || '')
+  return Boolean(contentText) && selectedText === contentText
+}
+
+/** 安全判断 Range 是否与节点相交，兼容断开连接节点 */
+function doesRangeIntersectNode(range: Range, node: Node) {
+  try {
+    return range.intersectsNode(node)
+  } catch {
+    return false
+  }
 }
 
 /** 记录编辑器当前滚动位置，避免工具栏异步聚焦后跳走 */
@@ -673,6 +722,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
   const searchControlsRef = useRef<EditorSearchControlsHandle>(null)
   const pendingScrollSnapshotRef = useRef<EditorScrollSnapshot | null>(null)
   const tableSelectionControllerRef = useRef<MdxTableCellSelectionController | null>(null)
+  const latestMarkdownRef = useRef(initialContent)
   const [isEditorSearchOpen, setIsEditorSearchOpen] = useState(false)
   const handleSelectEditorSearchMatch = useCallback((query: string, matchOrdinal: number) => {
     return selectCurrentFileSearchMatch(shellRef.current, query, matchOrdinal)
@@ -725,6 +775,10 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       return isSelected
     },
   }))
+
+  useEffect(() => {
+    latestMarkdownRef.current = initialContent
+  }, [initialContent])
 
   useEffect(() => {
     const restoreFrameIds = new Set<number>()
@@ -850,15 +904,26 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     const handleDocumentCopy = (event: globalThis.ClipboardEvent) => {
       const shellElement = shellRef.current
       const cellSelection = tableSelectionControllerRef.current?.getSelection() ?? null
-      if (!shellElement || !cellSelection) return
+      if (!shellElement) return
 
       // 1. 自定义表格选区不一定有浏览器焦点，因此在 document 捕获
-      const sourceMarkdown = editorRef.current?.getMarkdown() ?? initialContent
-      const payload = getSelectedTablePayload(shellElement, sourceMarkdown, cellSelection)
-      if (!payload) return
+      const sourceMarkdown = latestMarkdownRef.current
+      if (cellSelection) {
+        const payload = getSelectedTablePayload(shellElement, sourceMarkdown, cellSelection)
+        if (!payload) return
 
-      // 2. 写入 Markdown，让粘贴时仍能恢复成表格
-      writeTableMarkdownToClipboard(event, payload.markdown)
+        writeTableMarkdownToClipboard(event, payload.markdown)
+        return
+      }
+
+      // 2. 整篇正文选中时复制完整源文本；局部选区则从 DOM 结构还原 Markdown
+      if (isWholeEditorContentSelected(shellElement)) {
+        writeMarkdownToClipboard(event, sourceMarkdown)
+        return
+      }
+
+      const selectionMarkdown = getSelectionMarkdownFromDom(shellElement)
+      if (selectionMarkdown) writeMarkdownToClipboard(event, selectionMarkdown)
     }
 
     /** 捕获原生剪切，局部选区清空单元格，整表选区删除整张表 */
@@ -869,7 +934,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       if (!shellElement || !cellSelection) return
 
       // 1. 剪切需要能定位到原始 Markdown 块，避免误删相似内容
-      const sourceMarkdown = editorRef.current?.getMarkdown() ?? initialContent
+      const sourceMarkdown = latestMarkdownRef.current
       const payload = getSelectedTablePayload(shellElement, sourceMarkdown, cellSelection)
       if (!payload?.block) return
 
@@ -879,6 +944,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       // 2. 先写剪贴板，再把变更写回编辑器
       writeTableMarkdownToClipboard(event, payload.markdown)
       editorRef.current?.setMarkdown(nextMarkdown)
+      latestMarkdownRef.current = nextMarkdown
       onChange(nextMarkdown)
       tableSelectionController?.clearSelection()
       window.getSelection()?.removeAllRanges()
@@ -890,7 +956,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       document.removeEventListener('copy', handleDocumentCopy, true)
       document.removeEventListener('cut', handleDocumentCut, true)
     }
-  }, [initialContent, onChange])
+  }, [onChange])
 
   /** 捕获复制事件，表格选中时输出可再次粘贴的 Markdown 表格 */
   function handleEditorCopyCapture(event: ReactClipboardEvent<HTMLDivElement>) {
@@ -898,16 +964,26 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     if (!shellElement) return
 
     // 1. 优先读取自定义单元格选区，没有时再兼容浏览器整表选区
-    const sourceMarkdown = editorRef.current?.getMarkdown() ?? initialContent
+    const sourceMarkdown = latestMarkdownRef.current
     const payload = getSelectedTablePayload(
       shellElement,
       sourceMarkdown,
       tableSelectionControllerRef.current?.getSelection() ?? null
     )
-    if (!payload) return
+    if (payload) {
+      // 2. 写入 Markdown，让粘贴时仍能恢复成表格
+      writeTableMarkdownToClipboard(event, payload.markdown)
+      return
+    }
 
-    // 2. 写入 Markdown，让粘贴时仍能恢复成表格
-    writeTableMarkdownToClipboard(event, payload.markdown)
+    // 2. 整篇正文选中时复制完整源文本；局部选区则从 DOM 结构还原 Markdown
+    if (isWholeEditorContentSelected(shellElement)) {
+      writeMarkdownToClipboard(event, sourceMarkdown)
+      return
+    }
+
+    const selectionMarkdown = getSelectionMarkdownFromDom(shellElement)
+    if (selectionMarkdown) writeMarkdownToClipboard(event, selectionMarkdown)
   }
 
   /** 捕获剪切事件，局部选区清空单元格，整表选区删除整张表 */
@@ -916,7 +992,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     if (!shellElement) return
 
     // 1. 剪切需要能定位到原始 Markdown 块，避免误删相似内容
-    const sourceMarkdown = editorRef.current?.getMarkdown() ?? initialContent
+    const sourceMarkdown = latestMarkdownRef.current
     const payload = getSelectedTablePayload(
       shellElement,
       sourceMarkdown,
@@ -930,6 +1006,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     // 2. 先写剪贴板，再把变更写回编辑器
     writeTableMarkdownToClipboard(event, payload.markdown)
     editorRef.current?.setMarkdown(nextMarkdown)
+    latestMarkdownRef.current = nextMarkdown
     onChange(nextMarkdown)
     tableSelectionControllerRef.current?.clearSelection()
     window.getSelection()?.removeAllRanges()
@@ -993,7 +1070,10 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
             listItemIndent: 'one',
           }}
           onChange={(markdown, initialMarkdownNormalize) => {
-            if (!initialMarkdownNormalize) onChange(markdown)
+            if (!initialMarkdownNormalize) {
+              latestMarkdownRef.current = markdown
+              onChange(markdown)
+            }
           }}
           onError={({ error, source }) => {
             console.warn('MDXEditor 解析 Markdown 失败', { error, source })
