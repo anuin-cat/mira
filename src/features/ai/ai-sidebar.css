@@ -606,6 +606,126 @@
   animation: pulseGlow 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+.ai-file-edit-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 24%, var(--theme-border) 76%);
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--theme-selection) 10%, var(--theme-bg-secondary) 90%),
+      color-mix(in srgb, var(--theme-bg-primary) 86%, transparent 14%)
+    );
+}
+
+.ai-file-edit-summary.is-reverted {
+  border-color: color-mix(in srgb, var(--theme-border) 68%, transparent 32%);
+  background: color-mix(in srgb, var(--theme-bg-secondary) 82%, transparent 18%);
+  opacity: 0.78;
+}
+
+.ai-file-edit-summary-header,
+.ai-file-edit-row,
+.ai-file-edit-summary-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ai-file-edit-summary-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--theme-text-secondary);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.ai-file-edit-summary-title svg {
+  color: color-mix(in srgb, var(--theme-accent) 78%, var(--theme-text-secondary) 22%);
+}
+
+.ai-file-edit-summary-total,
+.ai-file-edit-row span {
+  flex-shrink: 0;
+  color: var(--theme-text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-file-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ai-file-edit-row {
+  min-height: 24px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--theme-text-primary) 4%, transparent 96%);
+}
+
+.ai-file-edit-row code {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--theme-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-file-edit-revert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  margin-left: auto;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 28%, var(--theme-border) 72%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-bg-primary) 88%, transparent 12%);
+  color: var(--theme-text-secondary);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-file-edit-revert-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--theme-accent) 54%, var(--theme-border) 46%);
+  background: color-mix(in srgb, var(--theme-selection) 18%, var(--theme-bg-primary) 82%);
+  color: var(--theme-text-primary);
+}
+
+.ai-file-edit-revert-btn:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.ai-file-edit-reverted-label {
+  margin-left: auto;
+  color: var(--theme-text-tertiary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .ai-answer-streaming-placeholder {
   display: inline-flex;
   align-items: center;

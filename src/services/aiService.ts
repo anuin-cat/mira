@@ -4,15 +4,20 @@ import type {
   AiChatMessage,
   AiChatRequest,
   AiChatResult,
+  AiFileEditBatch,
   AiNoteContext,
   AiTokenUsage,
 } from '../domain/ai'
 import {
   AgentToolRegistry,
+  buildAiFileEditBatch,
   convertAgentTranscriptToCompletionMessages,
   createGitAgentTools,
+  createVaultEditAgentTools,
   createVaultAgentTools,
   runChatCompletionAgent,
+  type AgentAppliedFileEdit,
+  type AgentRunResult,
 } from './agent'
 import { getAiCompatibilityAdapter, type AiCompatibilityAdapter } from './aiCompatibility'
 
@@ -26,10 +31,23 @@ export interface AiChatStreamUpdate {
   agentTranscript: AiAgentTranscriptMessage[]
 }
 
+export interface AiChatReplyErrorWithFileEdits extends Error {
+  fileEditBatch?: AiFileEditBatch
+}
+
 interface RequestAiChatReplyOptions {
   assistantMessageId?: string
   onUpdate?: (update: AiChatStreamUpdate) => void
+  getCurrentNoteSnapshot?: () => { path: string | null; content: string } | null
+  onVaultFilesChanged?: (paths: string[]) => void | Promise<void>
   signal?: AbortSignal
+}
+
+/** 从失败对象中提取已发生的文件编辑批次 */
+export function getAiChatErrorFileEditBatch(error: unknown): AiFileEditBatch | null {
+  if (!error || typeof error !== 'object') return null
+  const candidate = error as Partial<AiChatReplyErrorWithFileEdits>
+  return candidate.fileEditBatch ?? null
 }
 
 /** 创建统一的取消异常，方便上层识别“主动中断”而不是“请求失败” */
@@ -119,6 +137,7 @@ function createAssistantMessage(
     isReasoningComplete?: boolean
     tokenUsage?: AiTokenUsage | null
     agentTranscript?: AiChatMessage['agentTranscript']
+    fileEditBatch?: AiFileEditBatch
   } = {}
 ): AiChatMessage {
   const message: AiChatMessage = {
@@ -142,6 +161,9 @@ function createAssistantMessage(
   }
   if (options.agentTranscript?.length) {
     message.agentTranscript = options.agentTranscript
+  }
+  if (options.fileEditBatch) {
+    message.fileEditBatch = options.fileEditBatch
   }
 
   return message
@@ -171,18 +193,41 @@ export async function requestAiChatReply(
     dangerouslyAllowBrowser: true,
   })
 
-  const toolRegistry = new AgentToolRegistry([...createVaultAgentTools(), ...createGitAgentTools()])
-  const agentResult = await runChatCompletionAgent({
-    client,
-    model,
-    temperature,
-    messages,
-    vaultPath: request.vaultPath,
-    toolRegistry,
-    compatibility,
-    onUpdate: options.onUpdate,
-    signal: options.signal,
-  })
+  const appliedFileEdits: AgentAppliedFileEdit[] = []
+  const toolRegistry = new AgentToolRegistry([
+    ...createVaultAgentTools(),
+    ...createVaultEditAgentTools(),
+    ...createGitAgentTools(),
+  ])
+  let agentResult: AgentRunResult
+  try {
+    agentResult = await runChatCompletionAgent({
+      client,
+      model,
+      temperature,
+      messages,
+      vaultPath: request.vaultPath,
+      toolRegistry,
+      compatibility,
+      fileEditJournal: {
+        recordAppliedEdit(edit) {
+          appliedFileEdits.push(edit)
+        },
+      },
+      getCurrentNoteSnapshot: options.getCurrentNoteSnapshot,
+      onVaultFilesChanged: options.onVaultFilesChanged,
+      onUpdate: options.onUpdate,
+      signal: options.signal,
+    })
+  } catch (error) {
+    const fileEditBatch = buildAiFileEditBatch(appliedFileEdits)
+    if (fileEditBatch) {
+      const enhancedError = (error instanceof Error ? error : new Error('请求失败')) as AiChatReplyErrorWithFileEdits
+      enhancedError.fileEditBatch = fileEditBatch
+      throw enhancedError
+    }
+    throw error
+  }
 
   // 4. 收尾补全状态；接口缓存统计只写入本地聊天记录，agent transcript 用于后续前缀缓存
   const normalizedContent = agentResult.content.trim()
@@ -196,6 +241,7 @@ export async function requestAiChatReply(
       isReasoningComplete: agentResult.reasoningContent ? agentResult.isReasoningComplete : undefined,
       tokenUsage: agentResult.tokenUsage,
       agentTranscript: agentResult.agentTranscript,
+      fileEditBatch: buildAiFileEditBatch(appliedFileEdits),
     }),
   }
 }

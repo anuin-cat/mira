@@ -151,6 +151,14 @@ vault/
 - 初始化本地 Git 仓库时默认把 `.mira/` 与常见系统缓存规则写到 `.gitignore` 顶部
 - Mira 不负责创建 GitHub 远端仓库；用户在 GitHub 网页创建仓库后粘贴 remote URL，Mira 只执行本地 `git remote add/set-url` 与 `git push`
 
+## AI 文件编辑约定
+
+- agent 修改 Markdown 文件只能通过 `vault_edit_note` 执行精确替换、删除或插入，写入前必须校验 `vault_read_note` 返回的 `contentHash`
+- 单次编辑调用必须先完整校验所有编辑项；任一 `oldText` 或 `anchorText` 找不到、命中次数不符、hash 不一致或当前打开文件存在未保存内容时，不得写入文件
+- 新增文本优先使用 `insert_before` / `insert_after` 搭配唯一 `anchorText` 定位；只有明确文首/文末语义时才用 `prepend` / `append`，不要用裸行号或模糊匹配定位
+- assistant 消息必须展示本次 agent 修改的文件列表与增删行数，并保留一键回退本次修改的入口
+- 回退只能在目标文件仍保持 AI 修改后的 hash 时执行；若用户或外部程序后续改动过文件，必须拒绝回退以避免覆盖用户新内容
+
 ## 搜索性能约定
 
 - 全 Vault 搜索必须按 vault 规模选择策略：小 vault 可构建轻量内存索引，大 vault 或大文件按需逐文件扫描，避免打开搜索面板就把所有正文读入内存

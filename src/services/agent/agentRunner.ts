@@ -7,6 +7,8 @@ import type { AiAgentTranscriptMessage, AiAgentTranscriptToolCall, AiTokenUsage 
 import type { AiCompatibilityAdapter } from '../aiCompatibility'
 import { extractDeltaText } from '../aiCompatibility/utils'
 import type {
+  AgentCurrentNoteSnapshot,
+  AgentFileEditJournal,
   AgentRunResult,
   AgentRunStreamUpdate,
   AgentToolCall,
@@ -24,6 +26,9 @@ interface RunChatCompletionAgentOptions {
   vaultPath: string
   toolRegistry: AgentToolRegistryLike
   compatibility: AiCompatibilityAdapter
+  fileEditJournal?: AgentFileEditJournal
+  getCurrentNoteSnapshot?: () => AgentCurrentNoteSnapshot | null
+  onVaultFilesChanged?: (paths: string[]) => void | Promise<void>
   onUpdate?: (update: AgentRunStreamUpdate) => void
   signal?: AbortSignal
 }
@@ -489,6 +494,9 @@ export async function runChatCompletionAgent(
       const execution = await options.toolRegistry.executeToolCall(toolCall, {
         vaultPath: options.vaultPath,
         signal: options.signal,
+        fileEditJournal: options.fileEditJournal,
+        getCurrentNoteSnapshot: options.getCurrentNoteSnapshot,
+        onVaultFilesChanged: options.onVaultFilesChanged,
       })
 
       toolTraces.push(execution.trace)

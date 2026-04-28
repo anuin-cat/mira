@@ -4,8 +4,10 @@ import {
   CheckCircle2,
   ChevronDown,
   Copy,
+  FilePenLine,
   LoaderCircle,
   RefreshCw,
+  RotateCcw,
   Sparkles,
   Wrench,
 } from 'lucide-react'
@@ -22,6 +24,8 @@ interface Props {
   onToggleReasoning: () => void
   onCopy: () => void
   onRegenerate: () => void
+  onRevertFileEdits: () => void
+  isRevertingFileEdits: boolean
 }
 
 type AiAgentToolTranscriptMessage = Extract<AiAgentTranscriptMessage, { role: 'tool' }>
@@ -216,6 +220,73 @@ function MetaPill({ meta }: { meta: MessageMetaData }) {
         </>
       ) : null}
     </span>
+  )
+}
+
+/** 把增删行数整理成 Git 面板风格的短摘要 */
+function formatFileEditLineSummary(addedLines: number, removedLines: number): string {
+  return `+${addedLines} -${removedLines}`
+}
+
+/** 展示 agent 本次实际写入的文件列表，并提供整批回退 */
+function FileEditSummaryCard({
+  message,
+  isReverting,
+  onRevert,
+}: {
+  message: AiChatMessage
+  isReverting: boolean
+  onRevert: () => void
+}) {
+  const batch = message.fileEditBatch
+  if (!batch || batch.files.length === 0) return null
+
+  const totalAddedLines = batch.files.reduce((sum, file) => sum + file.addedLines, 0)
+  const totalRemovedLines = batch.files.reduce((sum, file) => sum + file.removedLines, 0)
+  const fileCountLabel = `${batch.files.length} 个文件`
+
+  return (
+    <section className={cn('ai-file-edit-summary', batch.isReverted && 'is-reverted')}>
+      <div className="ai-file-edit-summary-header">
+        <span className="ai-file-edit-summary-title">
+          <FilePenLine className="size-[14px]" aria-hidden="true" />
+          <span>已修改 {fileCountLabel}</span>
+        </span>
+        <span className="ai-file-edit-summary-total">
+          {formatFileEditLineSummary(totalAddedLines, totalRemovedLines)}
+        </span>
+      </div>
+
+      <div className="ai-file-edit-list">
+        {batch.files.map((file) => (
+          <div key={file.path} className="ai-file-edit-row">
+            <code title={file.path}>{file.path}</code>
+            <span>{formatFileEditLineSummary(file.addedLines, file.removedLines)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="ai-file-edit-summary-footer">
+        {batch.isReverted ? (
+          <span className="ai-file-edit-reverted-label">已回退</span>
+        ) : (
+          <button
+            type="button"
+            className="ai-file-edit-revert-btn"
+            onClick={onRevert}
+            disabled={isReverting}
+            aria-label="回退本次 AI 修改"
+          >
+            {isReverting ? (
+              <LoaderCircle className="ai-agent-tool-spinner size-[13px]" aria-hidden="true" />
+            ) : (
+              <RotateCcw className="size-[13px]" aria-hidden="true" />
+            )}
+            <span>{isReverting ? '回退中' : '回退本次修改'}</span>
+          </button>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -635,6 +706,8 @@ export function AiAssistantMessage({
   onToggleReasoning,
   onCopy,
   onRegenerate,
+  onRevertFileEdits,
+  isRevertingFileEdits,
 }: Props) {
   const hasReasoningContent = Boolean(message.reasoningContent?.trim())
   const hasAgentTranscript = Boolean(message.agentTranscript?.length)
@@ -683,6 +756,14 @@ export function AiAssistantMessage({
           <span>正在生成回复</span>
           <span className="ai-streaming-cursor" aria-hidden="true" />
         </div>
+      ) : null}
+
+      {!isStreaming ? (
+        <FileEditSummaryCard
+          message={message}
+          isReverting={isRevertingFileEdits}
+          onRevert={onRevertFileEdits}
+        />
       ) : null}
 
       <div className="ai-message-footer">

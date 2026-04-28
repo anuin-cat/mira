@@ -71,6 +71,42 @@ export interface AiTokenUsage {
   reasoningTokens?: number
 }
 
+/** agent 文件编辑中用于回退的替换后区间 */
+export interface AiFileEditRange {
+  start: number
+  end: number
+}
+
+/** agent 单次文本替换操作，按顺序回放可撤销本次 AI 修改 */
+export interface AiFileEditOperation {
+  path: string
+  oldText: string
+  newText: string
+  replaceAll: boolean
+  occurrenceCount: number
+  ranges: AiFileEditRange[]
+}
+
+/** 单个文件在一次 assistant 回复中的修改摘要 */
+export interface AiFileEditSummary {
+  path: string
+  beforeHash: string
+  afterHash: string
+  addedLines: number
+  removedLines: number
+  operationCount: number
+}
+
+/** 一次 assistant 回复产生的可回退文件修改批次 */
+export interface AiFileEditBatch {
+  id: string
+  createdAt: string
+  files: AiFileEditSummary[]
+  operations: AiFileEditOperation[]
+  isReverted?: boolean
+  revertedAt?: string
+}
+
 /** agent 工具调用记录中的 function call */
 export interface AiAgentTranscriptToolCall {
   id: string
@@ -109,6 +145,7 @@ export interface AiChatMessage {
   isReasoningComplete?: boolean
   tokenUsage?: AiTokenUsage
   agentTranscript?: AiAgentTranscriptMessage[]
+  fileEditBatch?: AiFileEditBatch
 }
 
 /** 单个聊天会话 */

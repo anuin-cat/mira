@@ -1,11 +1,34 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions'
-import type { AiAgentTranscriptMessage, AiTokenUsage } from '../../domain/ai'
+import type { AiAgentTranscriptMessage, AiFileEditOperation, AiTokenUsage } from '../../domain/ai'
 
 export type AgentToolInput = Record<string, unknown>
+
+export interface AgentCurrentNoteSnapshot {
+  path: string | null
+  content: string
+}
+
+export interface AgentAppliedFileEdit {
+  path: string
+  beforeContent: string
+  afterContent: string
+  beforeHash: string
+  afterHash: string
+  operations: AiFileEditOperation[]
+  toolCallId: string
+  createdAt: string
+}
+
+export interface AgentFileEditJournal {
+  recordAppliedEdit: (edit: AgentAppliedFileEdit) => void
+}
 
 export interface AgentToolContext {
   vaultPath: string
   signal?: AbortSignal
+  fileEditJournal?: AgentFileEditJournal
+  getCurrentNoteSnapshot?: () => AgentCurrentNoteSnapshot | null
+  onVaultFilesChanged?: (paths: string[]) => void | Promise<void>
 }
 
 export interface AgentToolExecutionContext extends AgentToolContext {

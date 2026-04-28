@@ -130,6 +130,7 @@ export default function App() {
   const [vaultState, setVaultState] = useState<VaultState>(DEFAULT_VAULT_STATE)
   const [activePath, setActivePath] = useState<string | null>(null)
   const [activeContent, setActiveContent] = useState('')
+  const [editorInstanceVersion, setEditorInstanceVersion] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
@@ -403,10 +404,12 @@ export default function App() {
     const note = await readNote(path, filePath)
     if (!note) return false
 
+    const previousActivePath = activePathRef.current
     activePathRef.current = filePath
     latestContentRef.current = note.content
     setActivePath(filePath)
     setActiveContent(note.content)
+    if (previousActivePath === filePath) setEditorInstanceVersion((version) => version + 1)
 
     if (shouldPersist) persistVaultState({ lastOpenedPath: filePath })
     if (shouldRecordHistory) recordNavigation(filePath)
@@ -692,6 +695,34 @@ export default function App() {
     }
   }
 
+  /** agent 写入或回退文件后，同步文件树、Git badge 和当前编辑器内容 */
+  async function handleAgentFilesChanged(changedPaths: string[]) {
+    const path = vaultPathRef.current
+    if (!path) return
+
+    const uniqueChangedPaths = Array.from(new Set(changedPaths))
+    const currentActivePath = activePathRef.current
+    const shouldReloadActiveFile = currentActivePath ? uniqueChangedPaths.includes(currentActivePath) : false
+
+    if (shouldReloadActiveFile && currentActivePath) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      await openFileFromDisk(path, currentActivePath, true, false)
+    }
+
+    await reloadTree(activePathRef.current)
+  }
+
+  /** 提供给 agent 工具的当前编辑器快照，用于拒绝覆盖未保存内容 */
+  function getCurrentNoteSnapshot() {
+    return {
+      path: activePathRef.current,
+      content: latestContentRef.current,
+    }
+  }
+
   /** 编辑器内容变化：debounce 1s 后保存 Markdown 文件 */
   const handleContentChange = useCallback((markdown: string) => {
     const path = vaultPathRef.current
@@ -718,7 +749,7 @@ export default function App() {
   const editorWorkspace = activePath ? (
     <section className="editor-workspace">
       <MdxEditor
-        key={activePath}
+        key={`${activePath}:${editorInstanceVersion}`}
         ref={editorHandleRef}
         initialContent={activeContent}
         isAiSidebarOpen={isAiSidebarOpen}
@@ -820,6 +851,9 @@ export default function App() {
               notePath={activePath}
               noteTitle={activePath ? getDisplayName(activePath, 'file') : null}
               noteContent={activeContent}
+              onBeforeAgentRequest={flushActiveSave}
+              getCurrentNoteSnapshot={getCurrentNoteSnapshot}
+              onAgentFilesChanged={handleAgentFilesChanged}
             />
           </Panel>
         </PanelGroup>

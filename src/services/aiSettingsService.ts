@@ -520,7 +520,8 @@ function isValidAiChatMessage(message: unknown): message is AiChatMessage {
       typeof candidate.reasoningDurationMs === 'number') &&
     (candidate.isReasoningComplete === undefined || typeof candidate.isReasoningComplete === 'boolean') &&
     (candidate.tokenUsage === undefined || isValidAiTokenUsage(candidate.tokenUsage)) &&
-    (candidate.agentTranscript === undefined || isValidAiAgentTranscript(candidate.agentTranscript))
+    (candidate.agentTranscript === undefined || isValidAiAgentTranscript(candidate.agentTranscript)) &&
+    (candidate.fileEditBatch === undefined || isValidAiFileEditBatch(candidate.fileEditBatch))
   )
 }
 
@@ -529,6 +530,73 @@ function isValidAiTokenUsage(tokenUsage: unknown): boolean {
   if (!tokenUsage || typeof tokenUsage !== 'object' || Array.isArray(tokenUsage)) return false
   return Object.values(tokenUsage).every(
     (value) => value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+  )
+}
+
+/** 校验 agent 文件编辑回退数据是否可用 */
+function isValidAiFileEditBatch(batch: unknown): boolean {
+  if (!batch || typeof batch !== 'object' || Array.isArray(batch)) return false
+  const candidate = batch as Record<string, unknown>
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.createdAt === 'string' &&
+    Array.isArray(candidate.files) &&
+    candidate.files.every(isValidAiFileEditSummary) &&
+    Array.isArray(candidate.operations) &&
+    candidate.operations.every(isValidAiFileEditOperation) &&
+    (candidate.isReverted === undefined || typeof candidate.isReverted === 'boolean') &&
+    (candidate.revertedAt === undefined || typeof candidate.revertedAt === 'string')
+  )
+}
+
+/** 校验单个文件修改摘要 */
+function isValidAiFileEditSummary(summary: unknown): boolean {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return false
+  const candidate = summary as Record<string, unknown>
+  return (
+    typeof candidate.path === 'string' &&
+    typeof candidate.beforeHash === 'string' &&
+    typeof candidate.afterHash === 'string' &&
+    typeof candidate.addedLines === 'number' &&
+    Number.isFinite(candidate.addedLines) &&
+    candidate.addedLines >= 0 &&
+    typeof candidate.removedLines === 'number' &&
+    Number.isFinite(candidate.removedLines) &&
+    candidate.removedLines >= 0 &&
+    typeof candidate.operationCount === 'number' &&
+    Number.isFinite(candidate.operationCount) &&
+    candidate.operationCount >= 0
+  )
+}
+
+/** 校验单个文件编辑操作和回退区间 */
+function isValidAiFileEditOperation(operation: unknown): boolean {
+  if (!operation || typeof operation !== 'object' || Array.isArray(operation)) return false
+  const candidate = operation as Record<string, unknown>
+  return (
+    typeof candidate.path === 'string' &&
+    typeof candidate.oldText === 'string' &&
+    typeof candidate.newText === 'string' &&
+    typeof candidate.replaceAll === 'boolean' &&
+    typeof candidate.occurrenceCount === 'number' &&
+    Number.isFinite(candidate.occurrenceCount) &&
+    candidate.occurrenceCount >= 0 &&
+    Array.isArray(candidate.ranges) &&
+    candidate.ranges.every(isValidAiFileEditRange)
+  )
+}
+
+/** 校验单个回退区间 */
+function isValidAiFileEditRange(range: unknown): boolean {
+  if (!range || typeof range !== 'object' || Array.isArray(range)) return false
+  const candidate = range as Record<string, unknown>
+  return (
+    typeof candidate.start === 'number' &&
+    Number.isFinite(candidate.start) &&
+    candidate.start >= 0 &&
+    typeof candidate.end === 'number' &&
+    Number.isFinite(candidate.end) &&
+    candidate.end >= candidate.start
   )
 }
 

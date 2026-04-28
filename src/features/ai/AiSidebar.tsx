@@ -12,7 +12,12 @@ import {
 } from '../../components/ui/select'
 import type { AiChatMessage, AiChatSession, AiSettingsState } from '../../domain/ai'
 import { isImeComposing } from '../../lib/keyboard'
-import { requestAiChatReply, type AiChatStreamUpdate } from '../../services/aiService'
+import { revertAiFileEditBatch } from '../../services/agent'
+import {
+  getAiChatErrorFileEditBatch,
+  requestAiChatReply,
+  type AiChatStreamUpdate,
+} from '../../services/aiService'
 import {
   createAiChatSession,
   createAiSessionTitle,
@@ -38,6 +43,9 @@ interface Props {
   notePath: string | null
   noteTitle: string | null
   noteContent: string
+  onBeforeAgentRequest: () => Promise<void>
+  getCurrentNoteSnapshot: () => { path: string | null; content: string } | null
+  onAgentFilesChanged: (paths: string[]) => Promise<void> | void
 }
 
 export interface AiSidebarHandle {
@@ -163,7 +171,7 @@ function replaceMessageInSession(session: AiChatSession, nextMessage: AiChatMess
 
 /** 侧边聊天栏：负责会话切换、设置编辑、流式发送与思考展示 */
 export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
-  { vaultPath, notePath, noteTitle, noteContent },
+  { vaultPath, notePath, noteTitle, noteContent, onBeforeAgentRequest, getCurrentNoteSnapshot, onAgentFilesChanged },
   ref
 ) {
   const [settings, setSettings] = useState<AiSettingsState>(() => loadAiSettings())
@@ -175,6 +183,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const [revertingBatchIds, setRevertingBatchIds] = useState<Record<string, boolean>>({})
   const [collapsedReasoningMessageIds, setCollapsedReasoningMessageIds] = useState<Record<string, boolean>>({})
   const [isMessageListPinnedToBottom, setIsMessageListPinnedToBottom] = useState(true)
 
@@ -422,6 +431,49 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     }
   }
 
+  /** 回退某条 assistant 消息产生的所有 agent 文件修改 */
+  async function handleRevertFileEdits(messageId: string) {
+    if (!currentSession || isSending) return
+
+    const targetMessage = currentSession.messages.find((message) => message.id === messageId)
+    const batch = targetMessage?.fileEditBatch
+    if (!targetMessage || !batch || batch.isReverted || revertingBatchIds[batch.id]) return
+
+    setErrorMessage(null)
+    setRevertingBatchIds((current) => ({ ...current, [batch.id]: true }))
+
+    try {
+      await onBeforeAgentRequest()
+      const changedPaths = await revertAiFileEditBatch(vaultPath, batch)
+      const revertedMessage: AiChatMessage = {
+        ...targetMessage,
+        fileEditBatch: {
+          ...batch,
+          isReverted: true,
+          revertedAt: new Date().toISOString(),
+        },
+      }
+      const nextSession = replaceMessageInSession(
+        {
+          ...currentSession,
+          updatedAt: revertedMessage.fileEditBatch?.revertedAt ?? currentSession.updatedAt,
+        },
+        revertedMessage
+      )
+      const remainingSessions = sessions.filter((session) => session.id !== currentSession.id)
+      commitSessions([nextSession, ...remainingSessions], nextSession.id)
+      await onAgentFilesChanged(changedPaths)
+    } catch (error) {
+      setErrorMessage(getAiErrorMessage(error))
+    } finally {
+      setRevertingBatchIds((current) => {
+        const nextState = { ...current }
+        delete nextState[batch.id]
+        return nextState
+      })
+    }
+  }
+
   /** 核心发送逻辑：用指定内容和会话发起 AI 请求 */
   async function doSendMessage(
     trimmedMessage: string,
@@ -455,6 +507,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     activeAbortControllerRef.current?.abort()
     activeAbortControllerRef.current = abortController
     commitSessions([optimisticSession, ...remainingSessions], optimisticSession.id, false)
+    let latestAssistantMessage = assistantPlaceholderMessage
 
     /** 把最新流式快照合并进 assistant 占位消息 */
     function handleStreamUpdate(update: AiChatStreamUpdate) {
@@ -473,6 +526,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
       if (update.agentTranscript.length > 0) {
         streamingMessage.agentTranscript = update.agentTranscript
       }
+      latestAssistantMessage = streamingMessage
 
       // 3. 未完成时保持展开，完成后自动收起，方便用户继续看后续正文
       if (update.reasoningContent || update.agentTranscript.length > 0 || update.isReasoningComplete) {
@@ -485,6 +539,8 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     }
 
     try {
+      await onBeforeAgentRequest()
+
       // 3. 发起流式请求；命中缓存时也复用同一条 assistant 消息落位
       const result = await requestAiChatReply(
         {
@@ -501,6 +557,8 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
         {
           assistantMessageId: assistantPlaceholderMessage.id,
           onUpdate: handleStreamUpdate,
+          getCurrentNoteSnapshot,
+          onVaultFilesChanged: onAgentFilesChanged,
           signal: abortController.signal,
         }
       )
@@ -519,7 +577,27 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
       }
       commitSessions([completedSession, ...remainingSessions], completedSession.id)
     } catch (error) {
-      if (activeRequestIdRef.current !== requestId || isAbortError(error)) return
+      if (activeRequestIdRef.current !== requestId) return
+      const fileEditBatch = getAiChatErrorFileEditBatch(error)
+      if (!fileEditBatch && isAbortError(error)) return
+      if (fileEditBatch) {
+        const failedMessage: AiChatMessage = {
+          ...latestAssistantMessage,
+          content: latestAssistantMessage.content || '文件修改已完成，但后续回复生成失败。',
+          fileEditBatch,
+          isReasoningComplete: true,
+        }
+        const failedSession = replaceMessageInSession(
+          {
+            ...optimisticSession,
+            updatedAt: new Date().toISOString(),
+          },
+          failedMessage
+        )
+        commitSessions([failedSession, ...remainingSessions], failedSession.id)
+        setErrorMessage(getAiErrorMessage(error))
+        return
+      }
 
       // 5. 请求失败时回滚 optimistic 结果，并恢复输入框，方便用户修改后重试
       commitSessions(previousSessions, baseSession.id)
@@ -637,6 +715,10 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
                   onToggleReasoning={() => handleToggleReasoning(message.id)}
                   onCopy={() => void handleCopy(message.content)}
                   onRegenerate={() => void handleRegenerate(message.id)}
+                  onRevertFileEdits={() => void handleRevertFileEdits(message.id)}
+                  isRevertingFileEdits={
+                    message.fileEditBatch ? revertingBatchIds[message.fileEditBatch.id] === true : false
+                  }
                 />
               </article>
             ) : (

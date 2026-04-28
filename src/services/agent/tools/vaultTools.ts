@@ -2,6 +2,7 @@ import type { VaultTreeNode } from '../../../domain/note'
 import { readNote, scanVaultTree } from '../../noteService'
 import { MARKDOWN_EXTENSION } from '../../pathUtils'
 import type { AgentTool, AgentToolResult } from '../types'
+import { hashTextContent } from '../utils/fileEdit'
 import { extractMarkdownHeadings, searchMarkdownContent } from '../utils/markdown'
 import { normalizeReadableNotePath } from '../utils/pathGuard'
 import { clampNumber, clipWithMeta, readStringInput } from '../utils/text'
@@ -142,6 +143,7 @@ export function createVaultAgentTools(): AgentTool[] {
             path: note.meta.path,
             title: note.meta.title,
             updatedAt: note.meta.updatedAt,
+            contentHash: await hashTextContent(note.content),
             content: clipped.text,
             isTruncated: clipped.isTruncated,
             remainingChars: clipped.remainingChars,
