@@ -32,6 +32,7 @@ type AgentDisplaySegment =
   | { type: 'reasoning'; key: string; entries: AgentReasoningEntry[]; reasoningDurationMs: number | null }
   | { type: 'content'; key: string; content: string }
 type AgentReasoningDisplaySegment = Extract<AgentDisplaySegment, { type: 'reasoning' }>
+type AgentReasoningSegmentToggleState = 'expanded' | 'collapsed'
 
 /** 把思考耗时整理成适合标题展示的短文本 */
 function formatReasoningDuration(reasoningDurationMs: number | null | undefined): string | null {
@@ -497,7 +498,9 @@ function AgentTranscriptFlow({
   reasoningDurationLabel: string | null
 }) {
   const [expandedToolIds, setExpandedToolIds] = useState<Record<string, boolean>>({})
-  const [collapsedReasoningSegmentKeys, setCollapsedReasoningSegmentKeys] = useState<Record<string, boolean>>({})
+  const [reasoningSegmentToggleStates, setReasoningSegmentToggleStates] = useState<
+    Record<string, AgentReasoningSegmentToggleState>
+  >({})
   const [nowMs, setNowMs] = useState(() => Date.now())
   const toolResultMap = createToolResultMap(transcript)
   const hasPendingTools = hasPendingToolCalls(transcript, toolResultMap)
@@ -506,6 +509,7 @@ function AgentTranscriptFlow({
     (segment): segment is AgentReasoningDisplaySegment => segment.type === 'reasoning'
   )
   const lastReasoningSegmentKey = reasoningSegments[reasoningSegments.length - 1]?.key ?? null
+  const activeReasoningSegmentKey = isStreaming ? lastReasoningSegmentKey : null
 
   useEffect(() => {
     if (!hasPendingTools) return
@@ -514,6 +518,20 @@ function AgentTranscriptFlow({
     const timer = window.setInterval(() => setNowMs(Date.now()), 500)
     return () => window.clearInterval(timer)
   }, [hasPendingTools])
+
+  useEffect(() => {
+    const validSegmentKeys = new Set(reasoningSegments.map((segment) => segment.key))
+    setReasoningSegmentToggleStates((current) => {
+      const nextState = Object.fromEntries(
+        Object.entries(current).filter(([segmentKey]) => validSegmentKeys.has(segmentKey))
+      ) as Record<string, AgentReasoningSegmentToggleState>
+      const hasSameKeys =
+        Object.keys(nextState).length === Object.keys(current).length &&
+        Object.entries(nextState).every(([segmentKey, toggleState]) => current[segmentKey] === toggleState)
+
+      return hasSameKeys ? current : nextState
+    })
+  }, [reasoningSegments])
 
   /** 切换某个工具卡片的展开状态；默认始终保持折叠 */
   function handleToggleToolCard(toolCallId: string) {
@@ -530,15 +548,32 @@ function AgentTranscriptFlow({
     })
   }
 
-  /** 切换单个思考过程的展开状态；未记录时沿用消息级默认值 */
+  /** 切换单个思考过程的展开状态：流式中的当前段默认展开，完成段默认收起 */
   function handleToggleReasoningSegment(segmentKey: string) {
-    setCollapsedReasoningSegmentKeys((current) => {
-      const isCollapsed = current[segmentKey] ?? !isReasoningExpanded
-      return {
-        ...current,
-        [segmentKey]: !isCollapsed,
+    setReasoningSegmentToggleStates((current) => {
+      const toggleState = current[segmentKey]
+      const isActiveSegment = segmentKey === activeReasoningSegmentKey
+      const isExpandedByDefault = isActiveSegment
+
+      if (toggleState === undefined) {
+        return {
+          ...current,
+          [segmentKey]: isExpandedByDefault ? 'collapsed' : 'expanded',
+        }
       }
+
+      const nextState = { ...current }
+      delete nextState[segmentKey]
+      return nextState
     })
+  }
+
+  /** 计算单个思考过程的当前展开状态 */
+  function getReasoningSegmentExpanded(segmentKey: string): boolean {
+    const toggleState = reasoningSegmentToggleStates[segmentKey]
+    if (toggleState === 'expanded') return true
+    if (toggleState === 'collapsed') return false
+    return segmentKey === activeReasoningSegmentKey
   }
 
   if (segments.length === 0) {
@@ -575,7 +610,7 @@ function AgentTranscriptFlow({
               formatReasoningDuration(segment.reasoningDurationMs) ??
               (segment.key === lastReasoningSegmentKey ? reasoningDurationLabel : null)
             }
-            isExpanded={collapsedReasoningSegmentKeys[segment.key] !== true}
+            isExpanded={getReasoningSegmentExpanded(segment.key)}
             onToggle={() => handleToggleReasoningSegment(segment.key)}
           >
             <AgentReasoningSegment

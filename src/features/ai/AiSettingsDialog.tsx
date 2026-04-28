@@ -18,7 +18,7 @@ import {
   patchAiProvider,
   removeAiProvider,
   removeAiProviderModel,
-  setActiveAiProvider,
+  setAiProviderEnabled,
 } from '../../services/aiSettingsService'
 import { AddModelDialog } from './settings/AddModelDialog'
 import { AddProviderDialog } from './settings/AddProviderDialog'
@@ -117,9 +117,9 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
     setSelectedProviderId(nextSelectedProviderId)
   }
 
-  /** 把当前 provider 设为聊天默认入口 */
-  function handleActivateProvider(providerId: string) {
-    setDraftSettings((current) => setActiveAiProvider(current, providerId))
+  /** 切换当前 provider 是否显示在模型选择器里 */
+  function handleToggleProviderEnabled(providerId: string, isEnabled: boolean) {
+    setDraftSettings((current) => setAiProviderEnabled(current, providerId, isEnabled))
   }
 
   /** 添加一个模型到当前 provider */
@@ -221,7 +221,7 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                 <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
                   {draftSettings.providers.map((provider) => {
                     const isSelected = provider.id === selectedProvider?.id
-                    const isActive = provider.id === draftSettings.activeProviderId
+                    const isEnabled = provider.isEnabled
                     const isCustom = !isBuiltInAiProvider(provider)
 
                     return (
@@ -261,23 +261,23 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                             <Trash2 className="size-3.5" />
                           </button>
                         ) : null}
-                        {/* toggle：点击切换是否为当前使用 */}
+                        {/* toggle：点击切换是否在模型下拉中显示 */}
                         <button
                           type="button"
                           className={cn(
                             'relative shrink-0 h-4 w-7 rounded-full transition-colors',
-                            isActive ? 'bg-primary' : 'bg-muted-foreground/25'
+                            isEnabled ? 'bg-primary' : 'bg-muted-foreground/25'
                           )}
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleActivateProvider(provider.id)
+                            handleToggleProviderEnabled(provider.id, !isEnabled)
                           }}
-                          aria-label={isActive ? '当前使用' : '设为使用'}
+                          aria-label={isEnabled ? '从模型列表隐藏' : '在模型列表中显示'}
                         >
                           <span
                             className={cn(
                               'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform',
-                              isActive ? 'left-[14px]' : 'left-0.5'
+                              isEnabled ? 'left-[14px]' : 'left-0.5'
                             )}
                           />
                         </button>

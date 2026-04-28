@@ -26,6 +26,7 @@ export interface AiProviderConfig {
   label: string
   baseURL: string
   apiKey: string
+  isEnabled: boolean
   models: AiProviderModel[]
   selectedModelId: string | null
 }

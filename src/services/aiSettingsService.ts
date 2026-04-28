@@ -98,6 +98,39 @@ function ensureSelectedModelId(
   return models[0]?.id ?? null
 }
 
+/** 归一化 provider 的展示开关，兼容旧版本尚未持久化该字段的情况 */
+function normalizeProviderEnabled(
+  isEnabled: unknown,
+  hasModels: boolean,
+  isLegacyActiveProvider: boolean
+): boolean {
+  if (typeof isEnabled === 'boolean') return isEnabled
+  return hasModels || isLegacyActiveProvider
+}
+
+/** 从已开启且已有模型的 provider 中挑一个可直接用于聊天的回退项 */
+function findFirstEnabledProviderWithModel(providers: AiProviderConfig[]): AiProviderConfig | null {
+  return providers.find((provider) => provider.isEnabled && provider.models.length > 0) ?? null
+}
+
+/** 规范化 activeProviderId，优先保留原值，仅在已关闭且有可用回退项时自动切换 */
+function resolveNormalizedActiveProviderId(
+  providers: AiProviderConfig[],
+  activeProviderId: unknown
+): string | null {
+  const matchedActiveProvider =
+    typeof activeProviderId === 'string'
+      ? providers.find((provider) => provider.id === activeProviderId) ?? null
+      : null
+
+  if (matchedActiveProvider) {
+    if (matchedActiveProvider.isEnabled) return matchedActiveProvider.id
+    return findFirstEnabledProviderWithModel(providers)?.id ?? matchedActiveProvider.id
+  }
+
+  return findFirstEnabledProviderWithModel(providers)?.id ?? providers[0]?.id ?? null
+}
+
 /** 创建默认 AI 设置（内置供应商不预填模型，由用户自行添加并选择） */
 function createBuiltInProvider(presetId: AiBuiltinProviderId): AiProviderConfig {
   const preset = getAiProviderPreset(presetId)
@@ -108,6 +141,7 @@ function createBuiltInProvider(presetId: AiBuiltinProviderId): AiProviderConfig 
     label: preset.label,
     apiKey: '',
     baseURL: preset.defaultBaseUrl,
+    isEnabled: preset.id === 'deepseek',
     models: [],
     selectedModelId: null,
   }
@@ -122,7 +156,8 @@ function normalizeTemperature(value: unknown): number {
 /** 规范化内置 provider，保证基础字段不丢失 */
 function normalizeBuiltInProvider(
   input: Partial<AiProviderConfig> | null | undefined,
-  presetId: AiBuiltinProviderId
+  presetId: AiBuiltinProviderId,
+  activeProviderId: unknown
 ): AiProviderConfig {
   const preset = getAiProviderPreset(presetId)
   const models = dedupeProviderModels(input?.models)
@@ -134,13 +169,17 @@ function normalizeBuiltInProvider(
     label: preset.label,
     apiKey: typeof input?.apiKey === 'string' ? input.apiKey.trim() : '',
     baseURL: normalizeBaseUrl(input?.baseURL, preset.defaultBaseUrl),
+    isEnabled: normalizeProviderEnabled(input?.isEnabled, models.length > 0, activeProviderId === preset.id),
     models,
     selectedModelId: ensureSelectedModelId(models, input?.selectedModelId),
   }
 }
 
 /** 规范化自定义 provider，过滤掉空名称或空 id 的脏数据 */
-function normalizeCustomProvider(input: Partial<AiProviderConfig> | null | undefined): AiProviderConfig | null {
+function normalizeCustomProvider(
+  input: Partial<AiProviderConfig> | null | undefined,
+  activeProviderId: unknown
+): AiProviderConfig | null {
   if (!input) return null
 
   const providerId =
@@ -156,13 +195,14 @@ function normalizeCustomProvider(input: Partial<AiProviderConfig> | null | undef
     label,
     apiKey: typeof input.apiKey === 'string' ? input.apiKey.trim() : '',
     baseURL: normalizeBaseUrl(input.baseURL, DEFAULT_PROVIDER_BASE_URL),
+    isEnabled: normalizeProviderEnabled(input.isEnabled, models.length > 0, activeProviderId === providerId),
     models,
     selectedModelId: ensureSelectedModelId(models, input.selectedModelId),
   }
 }
 
 /** 把 provider 列表整理成“内置优先 + 自定义追加”的稳定顺序 */
-function normalizeProviders(input: unknown): AiProviderConfig[] {
+function normalizeProviders(input: unknown, activeProviderId: unknown): AiProviderConfig[] {
   const rawProviders = Array.isArray(input) ? input : []
   const builtInProviders = AI_PROVIDER_PRESETS.map((preset) => {
     const matchedProvider = rawProviders.find((provider) => {
@@ -170,7 +210,7 @@ function normalizeProviders(input: unknown): AiProviderConfig[] {
       const candidate = provider as Partial<AiProviderConfig>
       return candidate.id === preset.id || candidate.presetId === preset.id
     })
-    return normalizeBuiltInProvider(matchedProvider as Partial<AiProviderConfig>, preset.id)
+    return normalizeBuiltInProvider(matchedProvider as Partial<AiProviderConfig>, preset.id, activeProviderId)
   })
 
   const customProviders = rawProviders
@@ -179,7 +219,7 @@ function normalizeProviders(input: unknown): AiProviderConfig[] {
       const candidate = provider as Partial<AiProviderConfig>
       return candidate.source === 'custom' || (!candidate.presetId && !AI_PROVIDER_PRESETS.some((preset) => preset.id === candidate.id))
     })
-    .map((provider) => normalizeCustomProvider(provider as Partial<AiProviderConfig>))
+    .map((provider) => normalizeCustomProvider(provider as Partial<AiProviderConfig>, activeProviderId))
     .filter((provider): provider is AiProviderConfig => provider !== null)
 
   return [...builtInProviders, ...customProviders]
@@ -189,7 +229,7 @@ function normalizeProviders(input: unknown): AiProviderConfig[] {
 export function createDefaultAiSettings(): AiSettingsState {
   return {
     activeProviderId: 'deepseek',
-    providers: normalizeProviders([]),
+    providers: normalizeProviders([], 'deepseek'),
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     temperature: 0.7,
   }
@@ -198,11 +238,8 @@ export function createDefaultAiSettings(): AiSettingsState {
 /** 把外部输入整理成合法的 AI 设置 */
 export function normalizeAiSettings(input: Partial<AiSettingsState> | null | undefined): AiSettingsState {
   const defaults = createDefaultAiSettings()
-  const providers = normalizeProviders(input?.providers)
-  const activeProviderId =
-    typeof input?.activeProviderId === 'string' && providers.some((provider) => provider.id === input.activeProviderId)
-      ? input.activeProviderId
-      : providers[0]?.id ?? null
+  const providers = normalizeProviders(input?.providers, input?.activeProviderId)
+  const activeProviderId = resolveNormalizedActiveProviderId(providers, input?.activeProviderId)
 
   return {
     activeProviderId,
@@ -239,9 +276,10 @@ export function createCustomAiProvider(label: string, baseURL: string): AiProvid
     source: 'custom',
     label,
     baseURL,
+    isEnabled: false,
     models: [],
     selectedModelId: null,
-  }) as AiProviderConfig
+  }, null) as AiProviderConfig
 }
 
 /** 按 id 读取一个 provider */
@@ -316,6 +354,27 @@ export function setActiveAiProvider(settings: AiSettingsState, providerId: strin
   })
 }
 
+/** 切换某个 provider 是否显示在模型选择器中 */
+export function setAiProviderEnabled(
+  settings: AiSettingsState,
+  providerId: string,
+  isEnabled: boolean
+): AiSettingsState {
+  if (!settings.providers.some((provider) => provider.id === providerId)) return settings
+
+  return normalizeAiSettings({
+    ...settings,
+    providers: settings.providers.map((provider) =>
+      provider.id === providerId
+        ? {
+            ...provider,
+            isEnabled,
+          }
+        : provider
+    ),
+  })
+}
+
 /** 兼容开发期旧 HMR 模块残留的导入，新代码不再直接使用该名称 */
 export function switchAiProviderPreset(
   settings: AiSettingsState,
@@ -350,6 +409,7 @@ export function addAiProviderModel(
 
     return {
       ...provider,
+      isEnabled: true,
       models: nextModels,
       selectedModelId: normalizedModelId,
     }
@@ -401,6 +461,7 @@ export function selectAiProviderModel(
       item.id === providerId
         ? {
             ...item,
+            isEnabled: true,
             selectedModelId: modelId,
           }
         : item

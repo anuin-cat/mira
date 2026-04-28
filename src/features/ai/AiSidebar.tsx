@@ -31,6 +31,7 @@ import './ai-sidebar.css'
 const AI_COMPOSER_MIN_ROWS = 3
 const AI_COMPOSER_MAX_ROWS = 8
 const AI_COMPOSER_FALLBACK_LINE_HEIGHT = 22
+const AI_MESSAGE_LIST_BOTTOM_THRESHOLD = 40
 
 interface Props {
   vaultPath: string
@@ -121,10 +122,16 @@ function resizeComposerInput(textarea: HTMLTextAreaElement) {
   textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
 }
 
+/** 判断消息列表是否还处在“吸底”范围内 */
+function isMessageListNearBottom(messageList: HTMLDivElement): boolean {
+  const distanceToBottom = messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight
+  return distanceToBottom <= AI_MESSAGE_LIST_BOTTOM_THRESHOLD
+}
+
 /** 为输入框下方的模型选择器生成分组结构 */
 function buildComposerModelGroups(settings: AiSettingsState) {
   return settings.providers
-    .filter((provider) => provider.models.length > 0)
+    .filter((provider) => provider.isEnabled && provider.models.length > 0)
     .map((provider) => ({
       providerId: provider.id,
       providerLabel: provider.label,
@@ -169,13 +176,46 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const [collapsedReasoningMessageIds, setCollapsedReasoningMessageIds] = useState<Record<string, boolean>>({})
+  const [isMessageListPinnedToBottom, setIsMessageListPinnedToBottom] = useState(true)
 
   const messageListRef = useRef<HTMLDivElement | null>(null)
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
   const draftMessageRef = useRef('')
   const previousNotePathRef = useRef<string | null>(notePath)
+  const previousScrolledSessionIdRef = useRef<string | null>(null)
   const activeRequestIdRef = useRef(0)
   const activeAbortControllerRef = useRef<AbortController | null>(null)
+  const isMessageListPinnedToBottomRef = useRef(true)
+
+  /** 同步“是否吸底”的 ref 与 state，避免滚动事件里反复触发无效 setState */
+  function updateMessageListPinnedState(nextPinnedToBottom: boolean) {
+    // 1. 先用 ref 挡掉重复值，减少滚动时的无意义重渲染
+    if (isMessageListPinnedToBottomRef.current === nextPinnedToBottom) return
+
+    // 2. 再同步到 ref 和 React state，让后续 effect 能基于最新状态决定是否滚动
+    isMessageListPinnedToBottomRef.current = nextPinnedToBottom
+    setIsMessageListPinnedToBottom(nextPinnedToBottom)
+  }
+
+  /** 统一切换某条 assistant 消息的思考面板展开状态 */
+  function setReasoningExpanded(messageId: string, shouldExpand: boolean) {
+    setCollapsedReasoningMessageIds((current) => {
+      const isCollapsed = current[messageId] === true
+      if (shouldExpand) {
+        if (!isCollapsed) return current
+
+        const nextState = { ...current }
+        delete nextState[messageId]
+        return nextState
+      }
+
+      if (isCollapsed) return current
+      return {
+        ...current,
+        [messageId]: true,
+      }
+    })
+  }
 
   /** 更新输入草稿，并同步 ref，避免异步发送期间读到旧值 */
   function updateDraftMessage(nextMessage: string) {
@@ -225,6 +265,9 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     setIsSending(false)
     setStreamingMessageId(null)
     setCollapsedReasoningMessageIds({})
+    previousScrolledSessionIdRef.current = null
+    isMessageListPinnedToBottomRef.current = true
+    setIsMessageListPinnedToBottom(true)
   }, [notePath, vaultPath])
 
   useEffect(() => {
@@ -242,12 +285,31 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   useEffect(() => {
     const messageList = messageListRef.current
     if (!messageList) return
+    const currentMessageList: HTMLDivElement = messageList
+
+    /** 根据用户是否仍贴底，决定要不要继续自动滚动 */
+    function handleScroll() {
+      updateMessageListPinnedState(isMessageListNearBottom(currentMessageList))
+    }
+
+    handleScroll()
+    currentMessageList.addEventListener('scroll', handleScroll, { passive: true })
+    return () => currentMessageList.removeEventListener('scroll', handleScroll)
+  }, [currentSessionId])
+
+  useEffect(() => {
+    const messageList = messageListRef.current
+    if (!messageList) return
+
+    const hasSessionChanged = previousScrolledSessionIdRef.current !== currentSessionId
+    previousScrolledSessionIdRef.current = currentSessionId
+    if (!hasSessionChanged && !isMessageListPinnedToBottom) return
 
     messageList.scrollTo({
       top: messageList.scrollHeight,
-      behavior: streamingMessageId ? 'auto' : 'smooth',
+      behavior: streamingMessageId || hasSessionChanged ? 'auto' : 'smooth',
     })
-  }, [currentSessionId, sessions, streamingMessageId])
+  }, [currentSessionId, isMessageListPinnedToBottom, sessions, streamingMessageId])
 
   useEffect(() => {
     if (!composerInputRef.current) return
@@ -257,9 +319,14 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   const currentSession = sessions.find((session) => session.id === currentSessionId) ?? null
   const activeRequestSettings = resolveActiveAiRequestSettings(settings)
   const composerModelGroups = buildComposerModelGroups(settings)
-  const composerModelValue = activeRequestSettings.model
+  const rawComposerModelValue = activeRequestSettings.model
     ? `${activeRequestSettings.providerId}::${activeRequestSettings.model}`
     : ''
+  const composerModelValue =
+    rawComposerModelValue &&
+    composerModelGroups.some((group) => group.options.some((option) => option.value === rawComposerModelValue))
+      ? rawComposerModelValue
+      : ''
 
   useImperativeHandle(ref, () => ({
     createSession() {
@@ -382,6 +449,8 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     setErrorMessage(null)
     setIsSending(true)
     setStreamingMessageId(assistantPlaceholderMessage.id)
+    setReasoningExpanded(assistantPlaceholderMessage.id, true)
+    updateMessageListPinnedState(true)
     activeRequestIdRef.current = requestId
     activeAbortControllerRef.current?.abort()
     activeAbortControllerRef.current = abortController
@@ -405,7 +474,12 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
         streamingMessage.agentTranscript = update.agentTranscript
       }
 
-      // 2. 再覆盖 optimistic 会话里的占位消息，让 UI 实时刷新
+      // 3. 未完成时保持展开，完成后自动收起，方便用户继续看后续正文
+      if (update.reasoningContent || update.agentTranscript.length > 0 || update.isReasoningComplete) {
+        setReasoningExpanded(assistantPlaceholderMessage.id, !update.isReasoningComplete)
+      }
+
+      // 4. 再覆盖 optimistic 会话里的占位消息，让 UI 实时刷新
       const streamingSession = replaceMessageInSession(optimisticSession, streamingMessage)
       commitSessions([streamingSession, ...remainingSessions], streamingSession.id, false)
     }
@@ -440,6 +514,9 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
         },
         result.message
       )
+      if (result.message.reasoningContent?.trim() || result.message.agentTranscript?.length) {
+        setReasoningExpanded(result.message.id, false)
+      }
       commitSessions([completedSession, ...remainingSessions], completedSession.id)
     } catch (error) {
       if (activeRequestIdRef.current !== requestId || isAbortError(error)) return
