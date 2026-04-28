@@ -29,6 +29,7 @@ export interface AgentToolCall {
   id: string
   name: string
   argumentsText: string
+  startedAt?: string
 }
 
 export interface AgentToolExecutionTrace {
@@ -44,6 +45,7 @@ export interface AgentRunStreamUpdate {
   reasoningContent: string
   isReasoningComplete: boolean
   reasoningDurationMs: number | null
+  agentTranscript: AiAgentTranscriptMessage[]
 }
 
 export interface AgentRunResult {

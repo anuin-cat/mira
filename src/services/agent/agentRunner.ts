@@ -33,6 +33,7 @@ interface ToolCallDraft {
   id: string
   name: string
   argumentsText: string
+  startedAt: string
 }
 
 interface ModelTurnResult {
@@ -136,13 +137,15 @@ function emitStreamUpdate(
   content: string,
   reasoningContent: string,
   isReasoningComplete: boolean,
-  reasoningDurationMs: number | null
+  reasoningDurationMs: number | null,
+  agentTranscript: AiAgentTranscriptMessage[] = []
 ) {
   onUpdate?.({
     content,
     reasoningContent,
     isReasoningComplete,
     reasoningDurationMs,
+    agentTranscript,
   })
 }
 
@@ -161,6 +164,7 @@ function appendToolCallDeltas(toolCallDrafts: Map<number, ToolCallDraft>, delta:
       id: `mira_tool_${stepIndex}_${toolCall.index}`,
       name: '',
       argumentsText: '',
+      startedAt: new Date().toISOString(),
     }
 
     if (typeof toolCall.id === 'string' && toolCall.id) draft.id = toolCall.id
@@ -204,7 +208,21 @@ function serializeToolCalls(toolCalls: AgentToolCall[]): AiAgentTranscriptToolCa
     id: toolCall.id,
     name: toolCall.name,
     argumentsText: toolCall.argumentsText,
+    startedAt: toolCall.startedAt,
   }))
+}
+
+/** 把流式工具调用草稿整理为稳定顺序，便于 UI 实时展示 */
+function serializeToolCallDrafts(toolCallDrafts: Map<number, ToolCallDraft>): AgentToolCall[] {
+  return [...toolCallDrafts.values()]
+    .sort((a, b) => a.index - b.index)
+    .filter((toolCall) => toolCall.name)
+    .map((toolCall) => ({
+      id: toolCall.id,
+      name: toolCall.name,
+      argumentsText: toolCall.argumentsText,
+      startedAt: toolCall.startedAt,
+    }))
 }
 
 /** 创建可持久化、可重放的 assistant transcript 消息 */
@@ -222,6 +240,35 @@ function createAssistantTranscriptMessage(
   if (toolCalls.length > 0) message.toolCalls = serializeToolCalls(toolCalls)
 
   return message
+}
+
+/** 创建可持久化、可展示的 tool transcript 消息 */
+function createToolTranscriptMessage(
+  toolCall: AgentToolCall,
+  execution: { content: string; trace: AgentToolExecutionTrace }
+): AiAgentTranscriptMessage {
+  return {
+    role: 'tool',
+    toolCallId: toolCall.id,
+    toolName: execution.trace.toolName,
+    argumentsText: execution.trace.argumentsText,
+    content: execution.content,
+    durationMs: execution.trace.durationMs,
+    isError: execution.trace.isError,
+  }
+}
+
+/** 生成当前流式轮次的 transcript 快照，既用于即时展示也用于最终历史 */
+function createTranscriptSnapshot(
+  transcriptPrefix: AiAgentTranscriptMessage[],
+  content: string,
+  reasoningContent: string,
+  toolCalls: AgentToolCall[]
+): AiAgentTranscriptMessage[] {
+  const hasAssistantSnapshot = Boolean(content.trim()) || Boolean(reasoningContent) || toolCalls.length > 0
+  if (!hasAssistantSnapshot) return [...transcriptPrefix]
+
+  return [...transcriptPrefix, createAssistantTranscriptMessage(content, reasoningContent, toolCalls)]
 }
 
 /** 把持久化 transcript 转回 Chat Completions messages */
@@ -265,7 +312,12 @@ export function convertAgentTranscriptToCompletionMessages(
 async function runModelTurn(
   options: RunChatCompletionAgentOptions,
   messages: ChatCompletionMessageParam[],
-  stepIndex: number
+  stepIndex: number,
+  progressContext: {
+    reasoningPrefix: string
+    reasoningDurationPrefixMs: number
+    transcriptPrefix: AiAgentTranscriptMessage[]
+  }
 ): Promise<ModelTurnResult> {
   const stream = await options.client.chat.completions.create(
     options.compatibility.createChatCompletionParams({
@@ -314,7 +366,6 @@ async function runModelTurn(
 
     if (receivedToolCall) {
       hasToolCall = true
-      if (content) content = ''
     }
 
     if (choice.finish_reason && reasoningContent && !isReasoningComplete) {
@@ -323,12 +374,25 @@ async function runModelTurn(
     }
 
     if (reasoningDelta || contentDelta || receivedToolCall || choice.finish_reason) {
+      const currentToolCalls = serializeToolCallDrafts(toolCallDrafts)
+      const shouldEmitTranscript = progressContext.transcriptPrefix.length > 0 || currentToolCalls.length > 0
+      const currentReasoningDurationMs = getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt)
       emitStreamUpdate(
         options.onUpdate,
         hasToolCall ? '' : content,
-        reasoningContent,
+        `${progressContext.reasoningPrefix}${reasoningContent}`,
         isReasoningComplete,
-        getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt)
+        currentReasoningDurationMs === null
+          ? progressContext.reasoningDurationPrefixMs || null
+          : progressContext.reasoningDurationPrefixMs + currentReasoningDurationMs,
+        shouldEmitTranscript
+          ? createTranscriptSnapshot(
+              progressContext.transcriptPrefix,
+              content,
+              reasoningContent,
+              currentToolCalls
+            )
+          : []
       )
     }
   }
@@ -341,14 +405,7 @@ async function runModelTurn(
   return {
     content,
     reasoningContent,
-    toolCalls: [...toolCallDrafts.values()]
-      .sort((a, b) => a.index - b.index)
-      .filter((toolCall) => toolCall.name)
-      .map((toolCall) => ({
-        id: toolCall.id,
-        name: toolCall.name,
-        argumentsText: toolCall.argumentsText,
-      })),
+    toolCalls: serializeToolCallDrafts(toolCallDrafts),
     isReasoningComplete,
     reasoningDurationMs: getReasoningDurationMs(reasoningStartedAt, reasoningCompletedAt),
     tokenUsage,
@@ -363,6 +420,7 @@ export async function runChatCompletionAgent(
   const agentTranscript: AiAgentTranscriptMessage[] = []
   const toolTraces: AgentToolExecutionTrace[] = []
   let allReasoningContent = ''
+  let totalReasoningDurationMs = 0
   let reasoningDurationMs: number | null = null
   let isReasoningComplete = false
   let tokenUsage: AiTokenUsage | null = null
@@ -370,9 +428,14 @@ export async function runChatCompletionAgent(
   for (let stepIndex = 0; stepIndex < MAX_AGENT_STEPS; stepIndex += 1) {
     throwIfAborted(options.signal)
 
-    const turn = await runModelTurn(options, workingMessages, stepIndex)
+    const turn = await runModelTurn(options, workingMessages, stepIndex, {
+      reasoningPrefix: allReasoningContent,
+      reasoningDurationPrefixMs: totalReasoningDurationMs,
+      transcriptPrefix: [...agentTranscript],
+    })
     if (turn.reasoningContent) allReasoningContent += turn.reasoningContent
-    reasoningDurationMs = turn.reasoningDurationMs
+    if (turn.reasoningDurationMs !== null) totalReasoningDurationMs += turn.reasoningDurationMs
+    reasoningDurationMs = totalReasoningDurationMs > 0 ? totalReasoningDurationMs : null
     isReasoningComplete = turn.isReasoningComplete
     tokenUsage = mergeTokenUsage(tokenUsage, turn.tokenUsage)
 
@@ -381,6 +444,14 @@ export async function runChatCompletionAgent(
       if (!content) throw new Error('模型没有返回可用内容')
       if (agentTranscript.length > 0) {
         agentTranscript.push(createAssistantTranscriptMessage(content, turn.reasoningContent, []))
+        emitStreamUpdate(
+          options.onUpdate,
+          content,
+          allReasoningContent,
+          isReasoningComplete,
+          reasoningDurationMs,
+          [...agentTranscript]
+        )
       }
 
       return {
@@ -398,6 +469,14 @@ export async function runChatCompletionAgent(
       createAssistantToolCallMessage(turn.content, turn.reasoningContent, options.compatibility, turn.toolCalls)
     )
     agentTranscript.push(createAssistantTranscriptMessage(turn.content, turn.reasoningContent, turn.toolCalls))
+    emitStreamUpdate(
+      options.onUpdate,
+      '',
+      allReasoningContent,
+      isReasoningComplete,
+      reasoningDurationMs,
+      [...agentTranscript]
+    )
 
     for (const toolCall of turn.toolCalls) {
       throwIfAborted(options.signal)
@@ -407,16 +486,20 @@ export async function runChatCompletionAgent(
       })
 
       toolTraces.push(execution.trace)
-      agentTranscript.push({
-        role: 'tool',
-        toolCallId: toolCall.id,
-        content: execution.content,
-      })
+      agentTranscript.push(createToolTranscriptMessage(toolCall, execution))
       workingMessages.push({
         role: 'tool',
         tool_call_id: toolCall.id,
         content: execution.content,
       })
+      emitStreamUpdate(
+        options.onUpdate,
+        '',
+        allReasoningContent,
+        isReasoningComplete,
+        reasoningDurationMs,
+        [...agentTranscript]
+      )
     }
   }
 

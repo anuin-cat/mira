@@ -479,7 +479,15 @@ function isValidAiAgentTranscript(transcript: unknown): boolean {
     const candidate = message as Record<string, unknown>
 
     if (candidate.role === 'tool') {
-      return typeof candidate.toolCallId === 'string' && typeof candidate.content === 'string'
+      return (
+        typeof candidate.toolCallId === 'string' &&
+        typeof candidate.content === 'string' &&
+        (candidate.toolName === undefined || typeof candidate.toolName === 'string') &&
+        (candidate.argumentsText === undefined || typeof candidate.argumentsText === 'string') &&
+        (candidate.durationMs === undefined ||
+          (typeof candidate.durationMs === 'number' && Number.isFinite(candidate.durationMs) && candidate.durationMs >= 0)) &&
+        (candidate.isError === undefined || typeof candidate.isError === 'boolean')
+      )
     }
 
     if (candidate.role !== 'assistant' || typeof candidate.content !== 'string') return false
@@ -494,7 +502,8 @@ function isValidAiAgentTranscript(transcript: unknown): boolean {
             return (
               typeof item.id === 'string' &&
               typeof item.name === 'string' &&
-              typeof item.argumentsText === 'string'
+              typeof item.argumentsText === 'string' &&
+              (item.startedAt === undefined || typeof item.startedAt === 'string')
             )
           })))
     )

@@ -1,5 +1,12 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import type { AiChatMessage, AiChatRequest, AiChatResult, AiNoteContext, AiTokenUsage } from '../domain/ai'
+import type {
+  AiAgentTranscriptMessage,
+  AiChatMessage,
+  AiChatRequest,
+  AiChatResult,
+  AiNoteContext,
+  AiTokenUsage,
+} from '../domain/ai'
 import {
   AgentToolRegistry,
   convertAgentTranscriptToCompletionMessages,
@@ -16,6 +23,7 @@ export interface AiChatStreamUpdate {
   reasoningContent: string
   isReasoningComplete: boolean
   reasoningDurationMs: number | null
+  agentTranscript: AiAgentTranscriptMessage[]
 }
 
 interface RequestAiChatReplyOptions {

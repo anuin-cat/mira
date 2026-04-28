@@ -401,6 +401,9 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
         streamingMessage.reasoningDurationMs = update.reasoningDurationMs
         streamingMessage.isReasoningComplete = update.isReasoningComplete
       }
+      if (update.agentTranscript.length > 0) {
+        streamingMessage.agentTranscript = update.agentTranscript
+      }
 
       // 2. 再覆盖 optimistic 会话里的占位消息，让 UI 实时刷新
       const streamingSession = replaceMessageInSession(optimisticSession, streamingMessage)

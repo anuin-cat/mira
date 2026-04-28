@@ -75,6 +75,7 @@ export interface AiAgentTranscriptToolCall {
   id: string
   name: string
   argumentsText: string
+  startedAt?: string
 }
 
 /** agent 完整 API transcript，用于后续请求复用工具结果与接口前缀缓存 */
@@ -88,7 +89,11 @@ export type AiAgentTranscriptMessage =
   | {
       role: 'tool'
       toolCallId: string
+      toolName?: string
+      argumentsText?: string
       content: string
+      durationMs?: number
+      isError?: boolean
     }
 
 /** 聊天消息 */
