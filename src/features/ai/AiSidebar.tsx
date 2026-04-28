@@ -190,7 +190,6 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   const messageListRef = useRef<HTMLDivElement | null>(null)
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
   const draftMessageRef = useRef('')
-  const previousNotePathRef = useRef<string | null>(notePath)
   const previousScrolledSessionIdRef = useRef<string | null>(null)
   const activeRequestIdRef = useRef(0)
   const activeAbortControllerRef = useRef<AbortController | null>(null)
@@ -277,13 +276,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     previousScrolledSessionIdRef.current = null
     isMessageListPinnedToBottomRef.current = true
     setIsMessageListPinnedToBottom(true)
-  }, [notePath, vaultPath])
-
-  useEffect(() => {
-    if (previousNotePathRef.current === notePath) return
-    previousNotePathRef.current = notePath
-    setCurrentSessionId(pickSessionIdForNote(sessions, notePath))
-  }, [notePath, sessions])
+  }, [vaultPath])
 
   useEffect(() => {
     return () => {
