@@ -24,14 +24,8 @@ import {
   resolvePathAfterEntryRename,
   saveNote,
   scanVaultTree,
-  updateMiraMap,
 } from './services/noteService'
-import {
-  getDisplayName,
-  getParentPath,
-  isPathInsideDirectory,
-  MIRA_MAP_FILE,
-} from './services/pathUtils'
+import { getDisplayName, getParentPath, isPathInsideDirectory } from './services/pathUtils'
 import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree, type FileTreeHandle } from './features/file-tree/FileTree'
 import { MdxEditor, type MdxEditorHandle } from './features/editor/MdxEditor'
@@ -101,10 +95,9 @@ function findFirstFile(nodes: VaultTreeNode[]): string | null {
   return null
 }
 
-/** 优先打开上次文件，其次 Mira Map，最后第一个 Markdown 文件 */
+/** 优先打开上次文件，否则回退到第一个 Markdown 文件 */
 function chooseOpenPath(nodes: VaultTreeNode[], preferredPath: string | null): string | null {
   if (hasFile(nodes, preferredPath)) return preferredPath
-  if (hasFile(nodes, MIRA_MAP_FILE)) return MIRA_MAP_FILE
   return findFirstFile(nodes)
 }
 
@@ -300,7 +293,6 @@ export default function App() {
     openGitPanel,
     handleChangeVault,
     handleRefreshVault,
-    handleUpdateMiraMap,
     handleNavigateHistory,
     handleRevealInFinder,
     handleToggleFileSidebar,
@@ -657,22 +649,6 @@ export default function App() {
       await openFileFromDisk(path, nextActivePath)
     } else {
       clearActiveFile()
-    }
-  }
-
-  /** 菜单：显式更新 Mira Map.md */
-  async function handleUpdateMiraMap() {
-    const path = vaultPathRef.current
-    if (!path) return
-    if (!window.confirm('更新 Mira Map.md 会覆盖当前文件内容，确认继续？')) return
-
-    await flushActiveSave()
-    const content = await updateMiraMap(path)
-    await reloadTree(activePathRef.current)
-
-    if (activePathRef.current === MIRA_MAP_FILE) {
-      latestContentRef.current = content
-      setActiveContent(content)
     }
   }
 

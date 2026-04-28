@@ -9,7 +9,6 @@ export type CommandId =
   | 'rename-entry'
   | 'delete-entry'
   | 'reveal-in-finder'
-  | 'update-mira-map'
   | 'find-in-file'
   | 'search-vault'
   | 'quick-open'
@@ -56,7 +55,6 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'rename-entry', title: '重命名', group: 'file', menuEvent: 'menu:rename-entry', shortcut: 'F2' },
   { id: 'delete-entry', title: '删除', group: 'file', menuEvent: 'menu:delete-entry', shortcut: '⌘⌫' },
   { id: 'reveal-in-finder', title: '在 Finder 中显示', group: 'file', menuEvent: 'menu:reveal-in-finder', shortcut: '⌥⌘R' },
-  { id: 'update-mira-map', title: '更新 Mira Map', group: 'file', menuEvent: 'menu:update-mira-map', shortcut: '⇧⌘M' },
   { id: 'find-in-file', title: '当前文件内搜索', group: 'search', menuEvent: 'menu:find-in-file', shortcut: '⌘F' },
   { id: 'search-vault', title: '全 Vault 搜索', group: 'search', menuEvent: 'menu:search-vault', shortcut: '⇧⌘F' },
   { id: 'quick-open', title: '快速打开文件', group: 'navigate', menuEvent: 'menu:quick-open', shortcut: '⌘P' },

@@ -25,7 +25,6 @@ interface AppCommandContext {
   openGitPanel: (action?: GitCommandAction | null) => void
   handleChangeVault: () => Promise<void>
   handleRefreshVault: () => Promise<void>
-  handleUpdateMiraMap: () => Promise<void>
   handleNavigateHistory: (offset: -1 | 1) => Promise<void>
   handleRevealInFinder: () => Promise<void>
   handleToggleFileSidebar: () => void
@@ -73,9 +72,6 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       break
     case 'reveal-in-finder':
       await context.handleRevealInFinder()
-      break
-    case 'update-mira-map':
-      await context.handleUpdateMiraMap()
       break
     case 'find-in-file':
       context.editorHandleRef.current?.toggleSearch()

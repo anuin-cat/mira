@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn parses_quoted_paths() {
-        let validated = validate_readonly_command("git show HEAD:\"Mira Map.md\"").unwrap();
-        assert_eq!(validated.args, vec!["show", "HEAD:Mira Map.md"]);
+        let validated = validate_readonly_command("git show HEAD:\"foo bar.md\"").unwrap();
+        assert_eq!(validated.args, vec!["show", "HEAD:foo bar.md"]);
     }
 }

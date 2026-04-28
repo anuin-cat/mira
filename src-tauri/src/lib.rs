@@ -68,16 +68,8 @@ pub fn run() {
                 true,
                 Some("CmdOrCtrl+Alt+KeyR"),
             )?;
-            let update_mira_map = MenuItem::with_id(
-                app,
-                "update_mira_map",
-                "更新 Mira Map",
-                true,
-                Some("CmdOrCtrl+Shift+KeyM"),
-            )?;
             let file_separator_1 = PredefinedMenuItem::separator(app)?;
             let file_separator_2 = PredefinedMenuItem::separator(app)?;
-            let file_separator_3 = PredefinedMenuItem::separator(app)?;
             let file_menu = Submenu::with_items(
                 app,
                 "File",
@@ -93,8 +85,6 @@ pub fn run() {
                     &rename_entry,
                     &delete_entry,
                     &reveal_in_finder,
-                    &file_separator_3,
-                    &update_mira_map,
                 ],
             )?;
 
@@ -351,7 +341,6 @@ pub fn run() {
                 "rename_entry" => "menu:rename-entry",
                 "delete_entry" => "menu:delete-entry",
                 "reveal_in_finder" => "menu:reveal-in-finder",
-                "update_mira_map" => "menu:update-mira-map",
                 "find_in_file" => "menu:find-in-file",
                 "search_vault" => "menu:search-vault",
                 "quick_open" => "menu:quick-open",

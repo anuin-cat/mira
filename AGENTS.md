@@ -45,7 +45,7 @@
 - 用户可见文件夹和文件名应承载主要分类语义，避免用过度程序化命名或隐藏索引替代用户可理解的组织方式
 - 新增文件优先使用低心智负担交互：在文件树中创建实体，再让用户直接重命名；避免要求普通用户输入抽象相对路径
 - 索引、缓存、最近打开、展开状态等只能作为 `.mira/` 内部可重建数据，不应成为理解或恢复 vault 的必要条件
-- `Mira Map.md` 是人类可编辑的语义目录，AI 可以辅助更新，但不得把它变成只有程序能读懂的配置文件
+- vault 的目录结构应可直接从用户可见的文件夹与 Markdown 文件恢复，不依赖额外语义目录文件
 
 ## macOS 菜单规范
 
@@ -63,7 +63,6 @@
   - `File > 重命名` → `rename_entry` → `menu:rename-entry`
   - `File > 删除` → `delete_entry` → `menu:delete-entry`
   - `File > 在 Finder 中显示` → `reveal_in_finder` → `menu:reveal-in-finder`
-  - `File > 更新 Mira Map` → `update_mira_map` → `menu:update-mira-map`
   - `Search > 当前文件内搜索` → `find_in_file` → `menu:find-in-file`
   - `Search > 全 Vault 搜索` → `search_vault` → `menu:search-vault`
   - `Navigate > 快速打开文件` → `quick_open` → `menu:quick-open`
@@ -131,7 +130,6 @@
 推荐结构：
 
 vault/
-  Mira Map.md
   日常/
     今天想法.md
   项目/
@@ -144,7 +142,6 @@ vault/
 * 用户可见的目录和 `.md` 文件是唯一主数据，文件名和文件夹名应尽量人类可读
 * `.mira/` 是应用内部目录，只能存放可丢弃、可重建的状态、索引或缓存
 * 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复
-* `Mira Map.md` 是普通 Markdown 文件，用于描述目录结构和文件摘要，用户可直接阅读和修改
 
 ## Git 自动化约定
 

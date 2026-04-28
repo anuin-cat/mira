@@ -1,6 +1,5 @@
 import { ensureDir, pathExists, readFile, selectDirectory, writeFile } from '../tauri/fs'
 import type { FontSize, VaultState } from '../domain/note'
-import { ensureMiraMap } from './noteService'
 import { MIRA_DIR } from './pathUtils'
 
 const VAULT_PATH_KEY = 'mira:vaultPath'
@@ -31,7 +30,6 @@ export function setVaultPath(path: string): void {
 /** 初始化 vault 内部状态目录，用户内容目录不由 Mira 创建 */
 export async function ensureVaultSystem(vaultPath: string): Promise<void> {
   await ensureDir(`${vaultPath}/${MIRA_DIR}`)
-  await ensureMiraMap(vaultPath)
 }
 
 /** 读取 .mira/state.json，不存在或损坏时返回默认状态 */

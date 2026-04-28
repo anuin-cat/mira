@@ -1,5 +1,4 @@
 export const MIRA_DIR = '.mira'
-export const MIRA_MAP_FILE = 'Mira Map.md'
 export const MARKDOWN_EXTENSION = '.md'
 
 const WINDOWS_ABSOLUTE_PATH = /^[A-Za-z]:[\\/]/

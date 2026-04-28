@@ -33,7 +33,7 @@ export function createGitAgentTools(): AgentTool[] {
           command: {
             type: 'string',
             description:
-              '完整 Git 命令，例如 git status --short、git diff -- Mira Map.md、git log --oneline -20。命令必须以 git 开头。',
+              '完整 Git 命令，例如 git status --short、git diff -- README.md、git log --oneline -20。命令必须以 git 开头。',
           },
         },
         required: ['command'],

@@ -16,7 +16,6 @@ import {
   isPathInsideDirectory,
   joinRelativePath,
   MARKDOWN_EXTENSION,
-  MIRA_MAP_FILE,
   normalizeMarkdownFileName,
   normalizeRelativePath,
   replacePathPrefix,
@@ -26,7 +25,7 @@ import {
 
 const UNTITLED_FILE_BASE = '未命名'
 const UNTITLED_DIR_BASE = '新建文件夹'
-const MAP_SUMMARY_LIMIT = 90
+const LEGACY_MIRA_MAP_FILE = 'Mira Map.md'
 
 /** 拼接 vault 绝对路径与相对路径 */
 function absoluteVaultPath(vaultPath: string, relativePath: string | null): string {
@@ -41,15 +40,13 @@ function toIsoString(value: Date | string | null | undefined): string | null {
 }
 
 /** 判断目录实体是否需要从用户文件树中隐藏 */
-function shouldSkipEntry(name: string): boolean {
-  return name.startsWith('.')
+function shouldSkipEntry(relativeDir: string | null, name: string): boolean {
+  return name.startsWith('.') || (!relativeDir && name === LEGACY_MIRA_MAP_FILE)
 }
 
-/** 按人类文件管理器心智排序：Mira Map 固定在根目录顶部，文件夹优先 */
-function sortNodes(nodes: VaultTreeNode[], isRoot = false): VaultTreeNode[] {
+/** 按人类文件管理器心智排序：文件夹优先，其余按名称排序 */
+function sortNodes(nodes: VaultTreeNode[]): VaultTreeNode[] {
   return [...nodes].sort((a, b) => {
-    if (isRoot && a.path === MIRA_MAP_FILE) return -1
-    if (isRoot && b.path === MIRA_MAP_FILE) return 1
     if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1
     return a.name.localeCompare(b.name, 'zh-Hans-CN', { numeric: true })
   })
@@ -61,7 +58,7 @@ async function scanDirectory(vaultPath: string, relativeDir: string | null): Pro
   const nodes: VaultTreeNode[] = []
 
   for (const entry of entries) {
-    if (!entry.name || entry.isSymlink || shouldSkipEntry(entry.name)) continue
+    if (!entry.name || entry.isSymlink || shouldSkipEntry(relativeDir, entry.name)) continue
     const relativePath = joinRelativePath(relativeDir, entry.name)
 
     if (entry.isDirectory) {
@@ -91,35 +88,12 @@ async function scanDirectory(vaultPath: string, relativeDir: string | null): Pro
     }
   }
 
-  return sortNodes(nodes, !relativeDir)
+  return sortNodes(nodes)
 }
 
 /** 扫描 vault 下所有可见目录和 Markdown 文件 */
 export async function scanVaultTree(vaultPath: string): Promise<VaultTreeNode[]> {
   return await scanDirectory(vaultPath, null)
-}
-
-/** 从 Markdown 内容提取一个人类可读摘要，跳过 frontmatter */
-function extractReadableLine(content: string): string {
-  const lines = content.split('\n')
-  let startIndex = 0
-
-  if (lines[0]?.trim() === '---') {
-    const endIndex = lines.findIndex((line, index) => index > 0 && line.trim() === '---')
-    if (endIndex > 0) startIndex = endIndex + 1
-  }
-
-  for (const line of lines.slice(startIndex)) {
-    const cleaned = line
-      .replace(/^#+\s*/, '')
-      .replace(/^[-*+]\s+/, '')
-      .replace(/^\d+\.\s+/, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-    if (cleaned) return cleaned.slice(0, MAP_SUMMARY_LIMIT)
-  }
-
-  return '空白文档'
 }
 
 /** 读取 Markdown 文件 */
@@ -245,82 +219,6 @@ export async function moveEntry(
 /** 删除文件或文件夹 */
 export async function deleteEntry(vaultPath: string, relativePath: string, kind: VaultEntryKind): Promise<void> {
   await removePath(absoluteVaultPath(vaultPath, relativePath), kind === 'directory')
-}
-
-/** 递归收集文件节点 */
-function collectFiles(nodes: VaultTreeNode[]): VaultTreeNode[] {
-  return nodes.flatMap((node) => {
-    if (node.kind === 'file') return [node]
-    return collectFiles(node.children ?? [])
-  })
-}
-
-/** 生成 text tree 的单行内容 */
-function appendTreeLines(nodes: VaultTreeNode[], lines: string[], prefix = ''): void {
-  nodes.forEach((node, index) => {
-    const isLast = index === nodes.length - 1
-    const marker = isLast ? '└── ' : '├── '
-    const label = node.kind === 'directory' ? `${node.name}/` : `${node.name}${MARKDOWN_EXTENSION}`
-    lines.push(`${prefix}${marker}${label}`)
-    if (node.kind === 'directory') {
-      appendTreeLines(node.children ?? [], lines, `${prefix}${isLast ? '    ' : '│   '}`)
-    }
-  })
-}
-
-/** 转义 Markdown 链接文本 */
-function escapeMarkdownText(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/\]/g, '\\]')
-}
-
-/** 生成人类可读的 Mira Map 内容 */
-export async function generateMiraMapContent(vaultPath: string): Promise<string> {
-  const tree = await scanVaultTree(vaultPath)
-  const visibleTree = tree.filter((node) => node.path !== MIRA_MAP_FILE)
-  const treeLines = ['.']
-  const files = collectFiles(visibleTree)
-
-  appendTreeLines(visibleTree, treeLines)
-
-  const descriptions = await Promise.all(
-    files.map(async (file) => {
-      const content = await readFile(absoluteVaultPath(vaultPath, file.path))
-      const summary = extractReadableLine(content ?? '')
-      const label = escapeMarkdownText(stripMarkdownExtension(file.path))
-      return `- [${label}](<${file.path}>): ${summary}`
-    })
-  )
-
-  return [
-    '# Mira Map',
-    '',
-    '这个文件用于描述当前 vault 的目录结构，可以直接修改。',
-    '',
-    '## 目录结构',
-    '',
-    '```text',
-    ...treeLines,
-    '```',
-    '',
-    '## 文件说明',
-    '',
-    descriptions.length > 0 ? descriptions.join('\n') : '- 暂无 Markdown 文件',
-    '',
-  ].join('\n')
-}
-
-/** 确保根目录存在 Mira Map.md，已存在时绝不覆盖 */
-export async function ensureMiraMap(vaultPath: string): Promise<void> {
-  const mapExists = await pathExists(absoluteVaultPath(vaultPath, MIRA_MAP_FILE))
-  if (mapExists) return
-  await writeFile(absoluteVaultPath(vaultPath, MIRA_MAP_FILE), await generateMiraMapContent(vaultPath))
-}
-
-/** 显式重写 Mira Map.md */
-export async function updateMiraMap(vaultPath: string): Promise<string> {
-  const content = await generateMiraMapContent(vaultPath)
-  await writeFile(absoluteVaultPath(vaultPath, MIRA_MAP_FILE), content)
-  return content
 }
 
 /** 根据重命名前缀计算当前打开文件的新路径 */
