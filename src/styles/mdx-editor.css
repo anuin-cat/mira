@@ -21,9 +21,9 @@
   flex-direction: column;
   overflow: hidden;
   --mira-editor-block-type-select-width: 81px;
-  --mira-editor-content-max-width: 760px;
-  --mira-editor-content-padding-top: 24px;
-  --mira-editor-content-padding-inline: 56px;
+  --mira-editor-content-max-width: 960px;
+  --mira-editor-content-padding-top: 44px;
+  --mira-editor-content-padding-inline: 60px;
   --mira-editor-content-padding-bottom: 120px;
 }
 
