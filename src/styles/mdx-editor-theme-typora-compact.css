@@ -491,7 +491,12 @@
   tab-size: 2;
 }
 
-.mira-code-block-preview {
+.mira-mdx-content .mira-code-block .mira-code-block-preview {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   overflow-x: auto;
   white-space: pre;
 }
