@@ -454,19 +454,23 @@ body > .mdxeditor-popup-container.mira-mdx-editor
 [data-font-size='small'] {
   --mira-editor-body-size: 14px;
   --mira-editor-body-line-height: 1.62;
+  --mira-editor-task-checkbox-offset: 3px;
 }
 
 [data-font-size='medium'] {
   --mira-editor-body-size: 15px;
   --mira-editor-body-line-height: 1.68;
+  --mira-editor-task-checkbox-offset: 4.5px;
 }
 
 [data-font-size='large'] {
   --mira-editor-body-size: 16px;
   --mira-editor-body-line-height: 1.7;
+  --mira-editor-task-checkbox-offset: 5.5px;
 }
 
 [data-font-size='xlarge'] {
   --mira-editor-body-size: 18px;
   --mira-editor-body-line-height: 1.72;
+  --mira-editor-task-checkbox-offset: 7px;
 }

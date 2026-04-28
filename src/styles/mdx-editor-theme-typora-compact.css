@@ -322,6 +322,15 @@
   list-style-type: none;
 }
 
+.mira-mdx-content li[class*='_listItemChecked_']::before,
+.mira-mdx-content li[class*='_listItemUnchecked_']::before {
+  top: var(--mira-editor-task-checkbox-offset, 5.5px);
+}
+
+.mira-mdx-content li[class*='_listItemChecked_']::after {
+  top: calc(var(--mira-editor-task-checkbox-offset, 5.5px) + var(--spacing-0_5, 2px));
+}
+
 .mira-mdx-content li + li {
   margin-top: 0.16em;
 }
