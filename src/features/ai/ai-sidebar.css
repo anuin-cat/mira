@@ -629,8 +629,7 @@
 }
 
 .ai-file-edit-summary-header,
-.ai-file-edit-row,
-.ai-file-edit-summary-footer {
+.ai-file-edit-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -651,14 +650,33 @@
   color: color-mix(in srgb, var(--theme-accent) 78%, var(--theme-text-secondary) 22%);
 }
 
-.ai-file-edit-summary-total,
-.ai-file-edit-row span {
+.ai-file-edit-line-stats {
   flex-shrink: 0;
-  color: var(--theme-text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11.5px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
+}
+
+.ai-file-edit-line-stat.is-positive {
+  color: color-mix(in srgb, #16a34a 76%, var(--theme-text-primary) 24%);
+}
+
+.ai-file-edit-line-stat.is-negative {
+  color: color-mix(in srgb, #dc2626 80%, var(--theme-text-primary) 20%);
+}
+
+.ai-file-edit-line-stat.is-zero {
+  color: var(--theme-text-tertiary);
+}
+
+.ai-file-edit-summary-actions {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .ai-file-edit-list {
@@ -691,27 +709,30 @@
 .ai-file-edit-revert-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  margin-left: auto;
-  border: 1px solid color-mix(in srgb, var(--theme-accent) 28%, var(--theme-border) 72%);
+  gap: 4px;
+  min-height: 22px;
+  border: none;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--theme-bg-primary) 88%, transparent 12%);
-  color: var(--theme-text-secondary);
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 650;
+  background: color-mix(in srgb, #ef4444 14%, var(--theme-bg-primary) 86%);
+  color: color-mix(in srgb, #b91c1c 62%, var(--theme-text-secondary) 38%);
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 620;
+  line-height: 1;
   cursor: pointer;
   transition:
-    border-color 0.16s cubic-bezier(0.4, 0, 0.2, 1),
     background 0.16s cubic-bezier(0.4, 0, 0.2, 1),
     color 0.16s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.ai-file-edit-revert-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
 .ai-file-edit-revert-btn:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--theme-accent) 54%, var(--theme-border) 46%);
-  background: color-mix(in srgb, var(--theme-selection) 18%, var(--theme-bg-primary) 82%);
-  color: var(--theme-text-primary);
+  background: color-mix(in srgb, #ef4444 20%, var(--theme-bg-primary) 80%);
+  color: color-mix(in srgb, #991b1b 72%, var(--theme-text-primary) 28%);
 }
 
 .ai-file-edit-revert-btn:disabled {
@@ -720,7 +741,6 @@
 }
 
 .ai-file-edit-reverted-label {
-  margin-left: auto;
   color: var(--theme-text-tertiary);
   font-size: 12px;
   font-weight: 650;

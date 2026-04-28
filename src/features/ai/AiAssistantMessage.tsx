@@ -223,9 +223,29 @@ function MetaPill({ meta }: { meta: MessageMetaData }) {
   )
 }
 
-/** 把增删行数整理成 Git 面板风格的短摘要 */
-function formatFileEditLineSummary(addedLines: number, removedLines: number): string {
-  return `+${addedLines} -${removedLines}`
+/** 按正/负/零返回行数颜色语义，方便统一映射到样式类 */
+function getLineDeltaTone(value: number): 'positive' | 'negative' | 'zero' {
+  if (value > 0) return 'positive'
+  if (value < 0) return 'negative'
+  return 'zero'
+}
+
+/** 把增删行数拆成独立节点，支持分别着色 */
+function FileEditLineSummary({
+  addedLines,
+  removedLines,
+  className,
+}: {
+  addedLines: number
+  removedLines: number
+  className?: string
+}) {
+  return (
+    <span className={cn('ai-file-edit-line-stats', className)}>
+      <span className={cn('ai-file-edit-line-stat', `is-${getLineDeltaTone(addedLines)}`)}>+{addedLines}</span>
+      <span className={cn('ai-file-edit-line-stat', `is-${getLineDeltaTone(-removedLines)}`)}>-{removedLines}</span>
+    </span>
+  )
 }
 
 /** 展示 agent 本次实际写入的文件列表，并提供整批回退 */
@@ -241,8 +261,6 @@ function FileEditSummaryCard({
   const batch = message.fileEditBatch
   if (!batch || batch.files.length === 0) return null
 
-  const totalAddedLines = batch.files.reduce((sum, file) => sum + file.addedLines, 0)
-  const totalRemovedLines = batch.files.reduce((sum, file) => sum + file.removedLines, 0)
   const fileCountLabel = `${batch.files.length} 个文件`
 
   return (
@@ -252,39 +270,35 @@ function FileEditSummaryCard({
           <FilePenLine className="size-[14px]" aria-hidden="true" />
           <span>已修改 {fileCountLabel}</span>
         </span>
-        <span className="ai-file-edit-summary-total">
-          {formatFileEditLineSummary(totalAddedLines, totalRemovedLines)}
-        </span>
+        <div className="ai-file-edit-summary-actions">
+          {batch.isReverted ? (
+            <span className="ai-file-edit-reverted-label">已回退</span>
+          ) : (
+            <button
+              type="button"
+              className="ai-file-edit-revert-btn"
+              onClick={onRevert}
+              disabled={isReverting}
+              aria-label="回退本次 AI 修改"
+            >
+              {isReverting ? (
+                <LoaderCircle className="ai-agent-tool-spinner size-[13px]" aria-hidden="true" />
+              ) : (
+                <RotateCcw className="size-[13px]" aria-hidden="true" />
+              )}
+              <span>{isReverting ? '回退中' : '回退修改'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="ai-file-edit-list">
         {batch.files.map((file) => (
           <div key={file.path} className="ai-file-edit-row">
             <code title={file.path}>{file.path}</code>
-            <span>{formatFileEditLineSummary(file.addedLines, file.removedLines)}</span>
+            <FileEditLineSummary addedLines={file.addedLines} removedLines={file.removedLines} />
           </div>
         ))}
-      </div>
-
-      <div className="ai-file-edit-summary-footer">
-        {batch.isReverted ? (
-          <span className="ai-file-edit-reverted-label">已回退</span>
-        ) : (
-          <button
-            type="button"
-            className="ai-file-edit-revert-btn"
-            onClick={onRevert}
-            disabled={isReverting}
-            aria-label="回退本次 AI 修改"
-          >
-            {isReverting ? (
-              <LoaderCircle className="ai-agent-tool-spinner size-[13px]" aria-hidden="true" />
-            ) : (
-              <RotateCcw className="size-[13px]" aria-hidden="true" />
-            )}
-            <span>{isReverting ? '回退中' : '回退本次修改'}</span>
-          </button>
-        )}
       </div>
     </section>
   )
