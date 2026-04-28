@@ -11,7 +11,6 @@ import {
   headingsPlugin,
   imagePlugin,
   InsertCodeBlock,
-  InsertImage,
   InsertTable,
   InsertThematicBreak,
   linkDialogPlugin,
@@ -73,6 +72,7 @@ import {
 } from './table/tableSelection'
 import { createMdxTableInputLayoutController } from './table/tableInputLayout'
 import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
+import { MiraLinkDialog } from './MiraLinkDialog'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
 const CODE_TOKEN_RE =
@@ -100,6 +100,18 @@ const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'toolbar.table': '插入表格',
   'toolbar.thematicBreak': '插入分隔线',
   'toolbar.codeBlock': '插入代码块',
+  'createLink.url': '链接地址',
+  'createLink.urlPlaceholder': '粘贴或输入 URL',
+  'createLink.title': '链接标题',
+  'createLink.titleTooltip': '鼠标悬停时显示的标题，可留空',
+  'createLink.saveTooltip': '保存链接',
+  'createLink.cancelTooltip': '取消编辑',
+  'dialogControls.save': '保存',
+  'dialogControls.cancel': '取消',
+  'linkPreview.edit': '编辑链接',
+  'linkPreview.copyToClipboard': '复制链接',
+  'linkPreview.copied': '已复制',
+  'linkPreview.remove': '移除链接',
 }
 const TOOLBAR_ACTION_GAP = 6
 const TOOLBAR_LAYOUT_GAP = 6
@@ -466,7 +478,6 @@ function MiraToolbar({
         render: () => (
           <>
             <CreateLink />
-            <InsertImage />
             <InsertTable />
             <InsertThematicBreak />
           </>
@@ -686,7 +697,7 @@ function createEditorPlugins({
     quotePlugin(),
     thematicBreakPlugin(),
     linkPlugin({ disableAutoLink: true }),
-    linkDialogPlugin({ showLinkTitleField: true }),
+    linkDialogPlugin({ LinkDialog: MiraLinkDialog, showLinkTitleField: true }),
     imagePlugin({
       imageAutocompleteSuggestions: IMAGE_AUTOCOMPLETE_SUGGESTIONS,
       disableImageResize: false,
