@@ -733,7 +733,6 @@ export default function App() {
     const path = vaultPathRef.current
     const filePath = activePathRef.current
     latestContentRef.current = markdown
-    setActiveContent(markdown)
 
     if (!path || !filePath) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)

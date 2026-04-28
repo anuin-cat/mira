@@ -6,7 +6,6 @@
   --mira-mdx-table-cell-padding-inline: 0.58em;
   --mira-mdx-table-editor-cell-padding-block: 0.24em;
   --mira-mdx-table-editor-cell-padding-inline: 0.52em;
-  --mira-mdx-table-key-column-width: 1%;
   --mira-mdx-table-tool-column-width: 22px;
   --mira-mdx-table-tool-button-size: 18px;
   --mira-mdx-table-grid: color-mix(in srgb, var(--theme-border) 86%, var(--theme-text-primary) 14%);
@@ -79,9 +78,9 @@
 }
 
 .mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) thead th {
-  background: var(--theme-editor-table-head-bg);
+  background: var(--theme-editor-table-bg);
   color: var(--theme-text-primary);
-  font-weight: 640;
+  font-weight: inherit;
 }
 
 .mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) :is(th, td) {
@@ -90,10 +89,6 @@
   vertical-align: middle;
   overflow-wrap: break-word;
   word-break: normal;
-}
-
-.mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) tr > :is(th, td):first-child {
-  width: var(--mira-mdx-table-key-column-width);
 }
 
 .mira-mdx-editor .mira-mdx-content table:not([class*='_tableEditor_']) :is(th, td):not([align]) {
@@ -135,6 +130,10 @@
   overflow: visible !important;
 }
 
+.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'][data-mira-table-input-active='true'] {
+  table-layout: fixed;
+}
+
 .mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > thead > tr > th,
 .mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > tfoot > tr > th,
 .mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] [data-tool-cell] {
@@ -154,10 +153,6 @@
 
 .mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > colgroup > col:not(:first-child):not(:last-child) {
   width: auto !important;
-}
-
-.mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] > colgroup > col:nth-child(2) {
-  width: var(--mira-mdx-table-key-column-width) !important;
 }
 
 .mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] [class*='_tableToolsColumn_'],
@@ -195,27 +190,11 @@
   .mira-mdx-content
   table[class*='_tableEditor_']
   > tbody
-  > tr
-  > [data-tool-cell]:first-child
-  + :is(td, th),
-.mira-mdx-editor
-  .mira-mdx-content
-  table[class*='_tableEditor_']
-  > tbody
-  > tr
-  > :is(td, th):first-child:not([data-tool-cell]) {
-  width: var(--mira-mdx-table-key-column-width);
-}
-
-.mira-mdx-editor
-  .mira-mdx-content
-  table[class*='_tableEditor_']
-  > tbody
   > tr:first-child
   > th:not([data-tool-cell]) {
-  background: var(--theme-editor-table-head-bg);
+  background: var(--theme-editor-table-bg);
   color: var(--theme-text-primary);
-  font-weight: 640;
+  font-weight: inherit;
 }
 
 .mira-mdx-editor
@@ -281,7 +260,7 @@
   > tbody
   > tr:first-child
   > th:not([data-tool-cell])[data-mira-table-cell-selected='true'] {
-  background: color-mix(in srgb, var(--theme-selection) 64%, var(--theme-editor-table-head-bg) 36%);
+  background: color-mix(in srgb, var(--theme-selection) 72%, var(--theme-editor-table-bg) 28%);
 }
 
 /* 4. 表格工具按钮默认隐藏，hover/focus/open 时轻量浮现 */

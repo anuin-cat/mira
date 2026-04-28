@@ -18,7 +18,6 @@ import {
   linkPlugin,
   ListsToggle,
   listsPlugin,
-  markdownShortcutPlugin,
   quotePlugin,
   tablePlugin,
   thematicBreakPlugin,
@@ -59,6 +58,8 @@ import {
   createMdxTableCellSelectionController,
   type MdxTableCellSelectionController,
 } from './table/tableSelection'
+import { createMdxTableInputLayoutController } from './table/tableInputLayout'
+import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
 const CODE_TOKEN_RE =
@@ -623,7 +624,7 @@ function createEditorPlugins({
     listsPlugin(),
     quotePlugin(),
     thematicBreakPlugin(),
-    linkPlugin(),
+    linkPlugin({ disableAutoLink: true }),
     linkDialogPlugin({ showLinkTitleField: true }),
     imagePlugin({
       imageAutocompleteSuggestions: IMAGE_AUTOCOMPLETE_SUGGESTIONS,
@@ -642,7 +643,7 @@ function createEditorPlugins({
         },
       ],
     }),
-    markdownShortcutPlugin(),
+    miraMarkdownShortcutPlugin(),
     toolbarPlugin({
       toolbarContents: () => (
         <MiraToolbar
@@ -800,9 +801,11 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     if (!shellElement) return
 
     const tableSelectionController = createMdxTableCellSelectionController(shellElement)
+    const tableInputLayoutController = createMdxTableInputLayoutController(shellElement)
     tableSelectionControllerRef.current = tableSelectionController
 
     return () => {
+      tableInputLayoutController.destroy()
       tableSelectionController.destroy()
       if (tableSelectionControllerRef.current === tableSelectionController) {
         tableSelectionControllerRef.current = null

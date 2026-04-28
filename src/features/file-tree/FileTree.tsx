@@ -221,6 +221,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
 ) {
   const treeRef = useRef<TreeApi<VaultTreeNode> | undefined>(undefined)
   const bodyRef = useRef<HTMLDivElement | null>(null)
+  const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const [treeHeight, setTreeHeight] = useState(600)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [pendingEditId, setPendingEditId] = useState<string | null>(null)
@@ -251,15 +252,25 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   useEffect(() => {
     if (!contextMenu) return
 
-    function closeMenu() {
+    function isMenuInnerTarget(target: EventTarget | null): boolean {
+      return target instanceof Node && contextMenuRef.current?.contains(target) === true
+    }
+
+    function handleDocumentMouseDown(event: globalThis.MouseEvent) {
+      if (event.button !== 0) return
+      if (isMenuInnerTarget(event.target)) return
       setContextMenu(null)
     }
 
-    window.addEventListener('click', closeMenu)
-    window.addEventListener('keydown', closeMenu)
+    function handleWindowKeyDown() {
+      setContextMenu(null)
+    }
+
+    document.addEventListener('mousedown', handleDocumentMouseDown, true)
+    window.addEventListener('keydown', handleWindowKeyDown)
     return () => {
-      window.removeEventListener('click', closeMenu)
-      window.removeEventListener('keydown', closeMenu)
+      document.removeEventListener('mousedown', handleDocumentMouseDown, true)
+      window.removeEventListener('keydown', handleWindowKeyDown)
     }
   }, [contextMenu])
 
@@ -682,6 +693,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
 
       {contextMenu && (
         <div
+          ref={contextMenuRef}
           className="context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(event) => event.stopPropagation()}

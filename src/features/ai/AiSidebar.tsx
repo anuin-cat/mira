@@ -540,6 +540,8 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
 
     try {
       await onBeforeAgentRequest()
+      const currentNoteSnapshot = getCurrentNoteSnapshot()
+      const noteContextContent = currentNoteSnapshot?.path === notePath ? currentNoteSnapshot.content : noteContent
 
       // 3. 发起流式请求；命中缓存时也复用同一条 assistant 消息落位
       const result = await requestAiChatReply(
@@ -550,7 +552,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
           noteContext: {
             path: notePath,
             title: noteTitle,
-            content: noteContent,
+            content: noteContextContent,
           },
           userMessage: trimmedMessage,
         },
