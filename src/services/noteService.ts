@@ -27,6 +27,17 @@ import { getTreeOrderParentKey } from './treeOrderService'
 const UNTITLED_FILE_BASE = '未命名'
 const UNTITLED_DIR_BASE = '新建文件夹'
 const LEGACY_MIRA_MAP_FILE = 'Mira Map.md'
+const MAX_AUTO_CREATED_PARENT_DIRS = 3
+
+interface CreatedMarkdownFileResult {
+  meta: NoteMeta
+  createdDirectories: string[]
+}
+
+interface MarkdownFileCreationPlan {
+  normalizedPath: string
+  createdDirectories: string[]
+}
 
 /** 拼接 vault 绝对路径与相对路径 */
 function absoluteVaultPath(vaultPath: string, relativePath: string | null): string {
@@ -156,6 +167,46 @@ export async function saveNote(vaultPath: string, relativePath: string, content:
   }
 }
 
+/** 计算创建文件时需要自动补齐的父目录，超过限制时拒绝 */
+async function resolveAutoCreatedParentDirs(vaultPath: string, parentPath: string | null): Promise<string[]> {
+  if (!parentPath) return []
+
+  const createdDirectories: string[] = []
+  const segments = parentPath.split('/').filter(Boolean)
+  for (let index = 0; index < segments.length; index += 1) {
+    const currentPath = segments.slice(0, index + 1).join('/')
+    const info = await getFileInfo(absoluteVaultPath(vaultPath, currentPath))
+    if (!info) {
+      createdDirectories.push(currentPath)
+      continue
+    }
+    if (!info.isDirectory) throw new Error(`父路径中存在同名文件：${currentPath}`)
+  }
+
+  if (createdDirectories.length > MAX_AUTO_CREATED_PARENT_DIRS) {
+    throw new Error(`自动创建父目录最多支持 ${MAX_AUTO_CREATED_PARENT_DIRS} 层`)
+  }
+
+  return createdDirectories
+}
+
+/** 预检指定 Markdown 文件创建请求，并返回需要自动创建的父目录 */
+export async function prepareMarkdownFileCreation(
+  vaultPath: string,
+  relativePath: string
+): Promise<MarkdownFileCreationPlan> {
+  const normalizedPath = normalizeRelativePath(relativePath)
+  validateUserRelativePath(normalizedPath, 'file')
+
+  const targetPath = absoluteVaultPath(vaultPath, normalizedPath)
+  const targetExists = await pathExists(targetPath)
+  if (targetExists) throw new Error('同名文件或文件夹已存在')
+
+  const parentPath = getParentPath(normalizedPath)
+  const createdDirectories = await resolveAutoCreatedParentDirs(vaultPath, parentPath)
+  return { normalizedPath, createdDirectories }
+}
+
 /** 找到 parentDir 下不会冲突的默认文件/文件夹路径 */
 async function nextAvailablePath(
   vaultPath: string,
@@ -185,6 +236,29 @@ export async function createMarkdownFile(vaultPath: string, parentDir: string | 
   if (parentPath) await ensureDir(absoluteVaultPath(vaultPath, parentPath))
   await writeFile(absoluteVaultPath(vaultPath, normalizedPath), '')
   return normalizedPath
+}
+
+/** 按指定路径创建 Markdown 文件，拒绝覆盖已有文件 */
+export async function createMarkdownFileAtPath(
+  vaultPath: string,
+  relativePath: string,
+  content: string
+): Promise<CreatedMarkdownFileResult> {
+  const { normalizedPath, createdDirectories } = await prepareMarkdownFileCreation(vaultPath, relativePath)
+  const targetPath = absoluteVaultPath(vaultPath, normalizedPath)
+  const parentPath = getParentPath(normalizedPath)
+  if (parentPath && createdDirectories.length > 0) await ensureDir(absoluteVaultPath(vaultPath, parentPath))
+  await writeFile(targetPath, content)
+
+  const info = await getFileInfo(targetPath)
+  return {
+    meta: {
+      path: normalizedPath,
+      title: getDisplayName(normalizedPath, 'file'),
+      updatedAt: toIsoString(info?.mtime),
+    },
+    createdDirectories,
+  }
 }
 
 /** 创建文件夹，返回相对路径 */

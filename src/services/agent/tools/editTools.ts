@@ -1,5 +1,5 @@
 import type { AiFileEditOperation } from '../../../domain/ai'
-import { readNote, saveNote } from '../../noteService'
+import { createMarkdownFileAtPath, prepareMarkdownFileCreation, readNote, saveNote } from '../../noteService'
 import type { AgentTool, AgentToolInput, AgentToolResult } from '../types'
 import { applyTextEdit, hashTextContent, type TextEditInput } from '../utils/fileEdit'
 import { normalizeReadableNotePath } from '../utils/pathGuard'
@@ -7,6 +7,7 @@ import { clampNumber } from '../utils/text'
 
 const MAX_EDITS_PER_CALL = 20
 const MAX_EDIT_TEXT_CHARS = 60000
+const MAX_CREATE_CONTENT_CHARS = 60000
 
 interface NormalizedEditInput extends TextEditInput {
   index: number
@@ -132,9 +133,86 @@ function normalizeEdits(input: AgentToolInput): NormalizedEditInput[] {
   return rawEdits.map((edit, index) => normalizeEditInput(edit, index))
 }
 
+/** 统计新建文件内容的行数，空文件按 0 行展示 */
+function countCreatedContentLines(content: string): number {
+  if (!content) return 0
+  return content.split('\n').length
+}
+
 /** 创建 agent 可用的安全 Markdown 编辑工具集合 */
 export function createVaultEditAgentTools(): AgentTool[] {
   return [
+    {
+      name: 'vault_create_note',
+      description:
+        '在当前 Mira vault 内创建一篇新的 Markdown 文章。path 必须是用户可见的 vault 相对路径并以 .md 结尾；目标文件或同名文件夹已存在时会拒绝覆盖；父目录不存在时最多自动递归创建 3 层。适合在用户明确要求新建笔记、整理生成新文档或拆分内容到新文章时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: '要创建的 Markdown 文件相对路径，例如“项目/Mira 设计.md”。必须以 .md 结尾。',
+          },
+          content: {
+            type: 'string',
+            description: '新文件的初始 Markdown 内容；可以为空字符串。',
+          },
+          dryRun: {
+            type: 'boolean',
+            description: '只校验并返回摘要，不写入文件，默认 false。',
+          },
+        },
+        required: ['path', 'content'],
+        additionalProperties: false,
+      },
+      async execute(input, context) {
+        const path = readRawStringInput(input, 'path')?.trim()
+        const content = readRawStringInput(input, 'content')
+        if (!path) return createErrorToolResult('缺少 path')
+        if (content === null) return createErrorToolResult('缺少 content')
+        if (content.length > MAX_CREATE_CONTENT_CHARS) return createErrorToolResult('新文件内容过长')
+
+        try {
+          const creationPlan = await prepareMarkdownFileCreation(context.vaultPath, path)
+          const normalizedPath = creationPlan.normalizedPath
+          const beforeHash = await hashTextContent('')
+          const afterHash = await hashTextContent(content)
+
+          if (input.dryRun !== true) {
+            const createdNote = await createMarkdownFileAtPath(context.vaultPath, normalizedPath, content)
+            context.fileEditJournal?.recordAppliedEdit({
+              path: normalizedPath,
+              changeKind: 'create',
+              createdDirectories: createdNote.createdDirectories,
+              beforeContent: '',
+              afterContent: content,
+              beforeHash,
+              afterHash,
+              operations: [],
+              toolCallId: context.toolCallId,
+              createdAt: new Date().toISOString(),
+            })
+            try {
+              await context.onVaultFilesChanged?.([normalizedPath])
+            } catch {
+              // 文件已经成功创建；UI 同步失败不应让模型误以为创建未发生。
+            }
+          }
+
+          return createJsonToolResult({
+            ok: true,
+            path: normalizedPath,
+            dryRun: input.dryRun === true,
+            beforeHash,
+            afterHash,
+            createdDirectories: creationPlan.createdDirectories,
+            addedLines: countCreatedContentLines(content),
+          })
+        } catch (error) {
+          return createErrorToolResult(error instanceof Error ? error.message : '创建文章失败')
+        }
+      },
+    },
     {
       name: 'vault_edit_note',
       description:

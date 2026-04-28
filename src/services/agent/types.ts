@@ -1,5 +1,5 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions'
-import type { AiAgentTranscriptMessage, AiFileEditOperation, AiTokenUsage } from '../../domain/ai'
+import type { AiAgentTranscriptMessage, AiFileChangeKind, AiFileEditOperation, AiTokenUsage } from '../../domain/ai'
 
 export type AgentToolInput = Record<string, unknown>
 
@@ -10,6 +10,8 @@ export interface AgentCurrentNoteSnapshot {
 
 export interface AgentAppliedFileEdit {
   path: string
+  changeKind?: AiFileChangeKind
+  createdDirectories?: string[]
   beforeContent: string
   afterContent: string
   beforeHash: string

@@ -87,9 +87,13 @@ export interface AiFileEditOperation {
   ranges: AiFileEditRange[]
 }
 
+export type AiFileChangeKind = 'edit' | 'create'
+
 /** 单个文件在一次 assistant 回复中的修改摘要 */
 export interface AiFileEditSummary {
   path: string
+  changeKind?: AiFileChangeKind
+  createdDirectories?: string[]
   beforeHash: string
   afterHash: string
   addedLines: number

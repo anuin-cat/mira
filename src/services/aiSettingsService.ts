@@ -555,6 +555,10 @@ function isValidAiFileEditSummary(summary: unknown): boolean {
   const candidate = summary as Record<string, unknown>
   return (
     typeof candidate.path === 'string' &&
+    (candidate.changeKind === undefined || candidate.changeKind === 'edit' || candidate.changeKind === 'create') &&
+    (candidate.createdDirectories === undefined ||
+      (Array.isArray(candidate.createdDirectories) &&
+        candidate.createdDirectories.every((path) => typeof path === 'string'))) &&
     typeof candidate.beforeHash === 'string' &&
     typeof candidate.afterHash === 'string' &&
     typeof candidate.addedLines === 'number' &&

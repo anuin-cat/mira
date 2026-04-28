@@ -1,7 +1,19 @@
 import type { AiFileEditBatch, AiFileEditOperation, AiFileEditSummary } from '../../domain/ai'
-import { readNote, saveNote } from '../noteService'
+import { deleteEntry, readNote, saveNote } from '../noteService'
 import type { AgentAppliedFileEdit } from './types'
 import { countChangedLines, hashTextContent, revertTextEdit } from './utils/fileEdit'
+
+type PendingRevertAction =
+  | {
+      kind: 'delete_created_file'
+      path: string
+      createdDirectories: string[]
+    }
+  | {
+      kind: 'restore_file_content'
+      path: string
+      content: string
+    }
 
 /** 生成稳定的本地批次 id */
 function createFileEditBatchId(): string {
@@ -21,6 +33,8 @@ export function buildAiFileEditBatch(edits: AgentAppliedFileEdit[]): AiFileEditB
       afterContent: string
       beforeHash: string
       afterHash: string
+      changeKind: AiFileEditSummary['changeKind']
+      createdDirectories: string[]
       operationCount: number
     }
   >()
@@ -34,11 +48,15 @@ export function buildAiFileEditBatch(edits: AgentAppliedFileEdit[]): AiFileEditB
         afterContent: edit.afterContent,
         beforeHash: edit.beforeHash,
         afterHash: edit.afterHash,
+        changeKind: edit.changeKind ?? 'edit',
+        createdDirectories: edit.createdDirectories ?? [],
         operationCount: edit.operations.length,
       })
     } else {
       currentState.afterContent = edit.afterContent
       currentState.afterHash = edit.afterHash
+      if (currentState.changeKind !== 'create') currentState.changeKind = edit.changeKind ?? 'edit'
+      currentState.createdDirectories = [...new Set([...currentState.createdDirectories, ...(edit.createdDirectories ?? [])])]
       currentState.operationCount += edit.operations.length
     }
 
@@ -49,6 +67,8 @@ export function buildAiFileEditBatch(edits: AgentAppliedFileEdit[]): AiFileEditB
     const changedLines = countChangedLines(state.beforeContent, state.afterContent)
     return {
       path,
+      changeKind: state.changeKind === 'create' ? state.changeKind : undefined,
+      createdDirectories: state.changeKind === 'create' ? state.createdDirectories : undefined,
       beforeHash: state.beforeHash,
       afterHash: state.afterHash,
       addedLines: changedLines.addedLines,
@@ -81,7 +101,7 @@ export async function revertAiFileEditBatch(vaultPath: string, batch: AiFileEdit
   if (batch.isReverted) throw new Error('这次修改已经回退过了')
 
   const groupedOperations = groupOperationsByPath(batch.operations)
-  const pendingWrites: Array<{ path: string; content: string }> = []
+  const pendingActions: PendingRevertAction[] = []
 
   for (const fileSummary of batch.files) {
     const note = await readNote(vaultPath, fileSummary.path)
@@ -90,6 +110,15 @@ export async function revertAiFileEditBatch(vaultPath: string, batch: AiFileEdit
     const currentHash = await hashTextContent(note.content)
     if (currentHash !== fileSummary.afterHash) {
       throw new Error(`文件已在 AI 修改后发生变化，已停止回退：${fileSummary.path}`)
+    }
+
+    if (fileSummary.changeKind === 'create') {
+      pendingActions.push({
+        kind: 'delete_created_file',
+        path: fileSummary.path,
+        createdDirectories: fileSummary.createdDirectories ?? [],
+      })
+      continue
     }
 
     let nextContent = note.content
@@ -103,15 +132,27 @@ export async function revertAiFileEditBatch(vaultPath: string, batch: AiFileEdit
       throw new Error(`回退校验失败，未写入文件：${fileSummary.path}`)
     }
 
-    pendingWrites.push({
+    pendingActions.push({
+      kind: 'restore_file_content',
       path: fileSummary.path,
       content: nextContent,
     })
   }
 
-  for (const pendingWrite of pendingWrites) {
-    await saveNote(vaultPath, pendingWrite.path, pendingWrite.content)
+  for (const pendingAction of pendingActions) {
+    if (pendingAction.kind === 'delete_created_file') {
+      await deleteEntry(vaultPath, pendingAction.path, 'file')
+      for (const directoryPath of [...pendingAction.createdDirectories].reverse()) {
+        try {
+          await deleteEntry(vaultPath, directoryPath, 'directory')
+        } catch {
+          // 目录可能已被用户放入新内容；清理自动创建的空目录失败时不应覆盖用户后续操作。
+        }
+      }
+    } else {
+      await saveNote(vaultPath, pendingAction.path, pendingAction.content)
+    }
   }
 
-  return pendingWrites.map((pendingWrite) => pendingWrite.path)
+  return pendingActions.map((pendingAction) => pendingAction.path)
 }
