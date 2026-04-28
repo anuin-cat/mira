@@ -8,7 +8,7 @@ import {
   removePath,
   writeFile,
 } from '../tauri/fs'
-import type { Note, NoteMeta, VaultEntryKind, VaultTreeNode } from '../domain/note'
+import type { Note, NoteMeta, VaultEntryKind, VaultTreeNode, VaultTreeOrder } from '../domain/note'
 import {
   getBaseName,
   getDisplayName,
@@ -22,6 +22,7 @@ import {
   stripMarkdownExtension,
   validateUserRelativePath,
 } from './pathUtils'
+import { getTreeOrderParentKey } from './treeOrderService'
 
 const UNTITLED_FILE_BASE = '未命名'
 const UNTITLED_DIR_BASE = '新建文件夹'
@@ -45,15 +46,38 @@ function shouldSkipEntry(relativeDir: string | null, name: string): boolean {
 }
 
 /** 按人类文件管理器心智排序：文件夹优先，其余按名称排序 */
-function sortNodes(nodes: VaultTreeNode[]): VaultTreeNode[] {
-  return [...nodes].sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1
-    return a.name.localeCompare(b.name, 'zh-Hans-CN', { numeric: true })
+function compareNodesByDefault(a: VaultTreeNode, b: VaultTreeNode): number {
+  if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1
+  return a.name.localeCompare(b.name, 'zh-Hans-CN', { numeric: true })
+}
+
+/** 按 .mira 中保存的同级顺序排序；新节点保留默认排序并追加在后 */
+function sortNodes(
+  nodes: VaultTreeNode[],
+  relativeDir: string | null,
+  treeOrder: VaultTreeOrder
+): VaultTreeNode[] {
+  const defaultSortedNodes = [...nodes].sort(compareNodesByDefault)
+  const orderedPaths = treeOrder[getTreeOrderParentKey(relativeDir)] ?? []
+  if (orderedPaths.length === 0) return defaultSortedNodes
+
+  const orderIndex = new Map(orderedPaths.map((path, index) => [path, index]))
+  return defaultSortedNodes.sort((a, b) => {
+    const aIndex = orderIndex.get(a.path)
+    const bIndex = orderIndex.get(b.path)
+    if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex
+    if (aIndex !== undefined) return -1
+    if (bIndex !== undefined) return 1
+    return compareNodesByDefault(a, b)
   })
 }
 
 /** 扫描目录并生成文件树节点 */
-async function scanDirectory(vaultPath: string, relativeDir: string | null): Promise<VaultTreeNode[]> {
+async function scanDirectory(
+  vaultPath: string,
+  relativeDir: string | null,
+  treeOrder: VaultTreeOrder
+): Promise<VaultTreeNode[]> {
   const entries = await listEntries(absoluteVaultPath(vaultPath, relativeDir))
   const nodes: VaultTreeNode[] = []
 
@@ -70,7 +94,7 @@ async function scanDirectory(vaultPath: string, relativeDir: string | null): Pro
         kind: 'directory',
         updatedAt: toIsoString(info?.mtime),
         sizeBytes: null,
-        children: await scanDirectory(vaultPath, relativePath),
+        children: await scanDirectory(vaultPath, relativePath, treeOrder),
       })
       continue
     }
@@ -88,12 +112,15 @@ async function scanDirectory(vaultPath: string, relativeDir: string | null): Pro
     }
   }
 
-  return sortNodes(nodes)
+  return sortNodes(nodes, relativeDir, treeOrder)
 }
 
 /** 扫描 vault 下所有可见目录和 Markdown 文件 */
-export async function scanVaultTree(vaultPath: string): Promise<VaultTreeNode[]> {
-  return await scanDirectory(vaultPath, null)
+export async function scanVaultTree(
+  vaultPath: string,
+  treeOrder: VaultTreeOrder = {}
+): Promise<VaultTreeNode[]> {
+  return await scanDirectory(vaultPath, null, treeOrder)
 }
 
 /** 读取 Markdown 文件 */

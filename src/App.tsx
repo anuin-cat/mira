@@ -26,6 +26,12 @@ import {
   scanVaultTree,
 } from './services/noteService'
 import { getDisplayName, getParentPath, isPathInsideDirectory } from './services/pathUtils'
+import {
+  updateTreeOrderAfterDelete,
+  updateTreeOrderAfterRename,
+  updateTreeOrderForMove,
+  updateTreeOrderForPlacement,
+} from './services/treeOrderService'
 import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree, type FileTreeHandle } from './features/file-tree/FileTree'
 import { MdxEditor, type MdxEditorHandle } from './features/editor/MdxEditor'
@@ -56,6 +62,7 @@ const DEFAULT_VAULT_STATE: VaultState = {
   version: 1,
   lastOpenedPath: null,
   expandedDirs: [],
+  treeOrder: {},
   fontSize: 'medium',
   theme: 'default',
 }
@@ -443,7 +450,8 @@ export default function App() {
     navigationHistoryRef.current = { paths: [], index: -1 }
 
     await ensureVaultSystem(path)
-    const [state, tree] = await Promise.all([readVaultState(path), scanVaultTree(path)])
+    const state = await readVaultState(path)
+    const tree = await scanVaultTree(path, state.treeOrder)
 
     vaultPathRef.current = path
     vaultStateRef.current = state
@@ -467,7 +475,7 @@ export default function App() {
     const path = vaultPathRef.current
     if (!path) return []
 
-    const tree = await scanVaultTree(path)
+    const tree = await scanVaultTree(path, vaultStateRef.current.treeOrder)
     setTreeData(tree)
 
     const nextActivePath = chooseOpenPath(tree, preferredActivePath)
@@ -556,7 +564,14 @@ export default function App() {
     const nextActivePath = currentActivePath
       ? resolvePathAfterEntryRename(currentActivePath, filePath, renamedPath, kind)
       : null
+    const nextTreeOrder = updateTreeOrderAfterRename(
+      vaultStateRef.current.treeOrder,
+      filePath,
+      renamedPath,
+      kind
+    )
 
+    persistVaultState({ treeOrder: nextTreeOrder })
     await reloadTree(nextActivePath)
     if (nextActivePath && nextActivePath !== currentActivePath) {
       activePathRef.current = nextActivePath
@@ -586,7 +601,62 @@ export default function App() {
     const nextActivePath = currentActivePath
       ? resolvePathAfterEntryRename(currentActivePath, filePath, movedPath, kind)
       : null
+    const placedTreeOrder = updateTreeOrderForMove(
+      vaultStateRef.current.treeOrder,
+      treeData,
+      filePath,
+      movedPath,
+      targetDir
+    )
+    const nextTreeOrder = updateTreeOrderAfterRename(placedTreeOrder, filePath, movedPath, kind)
 
+    persistVaultState({ treeOrder: nextTreeOrder })
+    await reloadTree(nextActivePath)
+    if (nextActivePath && nextActivePath !== currentActivePath) {
+      activePathRef.current = nextActivePath
+      setActivePath(nextActivePath)
+      recordNavigation(nextActivePath)
+      persistVaultState({ lastOpenedPath: nextActivePath })
+    }
+  }
+
+  /** 拖拽调整同级顺序，必要时先把条目移动到目标父目录 */
+  async function handleReorderEntry(
+    filePath: string,
+    targetParentPath: string | null,
+    beforePath: string | null,
+    kind: VaultEntryKind
+  ) {
+    const path = vaultPathRef.current
+    const currentActivePath = activePathRef.current
+    if (!path) return
+
+    const affectsActiveFile = currentActivePath
+      ? kind === 'file'
+        ? currentActivePath === filePath
+        : isPathInsideDirectory(currentActivePath, filePath)
+      : false
+
+    if (affectsActiveFile) await flushActiveSave()
+
+    const sourceParentPath = getParentPath(filePath)
+    const movedPath = sourceParentPath === targetParentPath
+      ? filePath
+      : await moveEntry(path, filePath, targetParentPath, kind)
+    const nextActivePath = currentActivePath
+      ? resolvePathAfterEntryRename(currentActivePath, filePath, movedPath, kind)
+      : null
+    const placedTreeOrder = updateTreeOrderForPlacement(
+      vaultStateRef.current.treeOrder,
+      treeData,
+      filePath,
+      movedPath,
+      targetParentPath,
+      beforePath
+    )
+    const nextTreeOrder = updateTreeOrderAfterRename(placedTreeOrder, filePath, movedPath, kind)
+
+    persistVaultState({ treeOrder: nextTreeOrder })
     await reloadTree(nextActivePath)
     if (nextActivePath && nextActivePath !== currentActivePath) {
       activePathRef.current = nextActivePath
@@ -614,6 +684,9 @@ export default function App() {
     }
 
     await deleteEntry(path, filePath, kind)
+    persistVaultState({
+      treeOrder: updateTreeOrderAfterDelete(vaultStateRef.current.treeOrder, filePath, kind),
+    })
     await reloadTree(deletesActiveFile ? null : currentActivePath)
   }
 
@@ -644,7 +717,7 @@ export default function App() {
 
     await flushActiveSave()
     await ensureVaultSystem(path)
-    const tree = await scanVaultTree(path)
+    const tree = await scanVaultTree(path, vaultStateRef.current.treeOrder)
     setTreeData(tree)
 
     const nextActivePath = chooseOpenPath(tree, activePathRef.current)
@@ -809,6 +882,7 @@ export default function App() {
               onCreateFolder={handleCreateFolder}
               onRenameEntry={handleRenameEntry}
               onMoveEntry={handleMoveEntry}
+              onReorderEntry={handleReorderEntry}
               onDeleteEntry={handleDeleteEntry}
               onExpandedDirsChange={handleExpandedDirsChange}
               onOpenGitPanel={() => openGitPanel()}

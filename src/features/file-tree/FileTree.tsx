@@ -14,6 +14,7 @@ const AUTO_SCROLL_ZONE = 40
 const AUTO_OPEN_DELAY = 700
 const TREE_ROW_HEIGHT = 32
 const TREE_VERTICAL_PADDING = 6
+const DIRECTORY_REORDER_ZONE_RATIO = 0.28
 const WINDOW_DRAG_IGNORE_SELECTOR = 'button, input, textarea, select, a, [role="button"]'
 const TREE_DRAG_IGNORE_SELECTOR = 'button, input, textarea, select, a, [role="button"]'
 
@@ -32,6 +33,12 @@ interface FileTreeProps {
   onCreateFolder: (parentPath: string | null) => Promise<string | null>
   onRenameEntry: (path: string, name: string, kind: VaultEntryKind) => Promise<string | null>
   onMoveEntry: (path: string, targetDir: string | null, kind: VaultEntryKind) => Promise<void>
+  onReorderEntry: (
+    path: string,
+    targetParentPath: string | null,
+    beforePath: string | null,
+    kind: VaultEntryKind
+  ) => Promise<void>
   onDeleteEntry: (path: string, kind: VaultEntryKind) => Promise<void>
   onExpandedDirsChange: (paths: string[]) => void
   onOpenGitPanel: () => void
@@ -56,7 +63,27 @@ interface DragState {
   previewEl: HTMLDivElement
   autoOpenTimer: ReturnType<typeof setTimeout> | null
   autoOpenTarget: string | null
+  dropIntent: DropIntent | null
 }
+
+interface TargetInfo {
+  node: NodeApi<VaultTreeNode>
+  offsetY: number
+}
+
+type DropIntent =
+  | {
+      type: 'move-into'
+      targetDir: string | null
+      highlightPath: string | null
+    }
+  | {
+      type: 'reorder'
+      targetParentPath: string | null
+      beforePath: string | null
+      highlightPath: string
+      position: 'before' | 'after'
+    }
 
 interface VaultNodeProps extends NodeRendererProps<VaultTreeNode> {
   onContextMenuOpen: (event: MouseEvent, node: VaultTreeNode) => void
@@ -79,6 +106,24 @@ function findNodeByPath(nodes: VaultTreeNode[], path: string | null): VaultTreeN
   }
 
   return null
+}
+
+/** 查找指定父目录下的直接子节点 */
+function findDirectChildren(nodes: VaultTreeNode[], parentPath: string | null): VaultTreeNode[] {
+  if (!parentPath) return nodes
+  return findNodeByPath(nodes, parentPath)?.children ?? []
+}
+
+/** 查找同级下一个节点路径，用于表达“插入到某节点之后” */
+function findNextSiblingPath(nodes: VaultTreeNode[], path: string): string | null {
+  const siblings = findDirectChildren(nodes, getParentPath(path))
+  const index = siblings.findIndex((node) => node.path === path)
+  return index >= 0 ? siblings[index + 1]?.path ?? null : null
+}
+
+/** 转义 data-path 选择器中的路径值 */
+function escapeDataPath(path: string): string {
+  return path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
 /** 从未知异常中提取可展示消息 */
@@ -211,6 +256,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     onCreateFolder,
     onRenameEntry,
     onMoveEntry,
+    onReorderEntry,
     onDeleteEntry,
     onExpandedDirsChange,
     onOpenGitPanel,
@@ -229,6 +275,8 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   const dragRef = useRef<DragState | null>(null)
   const onMoveEntryRef = useRef(onMoveEntry)
   onMoveEntryRef.current = onMoveEntry
+  const onReorderEntryRef = useRef(onReorderEntry)
+  onReorderEntryRef.current = onReorderEntry
   const onExpandedDirsChangeRef = useRef(onExpandedDirsChange)
   onExpandedDirsChangeRef.current = onExpandedDirsChange
 
@@ -306,33 +354,108 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     return treeRef.current?.listEl.current ?? null
   }
 
-  /** 根据鼠标 Y 坐标计算当前悬停的目标节点 */
-  function getTargetNode(clientY: number): NodeApi<VaultTreeNode> | null {
+  /** 根据鼠标 Y 坐标计算当前悬停的目标节点与行内位置 */
+  function getTargetInfo(clientY: number): TargetInfo | null {
     const container = getTreeScrollElement()
     const tree = treeRef.current
     if (!container || !tree) return null
 
     const rect = container.getBoundingClientRect()
-    const index = Math.floor(
-      (clientY - rect.top + container.scrollTop - TREE_VERTICAL_PADDING) / TREE_ROW_HEIGHT
-    )
+    const relativeY = clientY - rect.top + container.scrollTop - TREE_VERTICAL_PADDING
+    const index = Math.floor(relativeY / TREE_ROW_HEIGHT)
     if (index < 0) return null
-    return tree.at(index) ?? null
+    const node = tree.at(index)
+    return node ? { node, offsetY: relativeY - index * TREE_ROW_HEIGHT } : null
   }
 
-  /** 根据目标节点计算目标目录路径 */
-  function resolveTargetDir(targetNode: NodeApi<VaultTreeNode> | null): string | null {
-    if (!targetNode) return null
-    return targetNode.data.kind === 'directory' ? targetNode.data.path : getParentPath(targetNode.data.path)
+  /** 获取某个可见节点对应的 DOM 元素 */
+  function getTreeNodeElement(path: string): HTMLElement | null {
+    const container = getTreeScrollElement()
+    return container?.querySelector(`.tree-node[data-path="${escapeDataPath(path)}"]`) as HTMLElement | null
   }
 
-  /** 验证拖拽落点是否合法 */
-  function isValidDrop(drag: DragState, targetDir: string | null): boolean {
+  /** 验证拖拽放入目录是否合法 */
+  function isValidMoveInto(drag: DragState, targetDir: string | null): boolean {
     // 已在目标目录中
     if (getParentPath(drag.sourcePath) === targetDir) return false
     // 防止目录自嵌套
     if (targetDir && isDescendantOf(drag.sourcePath, drag.sourceKind, targetDir)) return false
     return true
+  }
+
+  /** 验证拖拽插入排序是否合法 */
+  function isValidReorder(
+    drag: DragState,
+    targetParentPath: string | null,
+    beforePath: string | null
+  ): boolean {
+    // 1. 防止目录插入到自身内部
+    if (targetParentPath && isDescendantOf(drag.sourcePath, drag.sourceKind, targetParentPath)) return false
+
+    // 2. 同目录下拖到自身原本位置时不触发持久化
+    const sourceParentPath = getParentPath(drag.sourcePath)
+    if (sourceParentPath !== targetParentPath) return true
+    const currentNextPath = findNextSiblingPath(treeData, drag.sourcePath)
+    return beforePath !== drag.sourcePath && beforePath !== currentNextPath
+  }
+
+  /** 根据当前悬停节点解析最终拖拽意图 */
+  function resolveDropIntent(drag: DragState, clientY: number): DropIntent | null {
+    const targetInfo = getTargetInfo(clientY)
+    if (!targetInfo) {
+      return isValidMoveInto(drag, null)
+        ? { type: 'move-into', targetDir: null, highlightPath: null }
+        : null
+    }
+
+    const { node, offsetY } = targetInfo
+    const target = node.data
+    if (target.path === drag.sourcePath) return null
+
+    if (target.kind === 'directory') {
+      const topReorderZone = TREE_ROW_HEIGHT * DIRECTORY_REORDER_ZONE_RATIO
+      const bottomReorderZone = TREE_ROW_HEIGHT * (1 - DIRECTORY_REORDER_ZONE_RATIO)
+      if (offsetY >= topReorderZone && offsetY <= bottomReorderZone) {
+        return isValidMoveInto(drag, target.path)
+          ? { type: 'move-into', targetDir: target.path, highlightPath: target.path }
+          : null
+      }
+    }
+
+    const targetParentPath = getParentPath(target.path)
+    const isBefore = offsetY < TREE_ROW_HEIGHT / 2
+    const beforePath = isBefore ? target.path : findNextSiblingPath(treeData, target.path)
+
+    if (!isValidReorder(drag, targetParentPath, beforePath)) return null
+    return {
+      type: 'reorder',
+      targetParentPath,
+      beforePath,
+      highlightPath: target.path,
+      position: isBefore ? 'before' : 'after',
+    }
+  }
+
+  /** 清理所有落点视觉提示 */
+  function clearDropIndicators() {
+    document.querySelectorAll('.tree-node.drag-target, .tree-node.drop-before, .tree-node.drop-after')
+      .forEach((el) => {
+        el.classList.remove('drag-target', 'drop-before', 'drop-after')
+      })
+  }
+
+  /** 展示当前落点视觉提示 */
+  function applyDropIndicator(intent: DropIntent | null) {
+    clearDropIndicators()
+    if (!intent?.highlightPath) return
+
+    const el = getTreeNodeElement(intent.highlightPath)
+    if (!el) return
+    if (intent.type === 'move-into') {
+      el.classList.add('drag-target')
+      return
+    }
+    el.classList.add(intent.position === 'before' ? 'drop-before' : 'drop-after')
   }
 
   /** 清理拖拽状态 */
@@ -344,10 +467,8 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     drag.sourceEl.classList.remove('dragging')
     bodyRef.current?.classList.remove('is-dragging')
 
-    // 移除所有 drop target 高亮
-    document.querySelectorAll('.tree-node.drag-target').forEach((el) => {
-      el.classList.remove('drag-target')
-    })
+    // 移除所有落点高亮
+    clearDropIndicators()
 
     // 移除预览元素
     if (drag.previewEl.parentNode) {
@@ -403,24 +524,12 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     }
 
     // 4.4 计算并更新落点高亮
-    const targetNode = getTargetNode(event.clientY)
-    const targetDir = resolveTargetDir(targetNode)
+    const nextDropIntent = resolveDropIntent(drag, event.clientY)
+    drag.dropIntent = nextDropIntent
+    applyDropIndicator(nextDropIntent)
 
-    // 移除旧高亮
-    document.querySelectorAll('.tree-node.drag-target').forEach((el) => {
-      el.classList.remove('drag-target')
-    })
-
-    // 添加新高亮
-    if (targetNode && targetNode.data.kind === 'directory' && isValidDrop(drag, targetDir)) {
-      const container = getTreeScrollElement()
-      const escapedPath = targetNode.data.path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-      const el = container?.querySelector(`.tree-node[data-path="${escapedPath}"]`) as HTMLElement | null
-      if (el) el.classList.add('drag-target')
-    }
-
-    // 4.5 自动展开目录
-    const newAutoTarget = targetNode?.data.kind === 'directory' ? targetNode.data.path : null
+    // 4.5 只在“放入文件夹”意图下自动展开目录
+    const newAutoTarget = nextDropIntent?.type === 'move-into' ? nextDropIntent.highlightPath : null
     if (newAutoTarget !== drag.autoOpenTarget) {
       if (drag.autoOpenTimer) {
         clearTimeout(drag.autoOpenTimer)
@@ -435,7 +544,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
         }, AUTO_OPEN_DELAY)
       }
     }
-  }, [])
+  }, [treeData])
 
   /** document mouseup 处理：执行移动 */
   const handleDragEnd = useCallback((event: globalThis.MouseEvent) => {
@@ -451,19 +560,26 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       return
     }
 
-    // 计算最终落点
-    const targetNode = getTargetNode(event.clientY)
-    const targetDir = resolveTargetDir(targetNode)
-
-    // 执行移动
-    if (isValidDrop(drag, targetDir)) {
-      onMoveEntryRef.current(drag.sourcePath, targetDir, drag.sourceKind).catch((error) => {
+    // 计算最终落点并执行对应操作
+    const dropIntent = drag.dropIntent ?? resolveDropIntent(drag, event.clientY)
+    if (dropIntent?.type === 'move-into') {
+      onMoveEntryRef.current(drag.sourcePath, dropIntent.targetDir, drag.sourceKind).catch((error) => {
+        window.alert(getErrorMessage(error))
+      })
+    }
+    if (dropIntent?.type === 'reorder') {
+      onReorderEntryRef.current(
+        drag.sourcePath,
+        dropIntent.targetParentPath,
+        dropIntent.beforePath,
+        drag.sourceKind
+      ).catch((error) => {
         window.alert(getErrorMessage(error))
       })
     }
 
     cleanupDrag()
-  }, [handleDragMove])
+  }, [handleDragMove, treeData])
 
   /** tree 容器 mousedown：检测拖拽意图 */
   function handleTreeMouseDown(event: React.MouseEvent) {
@@ -502,6 +618,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       previewEl: createPreviewElement(displayName, kind),
       autoOpenTimer: null,
       autoOpenTarget: null,
+      dropIntent: null,
     }
 
     document.addEventListener('mousemove', handleDragMove)

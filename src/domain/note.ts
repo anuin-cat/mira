@@ -1,5 +1,8 @@
 export type VaultEntryKind = 'file' | 'directory'
 
+/** 文件树同级节点顺序，key 为空字符串时表示 vault 根目录 */
+export type VaultTreeOrder = Record<string, string[]>
+
 /** Vault 文件树节点，path 为相对 vault 根目录的稳定身份 */
 export interface VaultTreeNode {
   id: string
@@ -35,6 +38,7 @@ export interface VaultState {
   version: 1
   lastOpenedPath: string | null
   expandedDirs: string[]
+  treeOrder: VaultTreeOrder
   fontSize?: FontSize
   theme?: Theme
 }

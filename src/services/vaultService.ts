@@ -1,6 +1,7 @@
 import { ensureDir, pathExists, readFile, selectDirectory, writeFile } from '../tauri/fs'
 import type { FontSize, VaultState } from '../domain/note'
 import { MIRA_DIR } from './pathUtils'
+import { normalizeTreeOrder } from './treeOrderService'
 
 const VAULT_PATH_KEY = 'mira:vaultPath'
 const STATE_FILE = `${MIRA_DIR}/state.json`
@@ -9,6 +10,7 @@ const DEFAULT_VAULT_STATE: VaultState = {
   version: 1,
   lastOpenedPath: null,
   expandedDirs: [],
+  treeOrder: {},
   fontSize: 'medium',
 }
 
@@ -45,6 +47,7 @@ export async function readVaultState(vaultPath: string): Promise<VaultState> {
       expandedDirs: Array.isArray(parsed.expandedDirs)
         ? parsed.expandedDirs.filter((path): path is string => typeof path === 'string')
         : [],
+      treeOrder: normalizeTreeOrder(parsed.treeOrder),
       fontSize: isFontSize(parsed.fontSize) ? parsed.fontSize : DEFAULT_VAULT_STATE.fontSize,
     }
   } catch {

@@ -309,6 +309,7 @@ body {
   color: var(--theme-text-primary);
   cursor: default;
   border-radius: 6px;
+  position: relative;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -342,6 +343,26 @@ body {
   background: var(--theme-active-bg);
   box-shadow: inset 0 0 0 1px var(--theme-border);
   cursor: grabbing;
+}
+
+.tree-node.drop-before::before,
+.tree-node.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--theme-accent);
+  pointer-events: none;
+}
+
+.tree-node.drop-before::before {
+  top: -1px;
+}
+
+.tree-node.drop-after::after {
+  bottom: -1px;
 }
 
 .tree-node-toggle {
