@@ -30,7 +30,8 @@ import { VaultSetup } from './features/vault/VaultSetup'
 import { FileTree, type FileTreeHandle } from './features/file-tree/FileTree'
 import { MdxEditor, type MdxEditorHandle } from './features/editor/MdxEditor'
 import { AiSidebar, type AiSidebarHandle } from './features/ai/AiSidebar'
-import { GitPanel, type GitPanelAction, type GitPanelRequest } from './features/git/GitPanel'
+import type { GitPanelAction } from './features/git/GitPanel'
+import { GitPanelHost, type GitPanelHostHandle } from './features/git/GitPanelHost'
 import {
   COMMAND_DEFINITIONS,
   CommandPalette,
@@ -138,8 +139,6 @@ export default function App() {
   const [isAiSidebarOpen, setIsAiSidebarOpen] = useState(false)
   const [aiSidebarWidth, setAiSidebarWidth] = useState(AI_SIDEBAR_DEFAULT_WIDTH)
   const [activeCommandDialog, setActiveCommandDialog] = useState<ActiveCommandDialog>(null)
-  const [isGitPanelOpen, setIsGitPanelOpen] = useState(false)
-  const [gitPanelRequest, setGitPanelRequest] = useState<GitPanelRequest | null>(null)
   const [gitChangeCount, setGitChangeCount] = useState(0)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -147,8 +146,10 @@ export default function App() {
   const vaultStateRef = useRef<VaultState>(DEFAULT_VAULT_STATE)
   const activePathRef = useRef<string | null>(null)
   const latestContentRef = useRef('')
+  const lastGitStatusRef = useRef<GitStatusResult | null>(null)
   const navigationHistoryRef = useRef<NavigationHistory>({ paths: [], index: -1 })
   const pendingEditorSelectionRef = useRef<PendingEditorSelection | null>(null)
+  const gitPanelHostRef = useRef<GitPanelHostHandle>(null)
   const fileTreeRef = useRef<FileTreeHandle>(null)
   const editorHandleRef = useRef<MdxEditorHandle>(null)
   const aiSidebarRef = useRef<AiSidebarHandle>(null)
@@ -251,17 +252,12 @@ export default function App() {
 
   /** 打开 Git 面板，可选择触发一个菜单动作 */
   function openGitPanel(action: GitPanelAction | null = null) {
-    setIsGitPanelOpen(true)
-    if (action) {
-      setGitPanelRequest({
-        id: Date.now(),
-        action,
-      })
-    }
+    gitPanelHostRef.current?.open(action)
   }
 
   /** 根据 Git 状态更新左侧入口 badge */
   function handleGitStatusChange(status: GitStatusResult) {
+    lastGitStatusRef.current = status
     const nextCount = status.isGitRepository && status.isVaultGitRoot ? status.changedFiles.length : 0
     setGitChangeCount(nextCount)
   }
@@ -269,6 +265,7 @@ export default function App() {
   /** 轻量刷新 Git badge，失败时不打断笔记编辑 */
   async function refreshGitStatusBadge(path = vaultPathRef.current) {
     if (!path) {
+      lastGitStatusRef.current = null
       setGitChangeCount(0)
       return
     }
@@ -277,6 +274,7 @@ export default function App() {
       const status = await getGitStatus(path)
       handleGitStatusChange(status)
     } catch {
+      lastGitStatusRef.current = null
       setGitChangeCount(0)
     }
   }
@@ -441,6 +439,7 @@ export default function App() {
   async function initVault(path: string) {
     setIsLoading(true)
     setLoadError(null)
+    lastGitStatusRef.current = null
     navigationHistoryRef.current = { paths: [], index: -1 }
 
     await ensureVaultSystem(path)
@@ -629,6 +628,7 @@ export default function App() {
     const newPath = await setupVault()
     if (!newPath) return
 
+    lastGitStatusRef.current = null
     activePathRef.current = null
     latestContentRef.current = ''
     setActivePath(null)
@@ -887,11 +887,10 @@ export default function App() {
             void handleOpenSearchResult(filePath, match)
           }}
         />
-        <GitPanel
-          isOpen={isGitPanelOpen}
+        <GitPanelHost
+          ref={gitPanelHostRef}
           vaultPath={vaultPath}
-          request={gitPanelRequest}
-          onClose={() => setIsGitPanelOpen(false)}
+          getInitialStatus={() => lastGitStatusRef.current}
           onBeforeWrite={flushActiveSave}
           onFilesChanged={handleGitFilesChanged}
           onStatusChange={handleGitStatusChange}

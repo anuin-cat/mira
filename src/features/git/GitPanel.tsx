@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import {
@@ -33,6 +33,17 @@ import {
   unstageGitPaths,
 } from '../../services/gitService'
 import { GitDiffView } from './GitDiffView'
+import {
+  createGitPanelOpenTrace,
+  logGitPanelOpenTrace,
+  markGitPanelMounted,
+  markGitPanelStatusFailed,
+  markGitPanelStatusPainted,
+  markGitPanelStatusRequestStarted,
+  markGitPanelStatusResolved,
+  type GitPanelOpenSession,
+  type GitPanelOpenTrace,
+} from './gitPanelPerf'
 import './git-panel.css'
 
 const REMOTE_RECONNECT_ERROR_MARKERS = [
@@ -63,6 +74,8 @@ export interface GitPanelRequest {
 interface GitPanelProps {
   isOpen: boolean
   vaultPath: string
+  openSession: GitPanelOpenSession | null
+  initialStatus: GitStatusResult | null
   request: GitPanelRequest | null
   onClose: () => void
   onBeforeWrite: () => Promise<void>
@@ -129,6 +142,8 @@ function getDefaultDiffMode(file: GitChangedFile | null): GitDiffMode {
 export function GitPanel({
   isOpen,
   vaultPath,
+  openSession,
+  initialStatus,
   request,
   onClose,
   onBeforeWrite,
@@ -158,6 +173,11 @@ export function GitPanel({
   const selectedPathRef = useRef<string | null>(null)
   const selectedDiffModeRef = useRef<GitDiffMode>('unstaged')
   const onStatusChangeRef = useRef(onStatusChange)
+  const openTraceRef = useRef<GitPanelOpenTrace | null>(null)
+
+  if (isOpen && openSession && openTraceRef.current?.sessionId !== openSession.id) {
+    openTraceRef.current = createGitPanelOpenTrace(openSession)
+  }
 
   const selectedFile = useMemo(
     () => status?.changedFiles.find((file) => file.path === selectedPath) ?? null,
@@ -174,6 +194,17 @@ export function GitPanel({
   const shouldShowStageButton = Boolean(selectedFile?.isUnstaged && diffMode === 'unstaged')
   const shouldShowUnstageButton = Boolean(selectedFile?.isStaged && diffMode === 'staged')
   const shouldShowDiscardButton = shouldShowStageButton
+  const isWaitingForFirstStatus =
+    isOpen && !status && Boolean(openTraceRef.current) && openTraceRef.current?.statusResolvedAtMs === null
+  const isRefreshingStatus = isLoadingStatus && Boolean(status)
+
+  /** 在首次打开的提交阶段记录面板已挂载。 */
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const trace = openTraceRef.current
+    if (!trace) return
+    markGitPanelMounted(trace)
+  }, [isOpen, openSession])
 
   /** 同步外部状态回调，避免父组件重渲染触发重复刷新 */
   useEffect(() => {
@@ -216,17 +247,40 @@ export function GitPanel({
     }
   }, [])
 
+  /** 新一轮打开时优先使用最近一次已知状态，并在首帧绘制前同步灌入。 */
+  useLayoutEffect(() => {
+    if (!isOpen || !openSession) return
+
+    setErrorMessage(null)
+    setRemoteRecoveryMessage(null)
+
+    if (initialStatus) {
+      applyStatus(initialStatus)
+      return
+    }
+
+    setStatus(null)
+  }, [applyStatus, initialStatus, isOpen, openSession])
+
   /** 刷新 Git 状态，并同步当前选择 */
   const refreshStatus = useCallback(async () => {
     // 1. 读取状态
+    const trace = openTraceRef.current
+    if (trace) markGitPanelStatusRequestStarted(trace)
     setIsLoadingStatus(true)
     setErrorMessage(null)
     try {
       const nextStatus = await getGitStatus(vaultPath)
+      if (trace) markGitPanelStatusResolved(trace, nextStatus)
       applyStatus(nextStatus)
       return nextStatus
     } catch (error) {
-      setErrorMessage(getErrorMessage(error))
+      const message = getErrorMessage(error)
+      if (trace) {
+        markGitPanelStatusFailed(trace, message)
+        logGitPanelOpenTrace(trace)
+      }
+      setErrorMessage(message)
       return null
     } finally {
       setIsLoadingStatus(false)
@@ -387,8 +441,24 @@ export function GitPanel({
   }, [isOpen, refreshStatus, vaultPath])
 
   useEffect(() => {
+    if (!isOpen || !status) return
+    const trace = openTraceRef.current
+    if (!trace || trace.hasLoggedSummary || trace.statusResolvedAtMs === null) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      const activeTrace = openTraceRef.current
+      if (!activeTrace || activeTrace.sessionId !== trace.sessionId) return
+      markGitPanelStatusPainted(activeTrace)
+      logGitPanelOpenTrace(activeTrace)
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [isOpen, status])
+
+  useEffect(() => {
     selectedPathRef.current = null
     selectedDiffModeRef.current = 'unstaged'
+    setStatus(null)
     setSelectedPath(null)
     setDiff('')
     setDiffMode('unstaged')
@@ -532,10 +602,11 @@ export function GitPanel({
             <div>
               <h2>Git</h2>
               <p>
-                {status?.branch ? status.branch : 'Vault 备份'}
-                {status?.remoteUrl ? ` · origin` : ''}
-                {status?.ahead ? ` · ahead ${status.ahead}` : ''}
-                {status?.behind ? ` · behind ${status.behind}` : ''}
+                {isWaitingForFirstStatus
+                  ? '正在读取 Git 状态...'
+                  : `${status?.branch ? status.branch : 'Vault 备份'}${status?.remoteUrl ? ' · origin' : ''}${
+                      status?.ahead ? ` · ahead ${status.ahead}` : ''
+                    }${status?.behind ? ` · behind ${status.behind}` : ''}${isRefreshingStatus ? ' · 正在刷新' : ''}`}
               </p>
             </div>
           </div>
@@ -573,6 +644,7 @@ export function GitPanel({
         </ToastProvider>
 
         {errorMessage ? <div className="git-panel-alert error">{errorMessage}</div> : null}
+        {isRefreshingStatus ? <div className="git-panel-hint">正在刷新 Git 状态，先展示最近一次结果。</div> : null}
 
         {status && (!status.isGitRepository || !status.isVaultGitRoot) ? (
           <section className="git-setup-band">
@@ -661,7 +733,9 @@ export function GitPanel({
             </section>
 
             <div className="git-change-list">
-              {!status?.changedFiles.length ? (
+              {isWaitingForFirstStatus ? (
+                <div className="git-empty loading">正在读取变更列表...</div>
+              ) : !status?.changedFiles.length ? (
                 <div className="git-empty">没有未提交变更</div>
               ) : (
                 <>
@@ -730,7 +804,7 @@ export function GitPanel({
           <main className="git-diff-pane">
             <div className="git-diff-toolbar">
               <div className="git-selected-file">
-                <span>{selectedFile?.path ?? '未选择文件'}</span>
+                <span>{isWaitingForFirstStatus ? '正在读取变更列表...' : selectedFile?.path ?? '未选择文件'}</span>
                 {selectedLineStats ? <span>+{selectedLineStats.additions} -{selectedLineStats.deletions}</span> : null}
               </div>
               <div className="git-diff-actions">
@@ -772,7 +846,7 @@ export function GitPanel({
             </div>
             <GitDiffView
               diff={diff}
-              emptyState={selectedFile ? '当前视图没有 diff' : '选择一个文件查看 diff'}
+              emptyState={isWaitingForFirstStatus ? '正在读取 Git 状态...' : selectedFile ? '当前视图没有 diff' : '选择一个文件查看 diff'}
               isLoading={isLoadingDiff}
               isTruncated={isDiffTruncated}
             />

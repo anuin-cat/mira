@@ -19,6 +19,19 @@ export interface GitChangedFile {
   deletions: number
 }
 
+/** Git 状态读取过程中的单个耗时节点 */
+export interface GitTimingStep {
+  id: string
+  label: string
+  durationMs: number
+}
+
+/** Git 状态读取过程的后端耗时摘要 */
+export interface GitStatusTiming {
+  totalMs: number
+  steps: GitTimingStep[]
+}
+
 /** 当前 vault 的 Git 仓库状态 */
 export interface GitStatusResult {
   isGitRepository: boolean
@@ -31,6 +44,7 @@ export interface GitStatusResult {
   behind: number
   hasHead: boolean
   changedFiles: GitChangedFile[]
+  timing: GitStatusTiming | null
 }
 
 /** 单文件 diff 内容 */

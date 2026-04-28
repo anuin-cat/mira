@@ -3,6 +3,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -11,6 +12,7 @@ pub const PUSH_TIMEOUT: Duration = Duration::from_secs(120);
 pub const READONLY_TIMEOUT: Duration = Duration::from_secs(20);
 pub const READONLY_OUTPUT_LIMIT: usize = 80_000;
 pub const DIFF_OUTPUT_LIMIT: usize = 120_000;
+const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(1);
 
 const MACOS_FALLBACK_EXECUTABLE_DIRS: [&str; 6] = [
     "/opt/homebrew/bin",
@@ -20,6 +22,9 @@ const MACOS_FALLBACK_EXECUTABLE_DIRS: [&str; 6] = [
     "/usr/sbin",
     "/sbin",
 ];
+
+static ENHANCED_COMMAND_PATH: OnceLock<String> = OnceLock::new();
+static GIT_EXECUTABLE_PATH: OnceLock<Option<PathBuf>> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct ProcessOutput {
@@ -76,15 +81,11 @@ fn run_program(
     cwd: &Path,
     timeout: Duration,
 ) -> Result<ProcessOutput, String> {
-    let executable_path = resolve_program_path(program);
-    let executable_path = executable_path
-        .as_deref()
-        .unwrap_or_else(|| Path::new(program));
-    let command_path = enhanced_command_path();
-    let mut child = Command::new(executable_path)
+    let executable_path = resolve_cached_program_path(program).unwrap_or_else(|| PathBuf::from(program));
+    let mut child = Command::new(&executable_path)
         .args(args)
         .current_dir(cwd)
-        .env("PATH", &command_path)
+        .env("PATH", enhanced_command_path())
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_PAGER", "cat")
         .stdin(Stdio::null())
@@ -124,12 +125,19 @@ fn run_program(
             ));
         }
 
-        thread::sleep(Duration::from_millis(30));
+        thread::sleep(PROCESS_POLL_INTERVAL);
     }
 }
 
 /** 补齐双击启动 macOS App 时缺失的 Homebrew 命令路径 */
-fn enhanced_command_path() -> String {
+fn enhanced_command_path() -> &'static str {
+    ENHANCED_COMMAND_PATH
+        .get_or_init(build_enhanced_command_path)
+        .as_str()
+}
+
+/** 构造增强后的 PATH 字符串。 */
+fn build_enhanced_command_path() -> String {
     let mut paths = env::var_os("PATH")
         .map(|value| env::split_paths(&value).collect::<Vec<_>>())
         .unwrap_or_default();
@@ -144,6 +152,16 @@ fn enhanced_command_path() -> String {
     env::join_paths(paths)
         .map(|value| value.to_string_lossy().to_string())
         .unwrap_or_else(|_| MACOS_FALLBACK_EXECUTABLE_DIRS.join(":"))
+}
+
+/** 读取带缓存的命令绝对路径，避免每次 Git 调用重复扫描 PATH。 */
+fn resolve_cached_program_path(program: &str) -> Option<PathBuf> {
+    if program == "git" {
+        return GIT_EXECUTABLE_PATH
+            .get_or_init(|| resolve_program_path(program))
+            .clone();
+    }
+    resolve_program_path(program)
 }
 
 /** 在增强后的 PATH 中查找命令的绝对路径 */

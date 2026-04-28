@@ -123,6 +123,17 @@
   border: 1px solid color-mix(in srgb, #d97706 28%, transparent 72%);
 }
 
+.git-panel-hint {
+  margin: 10px 14px 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--theme-text-secondary);
+  background: color-mix(in srgb, var(--theme-bg-sidebar) 72%, var(--theme-bg-primary) 28%);
+  border: 1px solid var(--theme-border);
+}
+
 .git-setup-band,
 .git-remote-band {
   margin: 10px 14px 0;
@@ -434,6 +445,10 @@
   color: var(--theme-text-tertiary);
   font-size: 12px;
   text-align: center;
+}
+
+.git-empty.loading {
+  color: var(--theme-text-secondary);
 }
 
 .git-diff-pane {

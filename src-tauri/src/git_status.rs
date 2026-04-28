@@ -2,11 +2,12 @@ use crate::git_process::{
     normalize_vault_path, optional_git_stdout, run_git, run_git_checked, ProcessOutput,
     DEFAULT_TIMEOUT, PUSH_TIMEOUT,
 };
-use crate::git_types::{GitChangedFile, GitStatusResult};
+use crate::git_types::{GitChangedFile, GitStatusResult, GitStatusTiming, GitTimingStep};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
+use std::time::Instant;
 
 const MAX_UNTRACKED_LINE_COUNT_BYTES: u64 = 128_000;
 const MAX_TOTAL_UNTRACKED_LINE_COUNT_BYTES: u64 = 750_000;
@@ -55,15 +56,54 @@ struct LineStat {
 
 /** 构造完整状态，非仓库状态也以结构化结果返回 */
 pub fn build_status(vault: &Path) -> Result<GitStatusResult, String> {
-    let repo = inspect_repository(vault)?;
+    let total_started_at = Instant::now();
+    let mut timing_steps = Vec::new();
+    let repo = inspect_repository(vault, &mut timing_steps)?;
     if !repo.is_git_repository || !repo.is_vault_git_root {
-        return Ok(status_from_repo(repo, Vec::new()));
+        return Ok(status_from_repo(
+            repo,
+            Vec::new(),
+            build_status_timing(total_started_at, timing_steps),
+        ));
     }
 
+    let ensure_gitignore_started_at = Instant::now();
     ensure_default_gitignore(vault)?;
+    push_timing_step(
+        &mut timing_steps,
+        "ensureDefaultGitignore",
+        "补齐 .gitignore 默认规则",
+        ensure_gitignore_started_at,
+    );
+
+    let read_status_started_at = Instant::now();
     let entries = read_status_entries(vault)?;
+    push_timing_step(
+        &mut timing_steps,
+        "readStatusEntries",
+        "读取 git status --porcelain",
+        read_status_started_at,
+    );
+
+    let read_staged_numstat_started_at = Instant::now();
     let staged_stats = read_numstat(vault, &["diff", "--cached", "--numstat", "-z"])?;
+    push_timing_step(
+        &mut timing_steps,
+        "readStagedNumstat",
+        "读取 staged numstat",
+        read_staged_numstat_started_at,
+    );
+
+    let read_unstaged_numstat_started_at = Instant::now();
     let unstaged_stats = read_numstat(vault, &["diff", "--numstat", "-z"])?;
+    push_timing_step(
+        &mut timing_steps,
+        "readUnstagedNumstat",
+        "读取 unstaged numstat",
+        read_unstaged_numstat_started_at,
+    );
+
+    let build_changed_files_started_at = Instant::now();
     let mut untracked_line_count_budget = MAX_TOTAL_UNTRACKED_LINE_COUNT_BYTES;
     let changed_files = entries
         .into_iter()
@@ -81,13 +121,23 @@ pub fn build_status(vault: &Path) -> Result<GitStatusResult, String> {
             }
         })
         .collect::<Result<Vec<_>, _>>()?;
+    push_timing_step(
+        &mut timing_steps,
+        "buildChangedFiles",
+        "组装变更文件列表",
+        build_changed_files_started_at,
+    );
 
-    Ok(status_from_repo(repo, changed_files))
+    Ok(status_from_repo(
+        repo,
+        changed_files,
+        build_status_timing(total_started_at, timing_steps),
+    ))
 }
 
 /** 确认仓库存在且 vault 本身就是仓库根目录 */
 pub fn ensure_repo_root(vault: &Path) -> Result<(), String> {
-    let repo = inspect_repository(vault)?;
+    let repo = inspect_repository(vault, &mut Vec::new())?;
     if !repo.is_git_repository {
         return Err("当前 vault 还不是 Git 仓库，请先初始化本地 Git 仓库。".to_string());
     }
@@ -123,7 +173,7 @@ pub fn ensure_repo_root_fast(vault: &Path) -> Result<(), String> {
 /** 初始化本地 Git 仓库，并写入默认忽略规则 */
 pub fn init_local_repository(vault: &Path) -> Result<(), String> {
     // 1. 非仓库时初始化为 main 分支
-    let repo = inspect_repository(vault)?;
+    let repo = inspect_repository(vault, &mut Vec::new())?;
     if !repo.is_git_repository {
         let init_output = run_git(vault, &["init", "-b", "main"], DEFAULT_TIMEOUT)?;
         if init_output.code != 0 {
@@ -270,7 +320,11 @@ pub fn push_current_branch(vault: &Path) -> Result<ProcessOutput, String> {
 }
 
 /** 把仓库信息和文件列表合并成前端状态 */
-fn status_from_repo(repo: RepositoryInfo, changed_files: Vec<GitChangedFile>) -> GitStatusResult {
+fn status_from_repo(
+    repo: RepositoryInfo,
+    changed_files: Vec<GitChangedFile>,
+    timing: GitStatusTiming,
+) -> GitStatusResult {
     GitStatusResult {
         is_git_repository: repo.is_git_repository,
         is_vault_git_root: repo.is_vault_git_root,
@@ -282,15 +336,26 @@ fn status_from_repo(repo: RepositoryInfo, changed_files: Vec<GitChangedFile>) ->
         behind: repo.behind,
         has_head: repo.has_head,
         changed_files,
+        timing: Some(timing),
     }
 }
 
 /** 检查当前目录是否为 vault 根目录对应的 Git 仓库 */
-fn inspect_repository(vault: &Path) -> Result<RepositoryInfo, String> {
+fn inspect_repository(
+    vault: &Path,
+    timing_steps: &mut Vec<GitTimingStep>,
+) -> Result<RepositoryInfo, String> {
+    let inside_started_at = Instant::now();
     let inside = run_git(
         vault,
         &["rev-parse", "--is-inside-work-tree"],
         DEFAULT_TIMEOUT,
+    );
+    push_timing_step(
+        timing_steps,
+        "inspectInsideWorkTree",
+        "检查是否位于 Git 工作区",
+        inside_started_at,
     );
     match inside {
         Ok(output) if output.code == 0 && output.stdout.trim() == "true" => {}
@@ -301,10 +366,17 @@ fn inspect_repository(vault: &Path) -> Result<RepositoryInfo, String> {
         Err(error) => return Err(error),
     };
 
+    let top_level_started_at = Instant::now();
     let top_level = run_git_checked(vault, &["rev-parse", "--show-toplevel"], DEFAULT_TIMEOUT)?
         .stdout
         .trim()
         .to_string();
+    push_timing_step(
+        timing_steps,
+        "inspectTopLevel",
+        "读取仓库根目录",
+        top_level_started_at,
+    );
     let top_level_path = normalize_vault_path(&top_level)?;
     let is_vault_git_root = top_level_path == vault;
     let repository_problem = if is_vault_git_root {
@@ -316,28 +388,93 @@ fn inspect_repository(vault: &Path) -> Result<RepositoryInfo, String> {
         )
     };
 
+    let ahead_behind_started_at = Instant::now();
     let (ahead, behind) = read_ahead_behind(vault);
+    push_timing_step(
+        timing_steps,
+        "inspectAheadBehind",
+        "读取 ahead / behind",
+        ahead_behind_started_at,
+    );
+
+    let branch_started_at = Instant::now();
+    let branch = current_branch(vault)?;
+    push_timing_step(
+        timing_steps,
+        "inspectBranch",
+        "读取当前分支",
+        branch_started_at,
+    );
+
+    let remote_started_at = Instant::now();
+    let remote_url = optional_git_stdout(vault, &["remote", "get-url", "origin"], DEFAULT_TIMEOUT);
+    push_timing_step(
+        timing_steps,
+        "inspectRemote",
+        "读取 origin remote",
+        remote_started_at,
+    );
+
+    let upstream_started_at = Instant::now();
+    let upstream = optional_git_stdout(
+        vault,
+        &[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ],
+        DEFAULT_TIMEOUT,
+    );
+    push_timing_step(
+        timing_steps,
+        "inspectUpstream",
+        "读取 upstream",
+        upstream_started_at,
+    );
+
+    let has_head_started_at = Instant::now();
+    let has_head = has_head(vault);
+    push_timing_step(
+        timing_steps,
+        "inspectHasHead",
+        "检查是否已有 HEAD",
+        has_head_started_at,
+    );
 
     Ok(RepositoryInfo {
         is_git_repository: true,
         is_vault_git_root,
         repository_problem,
-        branch: current_branch(vault)?,
-        remote_url: optional_git_stdout(vault, &["remote", "get-url", "origin"], DEFAULT_TIMEOUT),
-        upstream: optional_git_stdout(
-            vault,
-            &[
-                "rev-parse",
-                "--abbrev-ref",
-                "--symbolic-full-name",
-                "@{upstream}",
-            ],
-            DEFAULT_TIMEOUT,
-        ),
+        branch,
+        remote_url,
+        upstream,
         ahead,
         behind,
-        has_head: has_head(vault),
+        has_head,
     })
+}
+
+/** 记录一个状态子步骤的耗时。 */
+fn push_timing_step(
+    timing_steps: &mut Vec<GitTimingStep>,
+    id: &str,
+    label: &str,
+    started_at: Instant,
+) {
+    timing_steps.push(GitTimingStep {
+        id: id.to_string(),
+        label: label.to_string(),
+        duration_ms: started_at.elapsed().as_secs_f64() * 1000.0,
+    });
+}
+
+/** 组装完整的状态耗时对象。 */
+fn build_status_timing(total_started_at: Instant, steps: Vec<GitTimingStep>) -> GitStatusTiming {
+    GitStatusTiming {
+        total_ms: total_started_at.elapsed().as_secs_f64() * 1000.0,
+        steps,
+    }
 }
 
 /** 生成空仓库信息 */

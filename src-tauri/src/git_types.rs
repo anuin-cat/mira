@@ -20,6 +20,21 @@ pub struct GitChangedFile {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GitTimingStep {
+    pub id: String,
+    pub label: String,
+    pub duration_ms: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitStatusTiming {
+    pub total_ms: f64,
+    pub steps: Vec<GitTimingStep>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GitStatusResult {
     pub is_git_repository: bool,
     pub is_vault_git_root: bool,
@@ -31,6 +46,7 @@ pub struct GitStatusResult {
     pub behind: u32,
     pub has_head: bool,
     pub changed_files: Vec<GitChangedFile>,
+    pub timing: Option<GitStatusTiming>,
 }
 
 #[derive(Clone, Debug, Serialize)]
