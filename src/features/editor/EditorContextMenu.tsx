@@ -3,8 +3,8 @@ import { Bold, ClipboardPaste, Code2, Copy, Italic, Link, Scissors, Strikethroug
 import { type ReactNode, type RefObject } from 'react'
 import { sanitizeMarkdownForMdxPaste } from './markdownPaste'
 
-const EDITOR_CONTEXT_MENU_WIDTH = 166
-const EDITOR_CONTEXT_MENU_HEIGHT = 260
+const EDITOR_CONTEXT_MENU_WIDTH = 172
+const EDITOR_CONTEXT_MENU_HEIGHT = 284
 const EDITOR_CONTEXT_MENU_VIEWPORT_MARGIN = 8
 
 export interface EditorContextMenuState {
