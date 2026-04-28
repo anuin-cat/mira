@@ -8,13 +8,14 @@ import { isImeComposing } from '../../lib/keyboard'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
 import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
 
-const DRAG_THRESHOLD = 5
+const DRAG_THRESHOLD = 10
 const AUTO_SCROLL_SPEED = 12
 const AUTO_SCROLL_ZONE = 40
 const AUTO_OPEN_DELAY = 700
 const TREE_ROW_HEIGHT = 32
 const TREE_VERTICAL_PADDING = 6
 const WINDOW_DRAG_IGNORE_SELECTOR = 'button, input, textarea, select, a, [role="button"]'
+const TREE_DRAG_IGNORE_SELECTOR = 'button, input, textarea, select, a, [role="button"]'
 
 interface ContextMenuState {
   x: number
@@ -330,6 +331,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
 
     // 移除 source 拖拽样式
     drag.sourceEl.classList.remove('dragging')
+    bodyRef.current?.classList.remove('is-dragging')
 
     // 移除所有 drop target 高亮
     document.querySelectorAll('.tree-node.drag-target').forEach((el) => {
@@ -367,6 +369,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
 
       // 首次超过阈值：展示预览，锁定 UI
       drag.sourceEl.classList.add('dragging')
+      bodyRef.current?.classList.add('is-dragging')
       document.body.appendChild(drag.previewEl)
       document.body.style.cursor = 'grabbing'
       document.body.style.userSelect = 'none'
@@ -467,8 +470,8 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     const nodeEl = (event.target as HTMLElement).closest('.tree-node') as HTMLElement | null
     if (!nodeEl) return
 
-    // 编辑输入框内不触发拖拽
-    if ((event.target as HTMLElement).tagName === 'INPUT') return
+    // 编辑输入框、展开按钮等交互控件内不触发拖拽
+    if ((event.target as HTMLElement).closest(TREE_DRAG_IGNORE_SELECTOR)) return
 
     const path = nodeEl.dataset.path
     const kind = nodeEl.dataset.kind as VaultEntryKind | undefined
