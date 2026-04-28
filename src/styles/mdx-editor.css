@@ -20,6 +20,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
   --mira-editor-block-type-select-width: 81px;
   --mira-editor-content-max-width: 960px;
   --mira-editor-content-padding-top: 44px;
@@ -239,6 +240,80 @@
   box-shadow:
     0 16px 36px rgba(0, 0, 0, 0.16),
     0 1px 0 rgba(255, 255, 255, 0.72) inset;
+}
+
+.mira-editor-context-menu {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  width: 166px;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid var(--theme-editor-control-border);
+  border-radius: 8px;
+  background: var(--theme-editor-control-bg);
+  color: var(--theme-editor-control-text);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.16),
+    0 4px 12px rgba(0, 0, 0, 0.09);
+}
+
+.mira-editor-context-menu-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 24px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  padding: 3px 7px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+  cursor: default;
+}
+
+.mira-editor-context-menu-item:hover,
+.mira-editor-context-menu-item:focus-visible {
+  background: var(--theme-editor-control-bg-hover);
+  outline: none;
+}
+
+.mira-editor-context-menu-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-editor-control-text-muted);
+}
+
+.mira-editor-context-menu-icon svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+}
+
+.mira-editor-context-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mira-editor-context-menu-shortcut {
+  color: var(--theme-editor-control-placeholder);
+  font-size: 11px;
+}
+
+.mira-editor-context-menu-separator {
+  height: 1px;
+  margin: 2px 5px;
+  background: var(--theme-editor-control-border);
 }
 
 .mdx-editor-root .mdxeditor .mira-ai-sidebar-toggle-icon {

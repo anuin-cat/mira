@@ -29,6 +29,7 @@ import {
 } from '@mdxeditor/editor'
 import {
   type ClipboardEvent as ReactClipboardEvent,
+  type MouseEvent as ReactMouseEvent,
   useCallback,
   forwardRef,
   useEffect,
@@ -51,6 +52,15 @@ import {
 } from './currentFileSearch'
 import { getSelectionMarkdownFromDom } from './markdownCopy'
 import { looksLikeMarkdown, sanitizeMarkdownForMdxPaste } from './markdownPaste'
+import {
+  clickToolbarButtonByLabel,
+  EditorContextMenu,
+  type EditorContextMenuActionId,
+  type EditorContextMenuState,
+  getClampedContextMenuPosition,
+  hasEditorTextSelection,
+  pasteClipboardTextIntoEditor,
+} from './EditorContextMenu'
 import {
   getMarkdownAfterTableCut,
   getSelectedTablePayload,
@@ -724,6 +734,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
   const tableSelectionControllerRef = useRef<MdxTableCellSelectionController | null>(null)
   const latestMarkdownRef = useRef(initialContent)
   const [isEditorSearchOpen, setIsEditorSearchOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<EditorContextMenuState | null>(null)
   const handleSelectEditorSearchMatch = useCallback((query: string, matchOrdinal: number) => {
     return selectCurrentFileSearchMatch(shellRef.current, query, matchOrdinal)
   }, [])
@@ -779,6 +790,27 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
   useEffect(() => {
     latestMarkdownRef.current = initialContent
   }, [initialContent])
+
+  useEffect(() => {
+    if (!contextMenu) return
+
+    /** 关闭轻量菜单，避免滚动或窗口失焦后位置悬空 */
+    const handleDismissContextMenu = () => setContextMenu(null)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setContextMenu(null)
+    }
+
+    document.addEventListener('pointerdown', handleDismissContextMenu)
+    document.addEventListener('scroll', handleDismissContextMenu, true)
+    window.addEventListener('blur', handleDismissContextMenu)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handleDismissContextMenu)
+      document.removeEventListener('scroll', handleDismissContextMenu, true)
+      window.removeEventListener('blur', handleDismissContextMenu)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [contextMenu])
 
   useEffect(() => {
     const restoreFrameIds = new Set<number>()
@@ -1030,6 +1062,53 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     editorRef.current?.insertMarkdown(sanitizedMarkdown)
   }
 
+  /** 接管正文选区右键，替换 WebView 的系统级上下文菜单 */
+  function handleEditorContextMenuCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    const contentElement = getEditorContentElement(shellRef.current)
+    const eventTarget = event.target instanceof Node ? event.target : null
+    if (
+      !contentElement ||
+      !eventTarget ||
+      !contentElement.contains(eventTarget) ||
+      !hasEditorTextSelection(contentElement)
+    ) {
+      setContextMenu(null)
+      return
+    }
+
+    // 1. 阻止 macOS/WKWebView 注入查询、翻译、服务等系统菜单
+    event.preventDefault()
+    event.stopPropagation()
+    event.nativeEvent.stopImmediatePropagation?.()
+
+    // 2. 显示 Mira 自己的编辑菜单，选择内容保持给后续命令使用
+    setContextMenu(getClampedContextMenuPosition(event.clientX, event.clientY))
+  }
+
+  /** 执行右键菜单动作，格式化命令复用现有工具栏按钮 */
+  function handleEditorContextMenuAction(actionId: EditorContextMenuActionId) {
+    const shellElement = shellRef.current
+    const toolbarLabels: Partial<Record<EditorContextMenuActionId, string[]>> = {
+      bold: ['加粗', '取消加粗', 'Bold', 'Remove bold'],
+      italic: ['斜体', '取消斜体', 'Italic', 'Remove italic'],
+      underline: ['下划线', '取消下划线', 'Underline', 'Remove underline'],
+      strikethrough: ['删除线', '取消删除线', 'Strikethrough', 'Remove strikethrough'],
+      'inline-code': ['行内代码', '取消行内代码', 'Inline code', 'Remove inline code'],
+      link: ['插入链接', 'Create link'],
+    }
+
+    // 1. 先收起菜单，避免它遮挡 MDXEditor 自己的链接弹层
+    setContextMenu(null)
+    editorRef.current?.focus()
+
+    // 2. 富文本命令走现有工具栏，剪贴板命令走浏览器标准命令
+    const labels = toolbarLabels[actionId]
+    if (labels && clickToolbarButtonByLabel(shellElement, labels)) return
+    if (actionId === 'copy') document.execCommand('copy')
+    if (actionId === 'cut') document.execCommand('cut')
+    if (actionId === 'paste') void pasteClipboardTextIntoEditor(editorRef)
+  }
+
   return (
     <div ref={shellRef} className="mdx-editor-shell">
       <div
@@ -1037,6 +1116,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
         onCopyCapture={handleEditorCopyCapture}
         onCutCapture={handleEditorCutCapture}
         onPasteCapture={handleEditorPasteCapture}
+        onContextMenuCapture={handleEditorContextMenuCapture}
       >
         <MDXEditor
           ref={editorRef}
@@ -1079,6 +1159,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
             console.warn('MDXEditor 解析 Markdown 失败', { error, source })
           }}
         />
+        <EditorContextMenu menu={contextMenu} onAction={handleEditorContextMenuAction} />
       </div>
     </div>
   )

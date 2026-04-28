@@ -5,6 +5,7 @@ import type { VaultTreeNode } from '../../domain/note'
 import { isImeComposing } from '../../lib/keyboard'
 
 interface VaultNodeProps extends NodeRendererProps<VaultTreeNode> {
+  activePath: string | null
   onContextMenuOpen: (event: MouseEvent, node: VaultTreeNode) => void
   onSelectNode: (node: VaultTreeNode) => void
 }
@@ -14,6 +15,7 @@ export function VaultNode({
   node,
   style,
   dragHandle,
+  activePath,
   onContextMenuOpen,
   onSelectNode,
 }: VaultNodeProps) {
@@ -21,6 +23,7 @@ export function VaultNode({
   const submittedRef = useRef(false)
   const data = node.data
   const isDirectory = data.kind === 'directory'
+  const isCurrentFile = data.kind === 'file' && data.path === activePath
 
   useEffect(() => {
     if (!node.isEditing) return
@@ -48,7 +51,7 @@ export function VaultNode({
     <div
       ref={dragHandle}
       style={style}
-      className={['tree-node', node.isSelected ? 'active' : ''].join(' ')}
+      className={['tree-node', isCurrentFile ? 'active' : ''].join(' ')}
       data-path={data.path}
       data-kind={data.kind}
       onClick={handleNodeClick}

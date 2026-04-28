@@ -286,7 +286,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       ? getParentPath(activePath)
       : null
   const menuTarget = contextMenu?.target ?? null
-  const selectedPath = selectedEntry?.path ?? activePath ?? undefined
+  const selectedPath = activePath ?? undefined
 
   return (
     <aside className="file-sidebar" style={style}>
@@ -352,6 +352,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
             {(props) => (
               <VaultNode
                 {...props}
+                activePath={activePath}
                 onContextMenuOpen={openContextMenu}
                 onSelectNode={(node) => setSelectedEntry(node)}
               />
