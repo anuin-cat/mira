@@ -283,6 +283,7 @@ function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorP
   // 1. 维护轻量编辑态，并响应 MDXEditor 的聚焦请求
   const { setCode, setLanguage } = useCodeBlockEditorContext()
   const [isEditing, setIsEditing] = useState(false)
+  const [copyLabel, setCopyLabel] = useState('复制')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -296,6 +297,18 @@ function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorP
     if (isEditing) window.requestAnimationFrame(() => textareaRef.current?.focus())
   }, [isEditing])
 
+  /** 复制代码块文本，优先走 Clipboard API，失败后给出重试提示 */
+  async function handleCopyClick() {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopyLabel('已复制')
+      window.setTimeout(() => setCopyLabel('复制'), 1200)
+    } catch {
+      setCopyLabel('复制失败')
+      window.setTimeout(() => setCopyLabel('复制'), 1200)
+    }
+  }
+
   // 2. 预览态展示轻量高亮，编辑态使用原生 textarea 写回 Markdown
   return (
     <div className="mira-code-block">
@@ -307,9 +320,14 @@ function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorP
           placeholder="txt"
           aria-label="代码语言"
         />
-        <button type="button" onClick={() => setIsEditing((value) => !value)}>
-          {isEditing ? '完成' : '编辑'}
-        </button>
+        <div className="mira-code-block-actions">
+          <button type="button" onClick={handleCopyClick}>
+            {copyLabel}
+          </button>
+          <button type="button" onClick={() => setIsEditing((value) => !value)}>
+            {isEditing ? '完成' : '编辑'}
+          </button>
+        </div>
       </div>
       {isEditing ? (
         <textarea
@@ -965,6 +983,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
             return TOOLBAR_TRANSLATIONS[key] ?? defaultValue
           }}
           placeholder="开始记录..."
+          suppressHtmlProcessing
           trim={false}
           toMarkdownOptions={{
             bullet: '-',

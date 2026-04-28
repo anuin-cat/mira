@@ -406,6 +406,7 @@
 .mira-mdx-content pre,
 .mira-code-block {
   overflow: hidden;
+  margin-block: 0.75em;
   border: 1px solid var(--theme-border);
   border-radius: 10px;
   background: var(--theme-editor-code-bg);
@@ -437,6 +438,12 @@
   padding: 6px 8px;
   border-bottom: 1px solid var(--theme-border);
   background: var(--theme-editor-code-toolbar-bg);
+}
+
+.mira-code-block-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mira-code-block-language {
