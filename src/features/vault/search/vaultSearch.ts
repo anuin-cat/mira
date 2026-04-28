@@ -1,4 +1,13 @@
 import type { VaultTreeNode } from '../../../domain/note'
+import {
+  areSearchTermsLongEnough,
+  containsAllSearchTerms,
+  containsAnySearchTerm,
+  countSearchTermOccurrences,
+  findEarliestSearchTermMatch,
+  normalizeSearchText,
+  splitSearchTerms,
+} from '../../../lib/searchTerms'
 import { readNoteContent } from '../../../services/noteService'
 import { getDisplayName } from '../../../services/pathUtils'
 
@@ -68,6 +77,10 @@ interface SearchOptions {
   shouldCancel?: () => boolean
 }
 
+interface ParsedVaultSearchQuery {
+  normalizedTerms: string[]
+}
+
 /** 递归收集文件树中的 Markdown 文件 */
 export function collectVaultFiles(nodes: VaultTreeNode[]): VaultFileItem[] {
   return nodes.flatMap((node) => {
@@ -86,29 +99,33 @@ export function collectVaultFiles(nodes: VaultTreeNode[]): VaultFileItem[] {
   })
 }
 
-/** 统一搜索用的宽松小写文本 */
-function normalizeSearchText(value: string): string {
-  return value.toLocaleLowerCase()
+/** 把用户输入转成 vault 搜索可复用的查询结构 */
+function parseVaultSearchQuery(query: string): ParsedVaultSearchQuery {
+  // 1. 普通搜索按空白拆词，避免把整串文本当成单个短语
+  return {
+    normalizedTerms: splitSearchTerms(query),
+  }
 }
 
 /** 判断文件是否命中快速打开查询 */
-function doesFileMatchQuery(file: VaultFileItem, normalizedQuery: string): boolean {
-  if (!normalizedQuery) return true
+function doesFileMatchQuery(file: VaultFileItem, parsedQuery: ParsedVaultSearchQuery): boolean {
+  if (parsedQuery.normalizedTerms.length === 0) return true
   const haystack = normalizeSearchText(`${file.title} ${file.path}`)
-  return haystack.includes(normalizedQuery)
+  return containsAllSearchTerms(haystack, parsedQuery.normalizedTerms, { haystackIsNormalized: true })
 }
 
 /** 快速打开文件过滤：文件名优先，其次路径 */
 export function filterVaultFiles(files: VaultFileItem[], query: string): VaultFileItem[] {
-  const normalizedQuery = normalizeSearchText(query.trim())
-  const matchedFiles = files.filter((file) => doesFileMatchQuery(file, normalizedQuery))
+  const parsedQuery = parseVaultSearchQuery(query)
+  const primaryTerm = parsedQuery.normalizedTerms[0] ?? ''
+  const matchedFiles = files.filter((file) => doesFileMatchQuery(file, parsedQuery))
 
   return matchedFiles
     .sort((a, b) => {
       const aTitle = normalizeSearchText(a.title)
       const bTitle = normalizeSearchText(b.title)
-      const aStartsWith = normalizedQuery ? aTitle.startsWith(normalizedQuery) : false
-      const bStartsWith = normalizedQuery ? bTitle.startsWith(normalizedQuery) : false
+      const aStartsWith = primaryTerm ? aTitle.startsWith(primaryTerm) : false
+      const bStartsWith = primaryTerm ? bTitle.startsWith(primaryTerm) : false
       if (aStartsWith !== bStartsWith) return aStartsWith ? -1 : 1
       return a.path.localeCompare(b.path, 'zh-Hans-CN', { numeric: true })
     })
@@ -166,25 +183,29 @@ function createContentSnippet(line: string, matchIndex: number, queryLength: num
   return `${prefix}${line.slice(start, end).trim()}${suffix}`
 }
 
-/** 统计一行内的非重叠命中次数，用于定位可见文本序号 */
-function countLineMatches(normalizedLine: string, normalizedQuery: string): number {
-  let count = 0
-  let searchStart = 0
+/** 判断流式正文搜索是否因为词太短而应当退化 */
+function isBodySearchTermsTooShort(normalizedTerms: string[]): boolean {
+  // 1. 空查询交给上层拦截，这里只处理“词太短”的情况
+  if (normalizedTerms.length === 0) return false
 
-  while (searchStart < normalizedLine.length) {
-    const matchIndex = normalizedLine.indexOf(normalizedQuery, searchStart)
-    if (matchIndex < 0) break
-    count += 1
-    searchStart = matchIndex + normalizedQuery.length
-  }
-
-  return count
+  // 2. 只要存在不足最小长度的词，就不扫描大文件正文
+  return !areSearchTermsLongEnough(normalizedTerms, STREAM_BODY_QUERY_MIN_LENGTH)
 }
 
 /** 判断查询是否应该扫描正文，避免大 vault 单字搜索压满文件读取 */
-function shouldSearchStreamedBody(preparedSearch: PreparedVaultSearch, normalizedQuery: string): boolean {
+function shouldSearchStreamedBody(
+  preparedSearch: PreparedVaultSearch,
+  parsedQuery: ParsedVaultSearchQuery
+): boolean {
   if (preparedSearch.mode === 'indexed') return true
-  return normalizedQuery.length >= STREAM_BODY_QUERY_MIN_LENGTH
+  return !isBodySearchTermsTooShort(parsedQuery.normalizedTerms)
+}
+
+/** 判断当前查询在流式模式下是否过短，只能匹配文件名 */
+export function isVaultBodySearchQueryTooShort(query: string): boolean {
+  // 1. 普通搜索按空白拆词，逐词检查长度门槛
+  const normalizedTerms = splitSearchTerms(query)
+  return isBodySearchTermsTooShort(normalizedTerms)
 }
 
 /** 判断某个大文件正文是否允许读取 */
@@ -193,9 +214,11 @@ function canReadFileBody(file: VaultFileItem): boolean {
 }
 
 /** 创建路径命中结果 */
-function createPathMatch(file: VaultFileItem, normalizedQuery: string): VaultSearchMatch | null {
+function createPathMatch(file: VaultFileItem, parsedQuery: ParsedVaultSearchQuery): VaultSearchMatch | null {
   const normalizedTitleAndPath = normalizeSearchText(`${file.title} ${file.path}`)
-  if (!normalizedTitleAndPath.includes(normalizedQuery)) return null
+  if (!containsAnySearchTerm(normalizedTitleAndPath, parsedQuery.normalizedTerms, { haystackIsNormalized: true })) {
+    return null
+  }
 
   return {
     kind: 'path',
@@ -207,44 +230,56 @@ function createPathMatch(file: VaultFileItem, normalizedQuery: string): VaultSea
 }
 
 /** 从正文中找出少量命中行 */
-function createContentMatches(content: string, query: string, normalizedQuery: string): VaultSearchMatch[] {
+function createContentMatches(content: string, parsedQuery: ParsedVaultSearchQuery): VaultSearchMatch[] {
   const matches: VaultSearchMatch[] = []
   const lines = content.split('\n')
-  let contentMatchOrdinal = 0
+  const termOrdinals = new Map(parsedQuery.normalizedTerms.map((term) => [term, 0]))
 
   // 1. 逐行查找，单文件最多返回少量命中，避免结果面板过载
   for (let index = 0; index < lines.length; index += 1) {
     if (matches.length >= MAX_MATCHES_PER_FILE) break
     const line = lines[index] ?? ''
     const normalizedLine = normalizeSearchText(line)
-    const matchIndex = normalizedLine.indexOf(normalizedQuery)
-    if (matchIndex < 0) continue
+    const matchedTerm = findEarliestSearchTermMatch(normalizedLine, parsedQuery.normalizedTerms, {
+      haystackIsNormalized: true,
+    })
+    if (!matchedTerm) continue
 
     matches.push({
       kind: 'content',
       lineNumber: index + 1,
-      snippet: createContentSnippet(line, matchIndex, normalizedQuery.length),
-      query,
-      matchOrdinal: contentMatchOrdinal,
+      snippet: createContentSnippet(line, matchedTerm.index, matchedTerm.term.length),
+      query: matchedTerm.term,
+      matchOrdinal: termOrdinals.get(matchedTerm.term) ?? 0,
     })
-    contentMatchOrdinal += countLineMatches(normalizedLine, normalizedQuery)
+
+    for (const term of parsedQuery.normalizedTerms) {
+      const currentCount = termOrdinals.get(term) ?? 0
+      termOrdinals.set(
+        term,
+        currentCount + countSearchTermOccurrences(normalizedLine, term, { haystackIsNormalized: true })
+      )
+    }
   }
 
   return matches
 }
 
 /** 搜索已经进入内存的小文件索引 */
-function searchIndexedNote(
-  file: VaultSearchIndexItem,
-  query: string,
-  normalizedQuery: string
-): VaultSearchResult | null {
+function searchIndexedNote(file: VaultSearchIndexItem, parsedQuery: ParsedVaultSearchQuery): VaultSearchResult | null {
+  const isCombinedMatch = containsAllSearchTerms(
+    `${file.normalizedTitleAndPath}\n${file.normalizedContent}`,
+    parsedQuery.normalizedTerms,
+    { haystackIsNormalized: true }
+  )
+  if (!isCombinedMatch) return null
+
   const matches: VaultSearchMatch[] = []
-  const pathMatch = createPathMatch(file, normalizedQuery)
+  const pathMatch = createPathMatch(file, parsedQuery)
   if (pathMatch) matches.push(pathMatch)
 
-  if (file.normalizedContent.includes(normalizedQuery)) {
-    matches.push(...createContentMatches(file.content, query, normalizedQuery))
+  if (containsAnySearchTerm(file.normalizedContent, parsedQuery.normalizedTerms, { haystackIsNormalized: true })) {
+    matches.push(...createContentMatches(file.content, parsedQuery))
   }
 
   if (matches.length === 0) return null
@@ -259,18 +294,31 @@ function searchIndexedNote(
 async function searchStreamedNote(
   vaultPath: string,
   file: VaultFileItem,
-  query: string,
-  normalizedQuery: string,
+  parsedQuery: ParsedVaultSearchQuery,
   canSearchBody: boolean
 ): Promise<VaultSearchResult | null> {
+  const normalizedTitleAndPath = normalizeSearchText(`${file.title} ${file.path}`)
+  const isPathFullMatch = containsAllSearchTerms(normalizedTitleAndPath, parsedQuery.normalizedTerms, {
+    haystackIsNormalized: true,
+  })
   const matches: VaultSearchMatch[] = []
-  const pathMatch = createPathMatch(file, normalizedQuery)
+  const pathMatch = createPathMatch(file, parsedQuery)
   if (pathMatch) matches.push(pathMatch)
 
-  if (canSearchBody && canReadFileBody(file)) {
-    const content = await readNoteContent(vaultPath, file.path).catch(() => null) ?? ''
-    if (normalizeSearchText(content).includes(normalizedQuery)) {
-      matches.push(...createContentMatches(content, query, normalizedQuery))
+  if (!canSearchBody || !canReadFileBody(file)) {
+    if (!isPathFullMatch) return null
+  } else {
+    const content = (await readNoteContent(vaultPath, file.path).catch(() => null)) ?? ''
+    const normalizedContent = normalizeSearchText(content)
+    const isCombinedMatch = containsAllSearchTerms(
+      `${normalizedTitleAndPath}\n${normalizedContent}`,
+      parsedQuery.normalizedTerms,
+      { haystackIsNormalized: true }
+    )
+    if (!isCombinedMatch) return null
+
+    if (containsAnySearchTerm(normalizedContent, parsedQuery.normalizedTerms, { haystackIsNormalized: true })) {
+      matches.push(...createContentMatches(content, parsedQuery))
     }
   }
 
@@ -322,25 +370,24 @@ export async function searchVaultNotes(
   query: string,
   options: SearchOptions = {}
 ): Promise<VaultSearchResult[]> {
-  const normalizedQuery = normalizeSearchText(query.trim())
-  if (!normalizedQuery) return []
+  const parsedQuery = parseVaultSearchQuery(query)
+  if (parsedQuery.normalizedTerms.length === 0) return []
 
-  const trimmedQuery = query.trim()
   const results: VaultSearchResult[] = []
 
   // 1. 先查已进入内存的小文件索引
   for (const file of preparedSearch.indexItems) {
     if (options.shouldCancel?.()) return []
-    const result = searchIndexedNote(file, trimmedQuery, normalizedQuery)
+    const result = searchIndexedNote(file, parsedQuery)
     if (result) results.push(result)
     if (results.length >= MAX_VAULT_SEARCH_RESULTS) return results
   }
 
   // 2. 大文件或大 vault 按需逐个读取，不把正文长期留在内存里
-  const canSearchBody = shouldSearchStreamedBody(preparedSearch, normalizedQuery)
+  const canSearchBody = shouldSearchStreamedBody(preparedSearch, parsedQuery)
   for (const file of preparedSearch.streamFiles) {
     if (options.shouldCancel?.()) return []
-    const result = await searchStreamedNote(vaultPath, file, trimmedQuery, normalizedQuery, canSearchBody)
+    const result = await searchStreamedNote(vaultPath, file, parsedQuery, canSearchBody)
     if (options.shouldCancel?.()) return []
     if (result) results.push(result)
     if (results.length >= MAX_VAULT_SEARCH_RESULTS) break
@@ -357,7 +404,7 @@ export function getVaultSearchHint(preparedSearch: PreparedVaultSearch | null, q
     if (preparedSearch.mode === 'indexed') return '输入关键词后开始搜索'
     return '输入关键词后开始搜索，大文件会按需扫描'
   }
-  if (preparedSearch.mode !== 'indexed' && trimmedQuery.length < STREAM_BODY_QUERY_MIN_LENGTH) {
+  if (preparedSearch.mode !== 'indexed' && isVaultBodySearchQueryTooShort(trimmedQuery)) {
     return '输入至少 2 个字符后搜索正文；当前只匹配文件名'
   }
   return '输入关键词后开始搜索'

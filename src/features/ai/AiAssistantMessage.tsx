@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
   Copy,
-  FileText,
   LoaderCircle,
   RefreshCw,
   Sparkles,
@@ -26,6 +25,13 @@ interface Props {
 }
 
 type AiAgentToolTranscriptMessage = Extract<AiAgentTranscriptMessage, { role: 'tool' }>
+type AgentReasoningEntry =
+  | { type: 'reasoning'; key: string; content: string }
+  | { type: 'tool'; key: string; toolCall: AiAgentTranscriptToolCall }
+type AgentDisplaySegment =
+  | { type: 'reasoning'; key: string; entries: AgentReasoningEntry[]; reasoningDurationMs: number | null }
+  | { type: 'content'; key: string; content: string }
+type AgentReasoningDisplaySegment = Extract<AgentDisplaySegment, { type: 'reasoning' }>
 
 /** 把思考耗时整理成适合标题展示的短文本 */
 function formatReasoningDuration(reasoningDurationMs: number | null | undefined): string | null {
@@ -229,6 +235,81 @@ function shouldShowAssistantTranscriptContent(
   return !(isLastTranscriptItem && isSameAsFinalAnswer)
 }
 
+/** 按“思考/工具一段、正文一段”的规则，把 transcript 重组为更自然的展示流 */
+function buildAgentDisplaySegments(
+  transcript: AiAgentTranscriptMessage[],
+  messageContent: string
+): AgentDisplaySegment[] {
+  const segments: AgentDisplaySegment[] = []
+  let currentReasoningEntries: AgentReasoningEntry[] = []
+  let currentReasoningDurationMs = 0
+  let hasCurrentReasoningDuration = false
+
+  /** 把当前累计的思考条目落成一个独立思考过程 */
+  function flushReasoningSegment() {
+    if (currentReasoningEntries.length === 0) return
+
+    const firstEntryKey = currentReasoningEntries[0]?.key ?? `reasoning-${segments.length}`
+    const lastEntryKey = currentReasoningEntries[currentReasoningEntries.length - 1]?.key ?? firstEntryKey
+
+    segments.push({
+      type: 'reasoning',
+      key: `${firstEntryKey}__${lastEntryKey}`,
+      entries: currentReasoningEntries,
+      reasoningDurationMs: hasCurrentReasoningDuration ? currentReasoningDurationMs : null,
+    })
+    currentReasoningEntries = []
+    currentReasoningDurationMs = 0
+    hasCurrentReasoningDuration = false
+  }
+
+  transcript.forEach((item, index) => {
+    if (item.role !== 'assistant') return
+
+    const toolCalls = item.toolCalls ?? []
+    const shouldShowContent = shouldShowAssistantTranscriptContent(
+      transcript,
+      index,
+      item.content,
+      messageContent,
+      toolCalls.length > 0
+    )
+
+    if (item.reasoningContent?.trim()) {
+      currentReasoningEntries.push({
+        type: 'reasoning',
+        key: `assistant-${index}-reasoning`,
+        content: item.reasoningContent,
+      })
+
+      if (item.reasoningDurationMs !== null && item.reasoningDurationMs !== undefined) {
+        currentReasoningDurationMs += item.reasoningDurationMs
+        hasCurrentReasoningDuration = true
+      }
+    }
+
+    if (shouldShowContent) {
+      flushReasoningSegment()
+      segments.push({
+        type: 'content',
+        key: `assistant-${index}-content`,
+        content: item.content,
+      })
+    }
+
+    toolCalls.forEach((toolCall) => {
+      currentReasoningEntries.push({
+        type: 'tool',
+        key: toolCall.id,
+        toolCall,
+      })
+    })
+  })
+
+  flushReasoningSegment()
+  return segments
+}
+
 /** 建立工具结果索引，让调用参数和对应结果可以合并成同一卡片 */
 function createToolResultMap(transcript: AiAgentTranscriptMessage[]): Map<string, AiAgentToolTranscriptMessage> {
   const toolResultMap = new Map<string, AiAgentToolTranscriptMessage>()
@@ -317,18 +398,114 @@ function ToolInvocationCard({
   )
 }
 
-/** 展示可持久化 agent transcript，让工具调用与中间思考按时间线可见 */
-function AgentTranscriptTimeline({
+/** 通用思考块：负责标题、展开收起和统一的折叠面板样式 */
+function ReasoningBlock({
+  title,
+  durationLabel,
+  isExpanded,
+  onToggle,
+  children,
+}: {
+  title: string
+  durationLabel: string | null
+  isExpanded: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  return (
+    <section className="ai-reasoning-block">
+      <button
+        type="button"
+        className="ai-reasoning-toggle"
+        aria-expanded={isExpanded}
+        onClick={onToggle}
+      >
+        <span className="ai-reasoning-toggle-main">
+          <span className="ai-reasoning-icon" aria-hidden="true">
+            <Sparkles className="size-[15px]" />
+          </span>
+          <span className="ai-reasoning-title">{title}</span>
+          {durationLabel ? <span className="ai-reasoning-duration">（{durationLabel}）</span> : null}
+        </span>
+        <ChevronDown
+          className={cn('ai-reasoning-chevron size-[15px]', isExpanded ? 'rotate-180' : 'rotate-0')}
+          aria-hidden="true"
+        />
+      </button>
+
+      {isExpanded ? <div className="ai-reasoning-panel">{children}</div> : null}
+    </section>
+  )
+}
+
+/** 单个思考过程面板：正文被剥离后，这里只保留思考内容和工具调用 */
+function AgentReasoningSegment({
+  entries,
+  toolResultMap,
+  expandedToolIds,
+  nowMs,
+  onToggleToolCard,
+}: {
+  entries: AgentReasoningEntry[]
+  toolResultMap: Map<string, AiAgentToolTranscriptMessage>
+  expandedToolIds: Record<string, boolean>
+  nowMs: number
+  onToggleToolCard: (toolCallId: string) => void
+}) {
+  return (
+    <div className="ai-agent-timeline">
+      {entries.map((entry) => {
+        if (entry.type === 'reasoning') {
+          return (
+            <div key={entry.key} className="ai-agent-step-body ai-agent-step-body--reasoning">
+              <AiMarkdown content={entry.content} />
+            </div>
+          )
+        }
+
+        return (
+          <ToolInvocationCard
+            key={entry.key}
+            toolCall={entry.toolCall}
+            result={toolResultMap.get(entry.toolCall.id)}
+            isExpanded={expandedToolIds[entry.toolCall.id] === true}
+            nowMs={nowMs}
+            onToggle={() => onToggleToolCard(entry.toolCall.id)}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+/** 展示可持久化 agent transcript，并在正文出现时切断思考过程 */
+function AgentTranscriptFlow({
   transcript,
   messageContent,
+  isStreaming,
+  isReasoningExpanded,
+  onToggleReasoning,
+  reasoningTitle,
+  reasoningDurationLabel,
 }: {
   transcript: AiAgentTranscriptMessage[]
   messageContent: string
+  isStreaming: boolean
+  isReasoningExpanded: boolean
+  onToggleReasoning: () => void
+  reasoningTitle: string
+  reasoningDurationLabel: string | null
 }) {
   const [expandedToolIds, setExpandedToolIds] = useState<Record<string, boolean>>({})
+  const [collapsedReasoningSegmentKeys, setCollapsedReasoningSegmentKeys] = useState<Record<string, boolean>>({})
   const [nowMs, setNowMs] = useState(() => Date.now())
   const toolResultMap = createToolResultMap(transcript)
   const hasPendingTools = hasPendingToolCalls(transcript, toolResultMap)
+  const segments = buildAgentDisplaySegments(transcript, messageContent)
+  const reasoningSegments = segments.filter(
+    (segment): segment is AgentReasoningDisplaySegment => segment.type === 'reasoning'
+  )
+  const lastReasoningSegmentKey = reasoningSegments[reasoningSegments.length - 1]?.key ?? null
 
   useEffect(() => {
     if (!hasPendingTools) return
@@ -353,61 +530,64 @@ function AgentTranscriptTimeline({
     })
   }
 
-  const renderedItems = transcript.map((item, index) => {
-    if (item.role === 'tool') return null
+  /** 切换单个思考过程的展开状态；未记录时沿用消息级默认值 */
+  function handleToggleReasoningSegment(segmentKey: string) {
+    setCollapsedReasoningSegmentKeys((current) => {
+      const isCollapsed = current[segmentKey] ?? !isReasoningExpanded
+      return {
+        ...current,
+        [segmentKey]: !isCollapsed,
+      }
+    })
+  }
 
-    const toolCalls = item.toolCalls ?? []
-    const hasToolCalls = toolCalls.length > 0
-    const hasReasoning = Boolean(item.reasoningContent?.trim())
-    const shouldShowContent = shouldShowAssistantTranscriptContent(
-      transcript,
-      index,
-      item.content,
-      messageContent,
-      hasToolCalls
-    )
-
-    if (!hasReasoning && !hasToolCalls && !shouldShowContent) return null
+  if (segments.length === 0) {
+    if (!isStreaming) return null
 
     return (
-      <div key={`assistant-${index}`} className="ai-agent-step">
-        {hasReasoning ? (
-          <div className="ai-agent-step-body ai-agent-step-body--reasoning">
-            <AiMarkdown content={item.reasoningContent ?? ''} />
-          </div>
-        ) : null}
-
-        {shouldShowContent ? (
-          <div className="ai-agent-step-section">
-            <div className="ai-agent-step-title">
-              <FileText className="size-[14px]" aria-hidden="true" />
-              <span>中间回复</span>
-            </div>
-            <div className="ai-agent-step-body">
-              <AiMarkdown content={item.content} />
-            </div>
-          </div>
-        ) : null}
-
-        {toolCalls.map((toolCall) => (
-          <ToolInvocationCard
-            key={toolCall.id}
-            toolCall={toolCall}
-            result={toolResultMap.get(toolCall.id)}
-            isExpanded={expandedToolIds[toolCall.id] === true}
-            nowMs={nowMs}
-            onToggle={() => handleToggleToolCard(toolCall.id)}
-          />
-        ))}
-      </div>
+      <ReasoningBlock
+        title={reasoningTitle}
+        durationLabel={reasoningDurationLabel}
+        isExpanded={isReasoningExpanded}
+        onToggle={onToggleReasoning}
+      >
+        <div className="ai-reasoning-placeholder">正在等待模型返回可展示的思考过程...</div>
+      </ReasoningBlock>
     )
-  })
+  }
 
   return (
-    <div className="ai-agent-timeline">
-      {renderedItems.some(Boolean) ? renderedItems : (
-        <div className="ai-reasoning-placeholder">正在等待模型返回可展示的思考过程...</div>
-      )}
+    <div className="ai-assistant-flow">
+      {segments.map((segment) => {
+        if (segment.type === 'content') {
+          return (
+            <div key={segment.key} className="ai-message-content ai-assistant-content ai-assistant-content--intermediate">
+              <AiMarkdown content={segment.content} />
+            </div>
+          )
+        }
+
+        return (
+          <ReasoningBlock
+            key={segment.key}
+            title={segment.key === lastReasoningSegmentKey ? reasoningTitle : '思考过程'}
+            durationLabel={
+              formatReasoningDuration(segment.reasoningDurationMs) ??
+              (segment.key === lastReasoningSegmentKey ? reasoningDurationLabel : null)
+            }
+            isExpanded={collapsedReasoningSegmentKeys[segment.key] !== true}
+            onToggle={() => handleToggleReasoningSegment(segment.key)}
+          >
+            <AgentReasoningSegment
+              entries={segment.entries}
+              toolResultMap={toolResultMap}
+              expandedToolIds={expandedToolIds}
+              nowMs={nowMs}
+              onToggleToolCard={handleToggleToolCard}
+            />
+          </ReasoningBlock>
+        )
+      })}
     </div>
   )
 }
@@ -421,9 +601,9 @@ export function AiAssistantMessage({
   onCopy,
   onRegenerate,
 }: Props) {
-  const hasReasoningBlock = shouldShowReasoningBlock(message, isStreaming)
   const hasReasoningContent = Boolean(message.reasoningContent?.trim())
   const hasAgentTranscript = Boolean(message.agentTranscript?.length)
+  const hasStandaloneReasoningBlock = !hasAgentTranscript && shouldShowReasoningBlock(message, isStreaming)
   const reasoningDurationLabel = formatReasoningDuration(message.reasoningDurationMs)
   const reasoningTitle = getReasoningTitle(hasAgentTranscript, isStreaming, message.isReasoningComplete)
   const meta = getMessageMetaData(message)
@@ -431,51 +611,31 @@ export function AiAssistantMessage({
 
   return (
     <div className="ai-assistant-shell">
-      {hasReasoningBlock ? (
-        <section className="ai-reasoning-block">
-          <button
-            type="button"
-            className="ai-reasoning-toggle"
-            aria-expanded={isReasoningExpanded}
-            onClick={onToggleReasoning}
-          >
-            <span className="ai-reasoning-toggle-main">
-              <span className="ai-reasoning-icon" aria-hidden="true">
-                <Sparkles className="size-[15px]" />
-              </span>
-              <span className="ai-reasoning-title">{reasoningTitle}</span>
-              {reasoningDurationLabel ? (
-                <span className="ai-reasoning-duration">（{reasoningDurationLabel}）</span>
-              ) : null}
-            </span>
-            <ChevronDown
-              className={cn(
-                'ai-reasoning-chevron size-[15px]',
-                isReasoningExpanded ? 'rotate-180' : 'rotate-0'
-              )}
-              aria-hidden="true"
-            />
-          </button>
-
-          {isReasoningExpanded ? (
-            <div className="ai-reasoning-panel">
-              {hasAgentTranscript ? (
-                <AgentTranscriptTimeline
-                  transcript={message.agentTranscript ?? []}
-                  messageContent={message.content}
-                />
-              ) : hasReasoningContent ? (
-                <div className="ai-reasoning-body">
-                  <AiMarkdown content={message.reasoningContent ?? ''} />
-                </div>
-              ) : (
-                <div className="ai-reasoning-placeholder">
-                  正在等待模型返回可展示的思考过程...
-                </div>
-              )}
+      {hasAgentTranscript ? (
+        <AgentTranscriptFlow
+          transcript={message.agentTranscript ?? []}
+          messageContent={message.content}
+          isStreaming={isStreaming}
+          isReasoningExpanded={isReasoningExpanded}
+          onToggleReasoning={onToggleReasoning}
+          reasoningTitle={reasoningTitle}
+          reasoningDurationLabel={reasoningDurationLabel}
+        />
+      ) : hasStandaloneReasoningBlock ? (
+        <ReasoningBlock
+          title={reasoningTitle}
+          durationLabel={reasoningDurationLabel}
+          isExpanded={isReasoningExpanded}
+          onToggle={onToggleReasoning}
+        >
+          {hasReasoningContent ? (
+            <div className="ai-reasoning-body">
+              <AiMarkdown content={message.reasoningContent ?? ''} />
             </div>
-          ) : null}
-        </section>
+          ) : (
+            <div className="ai-reasoning-placeholder">正在等待模型返回可展示的思考过程...</div>
+          )}
+        </ReasoningBlock>
       ) : null}
 
       {message.content ? (

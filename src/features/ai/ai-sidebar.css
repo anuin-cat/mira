@@ -263,8 +263,27 @@
   width: 100%;
 }
 
+.ai-assistant-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ai-assistant-flow .ai-reasoning-block {
+  margin-bottom: 0;
+}
+
 .ai-assistant-content {
   padding-top: 2px;
+}
+
+.ai-assistant-flow + .ai-assistant-content,
+.ai-assistant-flow + .ai-answer-streaming-placeholder {
+  margin-top: 12px;
+}
+
+.ai-assistant-content--intermediate {
+  padding-top: 0;
 }
 
 .ai-message-plain-text {
@@ -280,6 +299,7 @@
 .ai-reasoning-toggle {
   width: fit-content;
   max-width: 100%;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
   gap: 10px;

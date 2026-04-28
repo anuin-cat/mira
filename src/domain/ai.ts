@@ -84,6 +84,7 @@ export type AiAgentTranscriptMessage =
       role: 'assistant'
       content: string
       reasoningContent?: string
+      reasoningDurationMs?: number | null
       toolCalls?: AiAgentTranscriptToolCall[]
     }
   | {

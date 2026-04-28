@@ -229,7 +229,8 @@ function serializeToolCallDrafts(toolCallDrafts: Map<number, ToolCallDraft>): Ag
 function createAssistantTranscriptMessage(
   content: string,
   reasoningContent: string,
-  toolCalls: AgentToolCall[]
+  toolCalls: AgentToolCall[],
+  reasoningDurationMs: number | null = null
 ): AiAgentTranscriptMessage {
   const message: AiAgentTranscriptMessage = {
     role: 'assistant',
@@ -237,6 +238,7 @@ function createAssistantTranscriptMessage(
   }
 
   if (reasoningContent) message.reasoningContent = reasoningContent
+  if (reasoningDurationMs !== null) message.reasoningDurationMs = reasoningDurationMs
   if (toolCalls.length > 0) message.toolCalls = serializeToolCalls(toolCalls)
 
   return message
@@ -263,12 +265,13 @@ function createTranscriptSnapshot(
   transcriptPrefix: AiAgentTranscriptMessage[],
   content: string,
   reasoningContent: string,
-  toolCalls: AgentToolCall[]
+  toolCalls: AgentToolCall[],
+  reasoningDurationMs: number | null
 ): AiAgentTranscriptMessage[] {
   const hasAssistantSnapshot = Boolean(content.trim()) || Boolean(reasoningContent) || toolCalls.length > 0
   if (!hasAssistantSnapshot) return [...transcriptPrefix]
 
-  return [...transcriptPrefix, createAssistantTranscriptMessage(content, reasoningContent, toolCalls)]
+  return [...transcriptPrefix, createAssistantTranscriptMessage(content, reasoningContent, toolCalls, reasoningDurationMs)]
 }
 
 /** 把持久化 transcript 转回 Chat Completions messages */
@@ -390,7 +393,8 @@ async function runModelTurn(
               progressContext.transcriptPrefix,
               content,
               reasoningContent,
-              currentToolCalls
+              currentToolCalls,
+              currentReasoningDurationMs
             )
           : []
       )
@@ -443,7 +447,7 @@ export async function runChatCompletionAgent(
       const content = turn.content.trim()
       if (!content) throw new Error('模型没有返回可用内容')
       if (agentTranscript.length > 0) {
-        agentTranscript.push(createAssistantTranscriptMessage(content, turn.reasoningContent, []))
+        agentTranscript.push(createAssistantTranscriptMessage(content, turn.reasoningContent, [], turn.reasoningDurationMs))
         emitStreamUpdate(
           options.onUpdate,
           content,
@@ -468,7 +472,9 @@ export async function runChatCompletionAgent(
     workingMessages.push(
       createAssistantToolCallMessage(turn.content, turn.reasoningContent, options.compatibility, turn.toolCalls)
     )
-    agentTranscript.push(createAssistantTranscriptMessage(turn.content, turn.reasoningContent, turn.toolCalls))
+    agentTranscript.push(
+      createAssistantTranscriptMessage(turn.content, turn.reasoningContent, turn.toolCalls, turn.reasoningDurationMs)
+    )
     emitStreamUpdate(
       options.onUpdate,
       '',

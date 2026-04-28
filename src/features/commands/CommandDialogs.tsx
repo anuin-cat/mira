@@ -7,6 +7,7 @@ import {
   collectVaultFiles,
   filterVaultFiles,
   getVaultSearchHint,
+  isVaultBodySearchQueryTooShort,
   prepareVaultSearch,
   searchVaultNotes,
   type PreparedVaultSearch,
@@ -352,7 +353,7 @@ export function VaultSearchDialog({
   if (!isOpen) return null
 
   const isBodyQueryTooShort =
-    Boolean(preparedSearch && preparedSearch.mode !== 'indexed' && query.trim() && query.trim().length < 2)
+    Boolean(preparedSearch && preparedSearch.mode !== 'indexed' && query.trim() && isVaultBodySearchQueryTooShort(query))
 
   /** 优先使用正文命中，路径命中只负责打开文件 */
   function getPrimaryMatch(result: VaultSearchResult): VaultSearchMatch | null {

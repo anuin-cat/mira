@@ -154,13 +154,13 @@ export function createVaultAgentTools(): AgentTool[] {
     {
       name: 'vault_search_notes',
       description:
-        '在当前 Mira vault 的所有可见 Markdown 文章中搜索关键词或正则。适合查找与用户问题相关的其他文章，再用 vault_read_note 深读。',
+        '在当前 Mira vault 的所有可见 Markdown 文章中搜索关键词或正则。普通搜索会按空白拆分多个关键词，再返回同时命中这些词的文章片段；适合先找相关文章，再用 vault_read_note 深读。',
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: '搜索词或正则表达式。普通关键词优先使用 regex=false。',
+            description: '搜索词或正则表达式。regex=false 时，普通关键词可用空格分隔多个词。',
           },
           maxResults: {
             type: 'number',

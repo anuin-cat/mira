@@ -494,6 +494,11 @@ function isValidAiAgentTranscript(transcript: unknown): boolean {
     const toolCalls = candidate.toolCalls
     return (
       (candidate.reasoningContent === undefined || typeof candidate.reasoningContent === 'string') &&
+      (candidate.reasoningDurationMs === undefined ||
+        candidate.reasoningDurationMs === null ||
+        (typeof candidate.reasoningDurationMs === 'number' &&
+          Number.isFinite(candidate.reasoningDurationMs) &&
+          candidate.reasoningDurationMs >= 0)) &&
       (toolCalls === undefined ||
         (Array.isArray(toolCalls) &&
           toolCalls.every((toolCall) => {

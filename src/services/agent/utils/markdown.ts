@@ -1,3 +1,10 @@
+import {
+  containsAllSearchTerms,
+  findEarliestSearchTermMatch,
+  normalizeSearchText,
+  splitSearchTerms,
+} from '../../../lib/searchTerms'
+
 export interface MarkdownHeading {
   level: number
   text: string
@@ -62,25 +69,41 @@ export function searchMarkdownContent(
   }
 ): MarkdownSearchMatch[] {
   const matches: MarkdownSearchMatch[] = []
-  const flags = options.isCaseSensitive ? '' : 'i'
-  const regex = options.isRegex ? new RegExp(query, flags) : null
-  const normalizedQuery = options.isCaseSensitive ? query : query.toLowerCase()
+  if (options.isRegex) {
+    const flags = options.isCaseSensitive ? '' : 'i'
+    const regex = new RegExp(query, flags)
+
+    content.split('\n').some((line, index) => {
+      const match = regex.exec(line)
+      if (!match) return false
+
+      matches.push({
+        lineNumber: index + 1,
+        snippet: createSearchSnippet(line, match.index, match[0].length),
+      })
+
+      return matches.length >= options.maxMatches
+    })
+
+    return matches
+  }
+
+  const searchTerms = splitSearchTerms(query, { caseSensitive: options.isCaseSensitive })
+  if (searchTerms.length === 0) return matches
+
+  const comparableContent = options.isCaseSensitive ? content : normalizeSearchText(content)
+  if (!containsAllSearchTerms(comparableContent, searchTerms, { haystackIsNormalized: true })) {
+    return matches
+  }
 
   content.split('\n').some((line, index) => {
-    const match = regex
-      ? regex.exec(line)
-      : (() => {
-          const source = options.isCaseSensitive ? line : line.toLowerCase()
-          const matchIndex = source.indexOf(normalizedQuery)
-          if (matchIndex < 0) return null
-          return { index: matchIndex, 0: line.slice(matchIndex, matchIndex + query.length) }
-        })()
-
-    if (!match) return false
+    const comparableLine = options.isCaseSensitive ? line : normalizeSearchText(line)
+    const matchedTerm = findEarliestSearchTermMatch(comparableLine, searchTerms, { haystackIsNormalized: true })
+    if (!matchedTerm) return false
 
     matches.push({
       lineNumber: index + 1,
-      snippet: createSearchSnippet(line, match.index, match[0].length),
+      snippet: createSearchSnippet(line, matchedTerm.index, matchedTerm.term.length),
     })
 
     return matches.length >= options.maxMatches
