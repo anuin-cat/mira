@@ -116,7 +116,7 @@
 - `src/components`：UI 组件
 - `src/features`：功能模块
 - `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
-- `src/features/git`：Git 面板 UI，包括变更列表、diff、stage/unstage、commit、push、本地 Git 初始化与 GitHub 远端连接入口
+- `src/features/git`：Git 面板 UI，包括变更列表、diff、stage/unstage、撤销未 staged 修改、commit、push、本地 Git 初始化与 GitHub 远端连接入口
 - `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
 - `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务

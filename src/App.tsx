@@ -715,6 +715,11 @@ export default function App() {
     await reloadTree(activePathRef.current)
   }
 
+  /** Git 撤销修改后，沿用同一套磁盘刷新逻辑同步编辑器与文件树 */
+  async function handleGitFilesChanged(changedPaths: string[]) {
+    await handleAgentFilesChanged(changedPaths)
+  }
+
   /** 提供给 agent 工具的当前编辑器快照，用于拒绝覆盖未保存内容 */
   function getCurrentNoteSnapshot() {
     return {
@@ -889,6 +894,7 @@ export default function App() {
           request={gitPanelRequest}
           onClose={() => setIsGitPanelOpen(false)}
           onBeforeWrite={flushActiveSave}
+          onFilesChanged={handleGitFilesChanged}
           onStatusChange={handleGitStatusChange}
         />
       </>

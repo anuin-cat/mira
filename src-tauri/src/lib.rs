@@ -21,6 +21,7 @@ pub fn run() {
             git::git_get_diff,
             git::git_stage_paths,
             git::git_unstage_paths,
+            git::git_discard_paths,
             git::git_commit,
             git::git_push,
             git::git_connect_remote_repository,

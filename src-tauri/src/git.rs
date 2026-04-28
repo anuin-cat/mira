@@ -1,3 +1,6 @@
+use std::fs;
+use std::io::ErrorKind;
+
 use crate::git_policy::validate_readonly_command;
 use crate::git_process::{
     clip_output, clip_text, join_outputs, normalize_vault_path, optional_git_stdout,
@@ -143,6 +146,61 @@ pub fn git_unstage_paths(request: GitPathsRequest) -> Result<GitOperationResult,
     create_operation_result(&vault, output)
 }
 
+/** 文件级撤销修改；只回退 worktree 中未 staged 的变更 */
+#[tauri::command]
+pub fn git_discard_paths(request: GitPathsRequest) -> Result<GitOperationResult, String> {
+    let vault = normalize_vault_path(&request.vault_path)?;
+    ensure_repo_root_fast(&vault)?;
+    let paths = validate_relative_paths(&request.paths)?;
+    if paths.is_empty() {
+        return Err("至少选择一个文件".to_string());
+    }
+
+    // 1. 先按 Git 视角拆分 tracked / untracked，避免把未跟踪文件交给 git restore
+    let mut tracked_paths = Vec::new();
+    let mut untracked_paths = Vec::new();
+    for path in &paths {
+        if is_untracked_path(&vault, path)? {
+            untracked_paths.push(path.clone());
+        } else {
+            tracked_paths.push(path.clone());
+        }
+    }
+
+    // 2. tracked 文件只回退 worktree 到 index，保留已 staged 的内容
+    let restore_output = if tracked_paths.is_empty() {
+        ProcessOutput {
+            code: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+        }
+    } else {
+        run_git_dynamic_checked(
+            &vault,
+            vec!["restore", "--worktree", "--"],
+            &tracked_paths,
+            DEFAULT_TIMEOUT,
+        )?
+    };
+
+    // 3. untracked 文件没有可恢复基线，直接删除以回到“原始不存在”的状态
+    let deleted_count = discard_untracked_files(&vault, &untracked_paths)?;
+    let delete_stdout = if deleted_count == 0 {
+        String::new()
+    } else {
+        format!("已删除 {} 个未跟踪文件。", deleted_count)
+    };
+
+    create_operation_result(
+        &vault,
+        ProcessOutput {
+            code: 0,
+            stdout: join_outputs(&restore_output.stdout, &delete_stdout),
+            stderr: restore_output.stderr,
+        },
+    )
+}
+
 /** 创建一次 Git commit */
 #[tauri::command]
 pub fn git_commit(request: GitCommitRequest) -> Result<GitOperationResult, String> {
@@ -237,6 +295,22 @@ pub fn git_run_readonly(request: GitReadonlyRequest) -> Result<GitReadonlyResult
         code: output.code,
         is_truncated,
     })
+}
+
+/** 删除未跟踪文件，使其回到 Git 视角下的“原始不存在”状态 */
+fn discard_untracked_files(vault: &std::path::Path, paths: &[String]) -> Result<usize, String> {
+    let mut deleted_count = 0;
+
+    for path in paths {
+        let absolute_path = vault.join(path);
+        match fs::remove_file(&absolute_path) {
+            Ok(()) => deleted_count += 1,
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("删除未跟踪文件失败（{}）：{}", path, error)),
+        }
+    }
+
+    Ok(deleted_count)
 }
 
 /** 创建带最新状态的操作结果 */

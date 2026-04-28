@@ -42,6 +42,13 @@ export async function unstageGitPaths(vaultPath: string, paths: string[]): Promi
   })
 }
 
+/** 撤销指定文件的未 staged 修改 */
+export async function discardGitPaths(vaultPath: string, paths: string[]): Promise<GitOperationResult> {
+  return await invoke<GitOperationResult>('git_discard_paths', {
+    request: { vaultPath, paths },
+  })
+}
+
 /** 创建 Git commit */
 export async function commitGitChanges(vaultPath: string, message: string): Promise<GitOperationResult> {
   return await invoke<GitOperationResult>('git_commit', {

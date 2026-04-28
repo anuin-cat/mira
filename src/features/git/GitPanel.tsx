@@ -12,6 +12,7 @@ import {
   Minus,
   Plus,
   RefreshCcw,
+  RotateCcw,
   Send,
   X,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ import type { GitChangedFile, GitDiffMode, GitStatusResult } from '../../domain/
 import {
   commitGitChanges,
   connectGitRemoteRepository,
+  discardGitPaths,
   getGitDiff,
   getGitStatus,
   initLocalGitRepository,
@@ -64,11 +66,12 @@ interface GitPanelProps {
   request: GitPanelRequest | null
   onClose: () => void
   onBeforeWrite: () => Promise<void>
+  onFilesChanged: (paths: string[]) => Promise<void>
   onStatusChange: (status: GitStatusResult) => void
 }
 
 interface RunOperationOptions {
-  onSuccess?: (status: GitStatusResult) => void
+  onSuccess?: (status: GitStatusResult) => void | Promise<void>
   onError?: (message: string) => void
 }
 
@@ -129,6 +132,7 @@ export function GitPanel({
   request,
   onClose,
   onBeforeWrite,
+  onFilesChanged,
   onStatusChange,
 }: GitPanelProps) {
   const [status, setStatus] = useState<GitStatusResult | null>(null)
@@ -167,6 +171,9 @@ export function GitPanel({
   const hasRemote = Boolean(status?.remoteUrl)
   const shouldShowRemoteButton = Boolean(canUseGit && !hasRemote)
   const shouldShowRemoteSetup = Boolean(canUseGit && isRemoteSetupOpen)
+  const shouldShowStageButton = Boolean(selectedFile?.isUnstaged && diffMode === 'unstaged')
+  const shouldShowUnstageButton = Boolean(selectedFile?.isStaged && diffMode === 'staged')
+  const shouldShowDiscardButton = shouldShowStageButton
 
   /** 同步外部状态回调，避免父组件重渲染触发重复刷新 */
   useEffect(() => {
@@ -181,6 +188,34 @@ export function GitPanel({
     setDiffMode(mode)
   }
 
+  /** 应用最新 Git 状态，并尽量保持当前选中的文件与 diff 视图 */
+  const applyStatus = useCallback((nextStatus: GitStatusResult) => {
+    setStatus(nextStatus)
+    onStatusChangeRef.current(nextStatus)
+
+    const currentSelectedPath = selectedPathRef.current
+    const nextSelected = currentSelectedPath
+      ? nextStatus.changedFiles.find((file) => file.path === currentSelectedPath) ?? null
+      : null
+    const currentDiffMode = selectedDiffModeRef.current
+    const nextDiffMode =
+      nextSelected && currentDiffMode === 'staged' && nextSelected.isStaged
+        ? 'staged'
+        : nextSelected && currentDiffMode === 'unstaged' && nextSelected.isUnstaged
+          ? 'unstaged'
+          : getDefaultDiffMode(nextSelected)
+
+    selectedPathRef.current = nextSelected?.path ?? null
+    selectedDiffModeRef.current = nextDiffMode
+    setSelectedPath(nextSelected?.path ?? null)
+    setDiffMode(nextDiffMode)
+
+    if (!nextSelected) {
+      setDiff('')
+      setIsDiffTruncated(false)
+    }
+  }, [])
+
   /** 刷新 Git 状态，并同步当前选择 */
   const refreshStatus = useCallback(async () => {
     // 1. 读取状态
@@ -188,29 +223,7 @@ export function GitPanel({
     setErrorMessage(null)
     try {
       const nextStatus = await getGitStatus(vaultPath)
-      setStatus(nextStatus)
-      onStatusChangeRef.current(nextStatus)
-
-      // 2. 只保持用户已经选择过的文件，避免打开面板时立即触发首个 diff
-      const currentSelectedPath = selectedPathRef.current
-      const nextSelected = currentSelectedPath
-        ? nextStatus.changedFiles.find((file) => file.path === currentSelectedPath) ?? null
-        : null
-      const currentDiffMode = selectedDiffModeRef.current
-      const nextDiffMode =
-        nextSelected && currentDiffMode === 'staged' && nextSelected.isStaged
-          ? 'staged'
-          : nextSelected && currentDiffMode === 'unstaged' && nextSelected.isUnstaged
-            ? 'unstaged'
-            : getDefaultDiffMode(nextSelected)
-      selectedPathRef.current = nextSelected?.path ?? null
-      selectedDiffModeRef.current = nextDiffMode
-      setSelectedPath(nextSelected?.path ?? null)
-      setDiffMode(nextDiffMode)
-      if (!nextSelected) {
-        setDiff('')
-        setIsDiffTruncated(false)
-      }
+      applyStatus(nextStatus)
       return nextStatus
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
@@ -218,7 +231,7 @@ export function GitPanel({
     } finally {
       setIsLoadingStatus(false)
     }
-  }, [vaultPath])
+  }, [applyStatus, vaultPath])
 
   /** 执行写操作并刷新状态；successMessage 为 null 时不弹出成功 toast */
   async function runOperation(
@@ -233,10 +246,9 @@ export function GitPanel({
     try {
       await onBeforeWrite()
       const nextStatus = await operation()
-      setStatus(nextStatus)
-      onStatusChangeRef.current(nextStatus)
+      applyStatus(nextStatus)
       if (successMessage !== null) showToastMessage(successMessage, 'success')
-      options.onSuccess?.(nextStatus)
+      await options.onSuccess?.(nextStatus)
     } catch (error) {
       const message = getErrorMessage(error)
       options.onError?.(message)
@@ -253,6 +265,16 @@ export function GitPanel({
 
   async function handleUnstage(paths: string[]) {
     await runOperation(async () => (await unstageGitPaths(vaultPath, paths)).status, null)
+  }
+
+  /** 撤销当前文件的未 staged 修改，并通知父级刷新编辑器与文件树 */
+  async function handleDiscardChanges(file: GitChangedFile) {
+    const changedPaths = file.oldPath ? [file.path, file.oldPath] : [file.path]
+    await runOperation(async () => (await discardGitPaths(vaultPath, [file.path])).status, null, {
+      onSuccess: async () => {
+        await onFilesChanged(changedPaths)
+      },
+    })
   }
 
   async function handleCommit() {
@@ -712,23 +734,40 @@ export function GitPanel({
                 {selectedLineStats ? <span>+{selectedLineStats.additions} -{selectedLineStats.deletions}</span> : null}
               </div>
               <div className="git-diff-actions">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => selectedFile && handleStage([selectedFile.path])}
-                  disabled={!selectedFile?.isUnstaged || isOperating}
-                >
-                  <Check aria-hidden />
-                  Stage
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => selectedFile && handleUnstage([selectedFile.path])}
-                  disabled={!selectedFile?.isStaged || isOperating}
-                >
-                  Unstage
-                </Button>
+                {shouldShowStageButton ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => selectedFile && handleStage([selectedFile.path])}
+                    disabled={!selectedFile || isOperating}
+                  >
+                    <Plus aria-hidden />
+                    Stage
+                  </Button>
+                ) : null}
+                {shouldShowDiscardButton ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
+                    onClick={() => selectedFile && handleDiscardChanges(selectedFile)}
+                    disabled={!selectedFile || isOperating}
+                  >
+                    <RotateCcw aria-hidden />
+                    撤销修改
+                  </Button>
+                ) : null}
+                {shouldShowUnstageButton ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => selectedFile && handleUnstage([selectedFile.path])}
+                    disabled={!selectedFile || isOperating}
+                  >
+                    <Minus aria-hidden />
+                    Unstage
+                  </Button>
+                ) : null}
               </div>
             </div>
             <GitDiffView
