@@ -79,7 +79,7 @@ function getReasoningTitle(
   isStreaming: boolean,
   isReasoningComplete: boolean | undefined
 ): string {
-  if (hasAgentTranscript) return isStreaming ? '执行中' : '完整过程'
+  if (hasAgentTranscript) return isStreaming ? '执行中' : '思考过程'
   return isStreaming && !isReasoningComplete ? '思考中' : '已思考'
 }
 
@@ -372,14 +372,8 @@ function AgentTranscriptTimeline({
     return (
       <div key={`assistant-${index}`} className="ai-agent-step">
         {hasReasoning ? (
-          <div className="ai-agent-step-section">
-            <div className="ai-agent-step-title">
-              <Sparkles className="size-[14px]" aria-hidden="true" />
-              <span>思考过程</span>
-            </div>
-            <div className="ai-agent-step-body">
-              <AiMarkdown content={item.reasoningContent ?? ''} />
-            </div>
+          <div className="ai-agent-step-body ai-agent-step-body--reasoning">
+            <AiMarkdown content={item.reasoningContent ?? ''} />
           </div>
         ) : null}
 
@@ -412,7 +406,7 @@ function AgentTranscriptTimeline({
   return (
     <div className="ai-agent-timeline">
       {renderedItems.some(Boolean) ? renderedItems : (
-        <div className="ai-reasoning-placeholder">正在等待模型返回可展示的执行过程...</div>
+        <div className="ai-reasoning-placeholder">正在等待模型返回可展示的思考过程...</div>
       )}
     </div>
   )
