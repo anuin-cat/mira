@@ -49,6 +49,7 @@ import {
   selectVisibleTextMatch,
   type EditorSearchSelectionResult,
 } from './currentFileSearch'
+import { looksLikeMarkdown, sanitizeMarkdownForMdxPaste } from './markdownPaste'
 import {
   getMarkdownAfterTableCut,
   getSelectedTablePayload,
@@ -64,10 +65,6 @@ import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
 const CODE_TOKEN_RE =
   /(\/\/.*|#.*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b(?:const|let|var|function|return|import|export|from|if|else|for|while|class|interface|type|async|await|true|false|null|undefined)\b)/g
-const MARKDOWN_PASTE_BLOCK_RE =
-  /(?:^|\n)\s{0,3}(?:#{1,6}\s+|>\s+|[-*+]\s+|\d+[.)]\s+|```|~~~|\|.+\|\s*$|(?:[-*_]\s*){3,}$)/m
-const MARKDOWN_PASTE_INLINE_RE =
-  /(?:!\[[^\]]*]\([^)]+\)|\[[^\]]+\]\([^)]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`)/
 const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'toolbar.bold': '加粗',
   'toolbar.removeBold': '取消加粗',
@@ -147,19 +144,6 @@ function getCodeTokenClass(token: string) {
     return 'mira-code-token-string'
   }
   return 'mira-code-token-keyword'
-}
-
-/** 判断一段纯文本是否明显带有 Markdown 语法，避免误伤普通粘贴 */
-function looksLikeMarkdown(text: string) {
-  // 1. 先过滤空白内容，避免无意义的语法判断
-  const normalizedText = text.trim()
-  if (!normalizedText) return false
-
-  // 2. 优先识别标题、列表、引用、代码块、表格等块级语法
-  if (MARKDOWN_PASTE_BLOCK_RE.test(normalizedText)) return true
-
-  // 3. 再补充识别粗体、链接、行内代码等常见行内语法
-  return MARKDOWN_PASTE_INLINE_RE.test(normalizedText)
 }
 
 /** 判断工具栏点击是否落在按钮、输入框等交互控件上 */
@@ -939,15 +923,16 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     if (!shouldImportMarkdownFromPaste(event)) return
 
     // 2. 阻止浏览器与 Lexical 的默认粘贴链路，避免 Markdown 被插入两次
-    const markdownText = event.clipboardData.getData('text/plain')
-    if (!markdownText) return
+    const pastedMarkdown = event.clipboardData.getData('text/plain')
+    if (!pastedMarkdown) return
 
     event.preventDefault()
     event.stopPropagation()
     event.nativeEvent.stopImmediatePropagation?.()
 
-    // 3. 改用 MDXEditor 的 Markdown 解析能力，把纯文本导入为富文本块
-    editorRef.current?.insertMarkdown(markdownText)
+    // 3. 先清洗会把 MDX 解析器卡死的尖括号片段，再交给编辑器按 Markdown 导入
+    const sanitizedMarkdown = sanitizeMarkdownForMdxPaste(pastedMarkdown)
+    editorRef.current?.insertMarkdown(sanitizedMarkdown)
   }
 
   return (
