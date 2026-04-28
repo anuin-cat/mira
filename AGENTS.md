@@ -153,9 +153,10 @@ vault/
 
 ## AI 文件编辑约定
 
-- agent 修改 Markdown 文件只能通过 `vault_edit_note` 执行精确替换、删除或插入，写入前必须校验 `vault_read_note` 返回的 `contentHash`
-- 单次编辑调用必须先完整校验所有编辑项；任一 `oldText` 或 `anchorText` 找不到、命中次数不符、hash 不一致或当前打开文件存在未保存内容时，不得写入文件
+- agent 修改 Markdown 文件只能通过 `vault_edit_note` 执行精确替换、删除、插入或范围替换，写入前必须校验 `vault_read_note` 返回的 `contentHash`
+- 单次编辑调用必须先完整校验所有编辑项；任一 `oldText`、`anchorText`、`startAnchor` 或 `endAnchor` 找不到、命中次数不符、hash 不一致或当前打开文件存在未保存内容时，不得写入文件
 - 新增文本优先使用 `insert_before` / `insert_after` 搭配唯一 `anchorText` 定位；只有明确文首/文末语义时才用 `prepend` / `append`，不要用裸行号或模糊匹配定位
+- 大段删除或替换使用 `replace_between`，必须显式提供唯一 `startAnchor` / `endAnchor` 以及 `includeStart` / `includeEnd`，`newText` 为空字符串表示删除该范围
 - assistant 消息必须展示本次 agent 修改的文件列表与增删行数，并保留一键回退本次修改的入口
 - 回退只能在目标文件仍保持 AI 修改后的 hash 时执行；若用户或外部程序后续改动过文件，必须拒绝回退以避免覆盖用户新内容
 

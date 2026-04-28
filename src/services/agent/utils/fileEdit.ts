@@ -4,12 +4,16 @@ const HASH_PREFIX = 'sha256:'
 const LINE_DIFF_CELL_LIMIT = 1_000_000
 
 export interface TextEditInput {
-  mode: 'replace' | 'insert_before' | 'insert_after' | 'prepend' | 'append'
+  mode: 'replace' | 'replace_between' | 'insert_before' | 'insert_after' | 'prepend' | 'append'
   oldText: string
   anchorText: string
+  startAnchor: string
+  endAnchor: string
   newText: string
   replaceAll: boolean
   expectedOccurrences: number
+  includeStart: boolean
+  includeEnd: boolean
 }
 
 export interface AppliedTextEdit {
@@ -47,6 +51,7 @@ export function findTextOccurrences(content: string, needle: string): Array<{ st
 
 /** 在当前内容上执行一次严格文本替换，并记录替换后区间用于撤销 */
 export function applyTextEdit(content: string, edit: TextEditInput): AppliedTextEdit {
+  if (edit.mode === 'replace_between') return applyReplaceBetweenEdit(content, edit)
   if (edit.mode !== 'replace') return applyInsertEdit(content, edit)
 
   const occurrences = findTextOccurrences(content, edit.oldText)
@@ -83,6 +88,48 @@ export function applyTextEdit(content: string, edit: TextEditInput): AppliedText
       replaceAll: edit.replaceAll,
       occurrenceCount: targetOccurrences.length,
       ranges,
+    },
+  }
+}
+
+/** 用唯一的开始/结束锚点替换一段连续内容，适合大段改写或删除 */
+function applyReplaceBetweenEdit(content: string, edit: TextEditInput): AppliedTextEdit {
+  if (!edit.startAnchor) throw new Error('replace_between 缺少 startAnchor')
+  if (!edit.endAnchor) throw new Error('replace_between 缺少 endAnchor')
+
+  const startOccurrences = findTextOccurrences(content, edit.startAnchor)
+  const endOccurrences = findTextOccurrences(content, edit.endAnchor)
+  if (startOccurrences.length === 0) throw new Error('找不到 startAnchor 对应的范围起点')
+  if (endOccurrences.length === 0) throw new Error('找不到 endAnchor 对应的范围终点')
+  if (startOccurrences.length !== 1) throw new Error(`startAnchor 命中 ${startOccurrences.length} 处，请提供更长上下文让起点唯一`)
+  if (endOccurrences.length !== 1) throw new Error(`endAnchor 命中 ${endOccurrences.length} 处，请提供更长上下文让终点唯一`)
+
+  const startOccurrence = startOccurrences[0]
+  const endOccurrence = endOccurrences[0]
+  if (startOccurrence.end > endOccurrence.start) {
+    throw new Error('replace_between 要求 startAnchor 位于 endAnchor 之前，且两者不能重叠')
+  }
+
+  const replaceStart = edit.includeStart ? startOccurrence.start : startOccurrence.end
+  const replaceEnd = edit.includeEnd ? endOccurrence.end : endOccurrence.start
+  if (replaceStart > replaceEnd) throw new Error('replace_between 计算出的替换范围无效')
+
+  const oldText = content.slice(replaceStart, replaceEnd)
+  const nextContent = `${content.slice(0, replaceStart)}${edit.newText}${content.slice(replaceEnd)}`
+
+  return {
+    content: nextContent,
+    operation: {
+      oldText,
+      newText: edit.newText,
+      replaceAll: false,
+      occurrenceCount: 1,
+      ranges: [
+        {
+          start: replaceStart,
+          end: replaceStart + edit.newText.length,
+        },
+      ],
     },
   }
 }

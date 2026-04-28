@@ -48,6 +48,8 @@ function normalizeEditInput(value: unknown, index: number): NormalizedEditInput 
   const mode = normalizeEditMode(input.mode)
   const oldText = typeof input.oldText === 'string' ? input.oldText : null
   const anchorText = typeof input.anchorText === 'string' ? input.anchorText : null
+  const startAnchor = typeof input.startAnchor === 'string' ? input.startAnchor : null
+  const endAnchor = typeof input.endAnchor === 'string' ? input.endAnchor : null
   const newText = typeof input.newText === 'string' ? input.newText : null
   if (newText === null) throw new Error(`edits[${index}] 缺少 newText`)
   if (newText.length > MAX_EDIT_TEXT_CHARS) {
@@ -60,18 +62,31 @@ function normalizeEditInput(value: unknown, index: number): NormalizedEditInput 
     if (oldText === newText) throw new Error(`edits[${index}] oldText 与 newText 不能完全相同`)
   }
 
+  if (mode === 'replace_between') {
+    if (!startAnchor) throw new Error(`edits[${index}] 缺少 startAnchor`)
+    if (!endAnchor) throw new Error(`edits[${index}] 缺少 endAnchor`)
+    if (startAnchor.length > MAX_EDIT_TEXT_CHARS || endAnchor.length > MAX_EDIT_TEXT_CHARS) {
+      throw new Error(`edits[${index}] 范围锚点片段过长`)
+    }
+    if (typeof input.includeStart !== 'boolean' || typeof input.includeEnd !== 'boolean') {
+      throw new Error(`edits[${index}] replace_between 必须显式提供 includeStart 和 includeEnd`)
+    }
+  }
+
   if ((mode === 'insert_before' || mode === 'insert_after') && !anchorText) {
     throw new Error(`edits[${index}] 缺少 anchorText`)
   }
   if (anchorText && anchorText.length > MAX_EDIT_TEXT_CHARS) throw new Error(`edits[${index}] 锚点片段过长`)
-  if (mode !== 'replace' && !newText) throw new Error(`edits[${index}] 新增文本不能为空`)
+  if (mode !== 'replace' && mode !== 'replace_between' && !newText) {
+    throw new Error(`edits[${index}] 新增文本不能为空`)
+  }
 
   const replaceAll = input.replaceAll === true
   const expectedOccurrences = clampNumber(input.expectedOccurrences, replaceAll ? 0 : 1, 0, Number.MAX_SAFE_INTEGER)
   if (replaceAll && expectedOccurrences < 1) {
     throw new Error(`edits[${index}] 使用 replaceAll 时必须提供 expectedOccurrences`)
   }
-  if (mode !== 'replace' && replaceAll) throw new Error(`edits[${index}] 新增操作不支持 replaceAll`)
+  if (mode !== 'replace' && replaceAll) throw new Error(`edits[${index}] ${mode} 不支持 replaceAll`)
   if ((mode === 'insert_before' || mode === 'insert_after') && expectedOccurrences !== 1) {
     throw new Error(`edits[${index}] 新增位置必须由唯一 anchorText 确定`)
   }
@@ -81,9 +96,13 @@ function normalizeEditInput(value: unknown, index: number): NormalizedEditInput 
     mode,
     oldText: mode === 'replace' ? (oldText ?? '') : '',
     anchorText: anchorText ?? '',
+    startAnchor: startAnchor ?? '',
+    endAnchor: endAnchor ?? '',
     newText,
     replaceAll: mode === 'replace' ? replaceAll : false,
     expectedOccurrences: mode === 'replace' && replaceAll ? expectedOccurrences : 1,
+    includeStart: input.includeStart === true,
+    includeEnd: input.includeEnd === true,
   }
 }
 
@@ -92,6 +111,7 @@ function normalizeEditMode(value: unknown): EditMode {
   if (value === undefined || value === null) return 'replace'
   if (
     value === 'replace' ||
+    value === 'replace_between' ||
     value === 'insert_before' ||
     value === 'insert_after' ||
     value === 'prepend' ||
@@ -100,7 +120,7 @@ function normalizeEditMode(value: unknown): EditMode {
     return value
   }
 
-  throw new Error('edit mode 只支持 replace、insert_before、insert_after、prepend、append')
+  throw new Error('edit mode 只支持 replace、replace_between、insert_before、insert_after、prepend、append')
 }
 
 /** 规范化 edits 数组，限制单次工具调用规模 */
@@ -118,7 +138,7 @@ export function createVaultEditAgentTools(): AgentTool[] {
     {
       name: 'vault_edit_note',
       description:
-        '安全修改当前 Mira vault 内某一篇 Markdown 文章。必须先调用 vault_read_note 获取 contentHash，然后把该 hash 作为 expectedContentHash 传入。支持精确替换、删除与新增：replace 用 oldText 精确替换，newText 为空即删除；insert_before/insert_after 用唯一 anchorText 精确确定新增位置；prepend/append 分别插入文首/文末。任一编辑不满足条件则整次调用失败且不会写文件。',
+        '安全修改当前 Mira vault 内某一篇 Markdown 文章。必须先调用 vault_read_note 获取 contentHash，然后把该 hash 作为 expectedContentHash 传入。支持精确替换、删除、新增与大段改写：replace 用 oldText 精确替换，newText 为空即删除；replace_between 用唯一 startAnchor/endAnchor 精确确定范围，newText 为空即删除该范围；insert_before/insert_after 用唯一 anchorText 精确确定新增位置；prepend/append 分别插入文首/文末。任一编辑不满足条件则整次调用失败且不会写文件。',
       parameters: {
         type: 'object',
         properties: {
@@ -132,15 +152,15 @@ export function createVaultEditAgentTools(): AgentTool[] {
           },
           edits: {
             type: 'array',
-            description: '按顺序应用的精确替换列表；任何一项失败都会取消整次调用。',
+            description: '按顺序应用的精确编辑列表；任何一项失败都会取消整次调用。',
             items: {
               type: 'object',
               properties: {
                 mode: {
                   type: 'string',
-                  enum: ['replace', 'insert_before', 'insert_after', 'prepend', 'append'],
+                  enum: ['replace', 'replace_between', 'insert_before', 'insert_after', 'prepend', 'append'],
                   description:
-                    '编辑模式，默认 replace。replace=替换/删除；insert_before/insert_after=在唯一 anchorText 前/后新增；prepend/append=文首/文末新增。',
+                    '编辑模式，默认 replace。replace=小段替换/删除；replace_between=用开始/结束锚点大段替换/删除；insert_before/insert_after=在唯一 anchorText 前/后新增；prepend/append=文首/文末新增。',
                 },
                 oldText: {
                   type: 'string',
@@ -151,9 +171,27 @@ export function createVaultEditAgentTools(): AgentTool[] {
                   description:
                     'insert_before/insert_after 模式下用于定位新增位置的锚点文本，必须在当前内容中唯一命中；若不唯一，请扩大上下文。',
                 },
+                startAnchor: {
+                  type: 'string',
+                  description:
+                    'replace_between 模式下用于定位范围起点的锚点文本，必须在当前内容中唯一命中；若不唯一，请扩大上下文。',
+                },
+                endAnchor: {
+                  type: 'string',
+                  description:
+                    'replace_between 模式下用于定位范围终点的锚点文本，必须在当前内容中唯一命中，并且必须位于 startAnchor 之后。',
+                },
+                includeStart: {
+                  type: 'boolean',
+                  description: 'replace_between 是否把 startAnchor 本身包含进替换范围，必须显式提供。',
+                },
+                includeEnd: {
+                  type: 'boolean',
+                  description: 'replace_between 是否把 endAnchor 本身包含进替换范围，必须显式提供。',
+                },
                 newText: {
                   type: 'string',
-                  description: '替换后的文本或新增文本；replace 模式允许为空字符串，用于删除片段；新增模式不能为空。',
+                  description: '替换后的文本或新增文本；replace 和 replace_between 模式允许为空字符串，用于删除片段或范围；新增模式不能为空。',
                 },
                 replaceAll: {
                   type: 'boolean',
