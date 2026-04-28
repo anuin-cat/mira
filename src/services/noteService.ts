@@ -51,7 +51,7 @@ function compareNodesByDefault(a: VaultTreeNode, b: VaultTreeNode): number {
   return a.name.localeCompare(b.name, 'zh-Hans-CN', { numeric: true })
 }
 
-/** 按 .mira 中保存的同级顺序排序；新节点保留默认排序并追加在后 */
+/** 按 .mira 中保存的同类型顺序排序；文件夹始终显示在文件上方 */
 function sortNodes(
   nodes: VaultTreeNode[],
   relativeDir: string | null,
@@ -63,6 +63,8 @@ function sortNodes(
 
   const orderIndex = new Map(orderedPaths.map((path, index) => [path, index]))
   return defaultSortedNodes.sort((a, b) => {
+    if (a.kind !== b.kind) return compareNodesByDefault(a, b)
+
     const aIndex = orderIndex.get(a.path)
     const bIndex = orderIndex.get(b.path)
     if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex
