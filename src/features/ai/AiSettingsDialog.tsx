@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Eye, EyeOff, Layers, Plus, Settings2, Trash2, X } from 'lucide-react'
+import { Eye, EyeOff, Globe2, Layers, Plus, Settings2, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,8 +22,9 @@ import {
 } from '../../services/aiSettingsService'
 import { AddModelDialog } from './settings/AddModelDialog'
 import { AddProviderDialog } from './settings/AddProviderDialog'
+import { SearchServiceSettings } from './settings/SearchServiceSettings'
 
-type NavSection = 'providers' | 'chat-params'
+type NavSection = 'providers' | 'search' | 'chat-params'
 
 interface Props {
   initialSettings: AiSettingsState
@@ -200,6 +201,22 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                   type="button"
                   className={cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                    activeNav === 'search'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-foreground/80 hover:bg-muted hover:text-foreground'
+                  )}
+                  onClick={() => setActiveNav('search')}
+                >
+                  <Globe2 className="size-4 shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium">搜索服务</div>
+                    <div className="text-xs text-muted-foreground">联网搜索和工具调用</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
                     activeNav === 'chat-params'
                       ? 'bg-primary/10 text-primary'
                       : 'text-foreground/80 hover:bg-muted hover:text-foreground'
@@ -215,6 +232,15 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
               </div>
             </nav>
 
+            {activeNav === 'search' ? (
+              <SearchServiceSettings
+                searchSettings={draftSettings.search}
+                onSearchSettingsChange={(search) => patchDraftSettings({ search })}
+                onClose={onClose}
+                onPersist={persistSettings}
+              />
+            ) : (
+              <>
             {/* 中间供应商列表（仅模型服务页显示） */}
             {activeNav === 'providers' ? (
               <aside className="flex w-[260px] shrink-0 flex-col border-r border-border/50">
@@ -451,6 +477,8 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
                 </Button>
               </div>
             </section>
+              </>
+            )}
           </div>
         </div>
       </div>

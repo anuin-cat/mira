@@ -15,6 +15,7 @@ import {
   createGitAgentTools,
   createVaultEditAgentTools,
   createVaultAgentTools,
+  createWebSearchAgentTools,
   runChatCompletionAgent,
   type AgentAppliedFileEdit,
   type AgentRunResult,
@@ -198,6 +199,7 @@ export async function requestAiChatReply(
     ...createVaultAgentTools(),
     ...createVaultEditAgentTools(),
     ...createGitAgentTools(),
+    ...createWebSearchAgentTools(request.settings.searchService),
   ])
   let agentResult: AgentRunResult
   try {

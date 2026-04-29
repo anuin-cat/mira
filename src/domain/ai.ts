@@ -1,6 +1,8 @@
 export type AiBuiltinProviderId = 'deepseek' | 'siliconflow' | 'kimi'
 export type AiProviderSource = 'builtin' | 'custom'
 export type AiCompatibilityMode = 'openai' | 'deepseek' | 'siliconflow' | 'kimi'
+export type AiSearchProviderId = 'bocha'
+export type AiSearchFreshnessPreset = 'noLimit' | 'oneDay' | 'oneWeek' | 'oneMonth' | 'oneYear'
 
 /** OpenAI 兼容提供商预设 */
 export interface AiProviderPreset {
@@ -31,12 +33,45 @@ export interface AiProviderConfig {
   selectedModelId: string | null
 }
 
+/** 搜索服务提供商预设 */
+export interface AiSearchProviderPreset {
+  id: AiSearchProviderId
+  label: string
+  apiKeyPlaceholder: string
+}
+
+/** 单个搜索服务配置 */
+export interface AiSearchProviderConfig {
+  id: AiSearchProviderId
+  label: string
+  apiKey: string
+  isEnabled: boolean
+  defaultFreshness: AiSearchFreshnessPreset
+  defaultCount: number
+}
+
+/** AI 搜索服务设置：保存在当前设备本地，不进入 vault */
+export interface AiSearchSettings {
+  activeProviderId: AiSearchProviderId | null
+  providers: AiSearchProviderConfig[]
+}
+
 /** AI 设置：保存在当前设备本地，不进入 vault */
 export interface AiSettingsState {
   activeProviderId: string | null
   providers: AiProviderConfig[]
+  search: AiSearchSettings
   systemPrompt: string
   temperature: number
+}
+
+/** 发请求前解析出的当前可用搜索服务 */
+export interface AiSearchRequestSettings {
+  providerId: AiSearchProviderId
+  providerLabel: string
+  apiKey: string
+  defaultFreshness: AiSearchFreshnessPreset
+  defaultCount: number
 }
 
 /** 发请求前解析出的当前有效 AI 配置 */
@@ -47,6 +82,7 @@ export interface AiRequestSettings {
   baseURL: string
   model: string
   compatibilityMode: AiCompatibilityMode
+  searchService: AiSearchRequestSettings | null
   systemPrompt: string
   temperature: number
 }

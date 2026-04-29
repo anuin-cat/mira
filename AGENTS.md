@@ -123,6 +123,7 @@
 - `src/services`：文件、索引、AI 服务
 - `src/services/agent`：AI agent 内核；`tools` 放可控工具，`utils` 放工具共享辅助逻辑
 - `src/services/aiCompatibility`：AI provider 兼容层；DeepSeek、KIMI、硅基流动等平台差异必须分文件维护，主流程只调用统一 adapter
+- `src/services/search`：联网搜索服务配置、provider API 调用与搜索结果归一化
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装
 

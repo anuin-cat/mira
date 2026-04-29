@@ -9,6 +9,11 @@ import type {
   AiSettingsState,
 } from '../domain/ai'
 import { resolveAiCompatibilityMode } from './aiCompatibility'
+import {
+  createDefaultSearchSettings,
+  normalizeSearchSettings,
+  resolveActiveSearchRequestSettings,
+} from './search/searchSettings'
 
 const AI_SETTINGS_STORAGE_KEY = 'mira:ai:settings:v2'
 const AI_SESSIONS_STORAGE_PREFIX = 'mira:ai:sessions:'
@@ -222,6 +227,7 @@ export function createDefaultAiSettings(): AiSettingsState {
   return {
     activeProviderId: 'deepseek',
     providers: normalizeProviders([], 'deepseek'),
+    search: createDefaultSearchSettings(),
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     temperature: 0.7,
   }
@@ -236,6 +242,7 @@ export function normalizeAiSettings(input: Partial<AiSettingsState> | null | und
   return {
     activeProviderId,
     providers,
+    search: normalizeSearchSettings(input?.search),
     systemPrompt:
       typeof input?.systemPrompt === 'string' && input.systemPrompt.trim()
         ? input.systemPrompt.trim()
@@ -479,6 +486,7 @@ export function resolveActiveAiRequestSettings(settings: AiSettingsState): AiReq
       baseURL: activeProvider.baseURL,
       model: selectedModelId,
     }),
+    searchService: resolveActiveSearchRequestSettings(settings.search),
     systemPrompt: settings.systemPrompt,
     temperature: settings.temperature,
   }
