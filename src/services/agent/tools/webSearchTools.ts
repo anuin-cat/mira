@@ -1,5 +1,5 @@
 import type { AiSearchRequestSettings } from '../../../domain/ai'
-import { normalizeBochaSearchCount, searchBochaWeb } from '../../search'
+import { normalizeBochaSearchCount, normalizeWebReadMaxChars, readWebPage, searchBochaWeb } from '../../search'
 import type { BochaImageResult, BochaWebPageResult } from '../../search'
 import type { AgentTool, AgentToolResult } from '../types'
 import { clipWithMeta, readStringInput } from '../utils/text'
@@ -69,7 +69,7 @@ export function createWebSearchAgentTools(searchService: AiSearchRequestSettings
     {
       name: 'web_search',
       description:
-        '搜索公开网页信息。适合查询最新事实、外部资料、新闻、产品文档、网页来源。不要用它搜索用户本地笔记；本地笔记请用 vault_search_notes。不要把当前笔记全文或隐私内容直接作为搜索词。回答使用搜索结果时，应尽量引用结果里的 title 和 url。',
+        '搜索公开网页信息。适合查询最新事实、外部资料、新闻、产品文档、网页来源。不要用它搜索用户本地笔记；本地笔记请用 vault_search_notes。不要把当前笔记全文或隐私内容直接作为搜索词。需要阅读全文时，再对高相关结果调用 web_read_url。回答使用搜索结果时，应尽量引用结果里的 title 和 url。',
       parameters: {
         type: 'object',
         properties: {
@@ -145,6 +145,58 @@ export function createWebSearchAgentTools(searchService: AiSearchRequestSettings
           })
         } catch (error) {
           return createErrorToolResult(error instanceof Error ? error.message : '联网搜索失败')
+        }
+      },
+    },
+    {
+      name: 'web_read_url',
+      description:
+        '读取公开网页 URL 的正文，并清洗为适合 AI 使用的 Markdown。适合在 web_search 找到候选链接后深读 1-3 个高相关网页。只允许 http/https 公网地址；不要读取 localhost、内网、登录后页面或用户隐私链接。回答引用网页内容时，应附带原始 URL。',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: '要读取的公开网页 URL，必须是 http 或 https。',
+          },
+          maxChars: {
+            type: 'number',
+            description: '最多返回多少字符，默认 12000，最大 30000。',
+          },
+        },
+        required: ['url'],
+        additionalProperties: false,
+      },
+      async execute(input) {
+        const url = readStringInput(input, 'url')
+        if (!url) return createErrorToolResult('缺少 url')
+
+        try {
+          const result = await readWebPage({
+            url,
+            maxChars: normalizeWebReadMaxChars(input.maxChars),
+          })
+
+          return createJsonToolResult({
+            ok: true,
+            url: result.url,
+            finalUrl: result.finalUrl,
+            title: result.title,
+            byline: result.byline,
+            siteName: result.siteName,
+            description: result.description,
+            publishedAt: result.publishedAt,
+            language: result.language,
+            wordCount: result.wordCount,
+            contentType: result.contentType,
+            bytesRead: result.bytesRead,
+            isFetchTruncated: result.isFetchTruncated,
+            isContentTruncated: result.isContentTruncated,
+            remainingChars: result.remainingChars,
+            content: result.content,
+          })
+        } catch (error) {
+          return createErrorToolResult(error instanceof Error ? error.message : '网页读取失败')
         }
       },
     },

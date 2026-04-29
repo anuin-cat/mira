@@ -23,6 +23,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "defuddle": "^0.18.1",
     "katex": "^0.16.45",
     "lucide-react": "^1.11.0",
     "openai": "^6.34.0",

@@ -5,6 +5,7 @@ mod git_status;
 #[cfg(test)]
 mod git_status_tests;
 mod git_types;
+mod web_fetch;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::Emitter;
@@ -26,6 +27,7 @@ pub fn run() {
             git::git_push,
             git::git_connect_remote_repository,
             git::git_run_readonly,
+            web_fetch::web_fetch_url,
         ])
         .setup(|app| {
             // 1. 构建 File 菜单
