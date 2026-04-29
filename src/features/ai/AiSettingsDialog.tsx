@@ -47,6 +47,17 @@ function getModelBadgeLabel(
   return settings.activeProviderId === provider.id ? '当前使用' : '默认模型'
 }
 
+/** 删除 provider 后，按原列表位置选择相邻项，避免耦合到聊天默认 provider */
+function getFallbackSelectedProviderIdAfterRemoval(
+  previousProviders: AiProviderConfig[],
+  nextProviders: AiProviderConfig[],
+  removedProviderId: string
+): string | null {
+  const removedIndex = previousProviders.findIndex((provider) => provider.id === removedProviderId)
+  if (removedIndex < 0) return nextProviders[0]?.id ?? null
+  return nextProviders[removedIndex]?.id ?? nextProviders[removedIndex - 1]?.id ?? nextProviders[0]?.id ?? null
+}
+
 /** AI 设置弹层：三栏布局，左侧导航 / 中间供应商列表 / 右侧详情 */
 export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
   const [draftSettings, setDraftSettings] = useState<AiSettingsState>(initialSettings)
@@ -63,7 +74,10 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
 
   useEffect(() => {
     setDraftSettings(initialSettings)
-    setSelectedProviderId(initialSettings.activeProviderId ?? initialSettings.providers[0]?.id ?? null)
+    setSelectedProviderId((currentProviderId) => {
+      const hasCurrentProvider = initialSettings.providers.some((provider) => provider.id === currentProviderId)
+      return hasCurrentProvider ? currentProviderId : initialSettings.providers[0]?.id ?? null
+    })
     setIsApiKeyVisible(false)
   }, [initialSettings])
 
@@ -111,7 +125,7 @@ export function AiSettingsDialog({ initialSettings, onClose, onSave }: Props) {
     const nextSettings = removeAiProvider(draftSettings, providerId)
     const nextSelectedProviderId =
       selectedProviderId === providerId
-        ? nextSettings.activeProviderId ?? nextSettings.providers[0]?.id ?? null
+        ? getFallbackSelectedProviderIdAfterRemoval(draftSettings.providers, nextSettings.providers, providerId)
         : selectedProviderId
     setDraftSettings(nextSettings)
     setSelectedProviderId(nextSelectedProviderId)

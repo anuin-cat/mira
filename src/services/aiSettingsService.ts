@@ -108,27 +108,19 @@ function normalizeProviderEnabled(
   return hasModels || isLegacyActiveProvider
 }
 
-/** 从已开启且已有模型的 provider 中挑一个可直接用于聊天的回退项 */
-function findFirstEnabledProviderWithModel(providers: AiProviderConfig[]): AiProviderConfig | null {
-  return providers.find((provider) => provider.isEnabled && provider.models.length > 0) ?? null
-}
-
-/** 规范化 activeProviderId，优先保留原值，仅在已关闭且有可用回退项时自动切换 */
+/** 规范化 activeProviderId，优先保留原值，仅在目标不存在时回退到首个 provider */
 function resolveNormalizedActiveProviderId(
   providers: AiProviderConfig[],
   activeProviderId: unknown
 ): string | null {
-  const matchedActiveProvider =
-    typeof activeProviderId === 'string'
-      ? providers.find((provider) => provider.id === activeProviderId) ?? null
-      : null
-
-  if (matchedActiveProvider) {
-    if (matchedActiveProvider.isEnabled) return matchedActiveProvider.id
-    return findFirstEnabledProviderWithModel(providers)?.id ?? matchedActiveProvider.id
+  if (
+    typeof activeProviderId === 'string' &&
+    providers.some((provider) => provider.id === activeProviderId)
+  ) {
+    return activeProviderId
   }
 
-  return findFirstEnabledProviderWithModel(providers)?.id ?? providers[0]?.id ?? null
+  return providers[0]?.id ?? null
 }
 
 /** 创建默认 AI 设置（内置供应商不预填模型，由用户自行添加并选择） */
@@ -383,7 +375,7 @@ export function switchAiProviderPreset(
   return setActiveAiProvider(settings, providerId)
 }
 
-/** 为 provider 增加一个模型，已存在则只更新选中状态 */
+/** 为 provider 增加一个模型，已存在则只更新该 provider 的默认模型 */
 export function addAiProviderModel(
   settings: AiSettingsState,
   providerId: string,
@@ -417,7 +409,6 @@ export function addAiProviderModel(
 
   return normalizeAiSettings({
     ...settings,
-    activeProviderId: providerId,
     providers: nextProviders,
   })
 }
