@@ -22,6 +22,7 @@ import { MiraToolbar } from './MiraToolbar'
 import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
+const CODE_BLOCK_MAX_EDIT_LINES = 8
 const CODE_TOKEN_RE =
   /(\/\/.*|#.*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b(?:const|let|var|function|return|import|export|from|if|else|for|while|class|interface|type|async|await|true|false|null|undefined)\b)/g
 const TOOLBAR_TRANSLATIONS: Record<string, string> = {
@@ -106,6 +107,22 @@ function highlightCode(code: string) {
   return html + escapeHtml(code.slice(cursor))
 }
 
+/** 按内容同步代码块 textarea 高度，最多展示 8 行后再内部滚动 */
+function syncCodeBlockTextareaHeight(textarea: HTMLTextAreaElement) {
+  const styles = window.getComputedStyle(textarea)
+  const fontSize = Number.parseFloat(styles.fontSize) || 13
+  const lineHeight = Number.parseFloat(styles.lineHeight) || fontSize * 1.62
+  const paddingBlock =
+    (Number.parseFloat(styles.paddingTop) || 0) + (Number.parseFloat(styles.paddingBottom) || 0)
+  const borderBlock =
+    (Number.parseFloat(styles.borderTopWidth) || 0) + (Number.parseFloat(styles.borderBottomWidth) || 0)
+  const maxHeight = lineHeight * CODE_BLOCK_MAX_EDIT_LINES + paddingBlock + borderBlock
+
+  textarea.style.height = 'auto'
+  textarea.style.height = `${Math.min(textarea.scrollHeight + borderBlock, maxHeight)}px`
+  textarea.style.overflowY = textarea.scrollHeight + borderBlock > maxHeight ? 'auto' : 'hidden'
+}
+
 /** 轻量代码块编辑器：保留语言和内容编辑，避免拉入完整 CodeMirror 代码块编辑器 */
 function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorProps) {
   // 1. 维护轻量编辑态，并响应 MDXEditor 的聚焦请求
@@ -114,16 +131,24 @@ function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorP
   const [copyLabel, setCopyLabel] = useState('复制')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  /** 聚焦编辑框并在进入编辑态时立即同步高度 */
+  function focusAndResizeTextarea() {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    syncCodeBlockTextareaHeight(textarea)
+    textarea.focus()
+  }
+
   useEffect(() => {
     focusEmitter.subscribe(() => {
       setIsEditing(true)
-      window.requestAnimationFrame(() => textareaRef.current?.focus())
+      window.requestAnimationFrame(focusAndResizeTextarea)
     })
   }, [focusEmitter])
 
   useEffect(() => {
-    if (isEditing) window.requestAnimationFrame(() => textareaRef.current?.focus())
-  }, [isEditing])
+    if (isEditing) window.requestAnimationFrame(focusAndResizeTextarea)
+  }, [code, isEditing])
 
   /** 复制代码块文本，优先走 Clipboard API，失败后给出重试提示 */
   async function handleCopyClick() {
@@ -162,8 +187,13 @@ function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorP
           ref={textareaRef}
           className="mira-code-block-textarea"
           value={code}
+          rows={1}
           spellCheck={false}
-          onChange={(event) => setCode(event.target.value)}
+          aria-label="代码内容"
+          onChange={(event) => {
+            setCode(event.target.value)
+            syncCodeBlockTextareaHeight(event.target)
+          }}
           onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
               if (isImeComposing(event)) return
