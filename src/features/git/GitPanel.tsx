@@ -1,24 +1,8 @@
-import { type KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  GitBranch,
-  Link as LinkIcon,
-  Loader2,
-  Minus,
-  Plus,
-  RefreshCcw,
-  RotateCcw,
-  Send,
-  X,
-} from 'lucide-react'
+import { GitBranch, Link as LinkIcon, Loader2, RefreshCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Toast, ToastClose, ToastProvider, ToastTitle, ToastViewport } from '@/components/ui/toast'
 import type { GitChangedFile, GitDiffMode, GitStatusResult } from '../../domain/git'
 import {
@@ -44,32 +28,30 @@ import {
   type GitPanelOpenSession,
   type GitPanelOpenTrace,
 } from './gitPanelPerf'
+import { GitChangeList } from './GitChangeList'
+import {
+  GitCommitBox,
+  GitDiffToolbar,
+  GitRemoteSetup,
+  GitSetupBand,
+} from './GitPanelSections'
+import {
+  COMMIT_INPUT_MAX_LINES,
+  COMMIT_INPUT_MIN_LINES,
+  MISSING_REMOTE_PUSH_MESSAGE,
+  REMOTE_RECONNECT_MESSAGE,
+  getDefaultDiffMode,
+  getErrorMessage,
+  getFileLineStats,
+  getGitStatusSummary,
+  shouldOfferRemoteReconnect,
+  type GitToastState,
+  type GitPanelRequest,
+  type RunOperationOptions,
+} from './gitPanelModel'
 import './git-panel.css'
 
-const REMOTE_RECONNECT_ERROR_MARKERS = [
-  'could not read from remote repository',
-  'does not appear to be a git repository',
-  'authentication failed',
-  'permission denied',
-  'access denied',
-  'not authorized',
-  'the requested url returned error: 403',
-  'the requested url returned error: 404',
-  'no such remote',
-  'no configured push destination',
-]
-const REMOTE_RECONNECT_MESSAGE =
-  '远端仓库可能已删除、不可访问，或当前 Git 凭据没有权限。可以重新在 GitHub 创建仓库，然后把新的 remote URL 粘贴到这里。'
-const MISSING_REMOTE_PUSH_MESSAGE = '目前没有连接远端。点击右上角“连接远端”按钮连接后，再 Push。'
-const COMMIT_INPUT_MIN_LINES = 2
-const COMMIT_INPUT_MAX_LINES = 3
-
-export type GitPanelAction = 'connect-remote' | 'stage-all' | 'commit' | 'push'
-
-export interface GitPanelRequest {
-  id: number
-  action: GitPanelAction
-}
+export type { GitPanelAction, GitPanelRequest } from './gitPanelModel'
 
 interface GitPanelProps {
   isOpen: boolean
@@ -81,61 +63,6 @@ interface GitPanelProps {
   onBeforeWrite: () => Promise<void>
   onFilesChanged: (paths: string[]) => Promise<void>
   onStatusChange: (status: GitStatusResult) => void
-}
-
-interface RunOperationOptions {
-  onSuccess?: (status: GitStatusResult) => void | Promise<void>
-  onError?: (message: string) => void
-}
-
-interface GitToastState {
-  id: number
-  message: string
-  variant: 'success' | 'warning'
-}
-
-/** 从未知异常中提取可展示消息 */
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'string') return error
-  return error instanceof Error ? error.message : 'Git 操作失败'
-}
-
-/** 判断 Git 错误是否适合引导用户重新连接远端 */
-function shouldOfferRemoteReconnect(message: string): boolean {
-  const normalized = message.toLowerCase()
-  if (normalized.includes('repository') && normalized.includes('not found')) return true
-  if (normalized.includes('remote') && normalized.includes('not found')) return true
-  return REMOTE_RECONNECT_ERROR_MARKERS.some((marker) => normalized.includes(marker))
-}
-
-/** 将 Git 状态转换为短标签 */
-function getFileStatusLabel(file: GitChangedFile): string {
-  if (file.kind === 'untracked') return '新增'
-  if (file.kind === 'added') return '新增'
-  if (file.kind === 'deleted') return '删除'
-  if (file.kind === 'renamed') return '重命名'
-  if (file.kind === 'conflicted') return '冲突'
-  return '修改'
-}
-
-/** 读取指定分组下的行数变化 */
-function getFileLineStats(file: GitChangedFile, mode: GitDiffMode) {
-  return mode === 'staged'
-    ? { additions: file.stagedAdditions, deletions: file.stagedDeletions }
-    : { additions: file.unstagedAdditions, deletions: file.unstagedDeletions }
-}
-
-/** 获取行数变化的颜色状态 */
-function getLineStatClassName(value: number, kind: 'addition' | 'deletion'): string {
-  if (value === 0) return 'muted'
-  return kind
-}
-
-/** 获取当前文件默认 diff 视图 */
-function getDefaultDiffMode(file: GitChangedFile | null): GitDiffMode {
-  if (!file) return 'unstaged'
-  if (file.isUnstaged) return 'unstaged'
-  return 'staged'
 }
 
 /** 居中的 Git 操作面板 */
@@ -530,66 +457,6 @@ export function GitPanel({
     }
   }, [isOpen, request])
 
-  /** 支持键盘选择变更文件 */
-  function handleChangeRowKeyDown(event: KeyboardEvent<HTMLDivElement>, file: GitChangedFile, mode: GitDiffMode) {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    handleSelectFile(file, mode)
-  }
-
-  /** 渲染单行文件变更，保持列表紧凑 */
-  function renderChangeRow(file: GitChangedFile, mode: GitDiffMode) {
-    const stats = getFileLineStats(file, mode)
-    const isSelected = file.path === selectedPath && diffMode === mode
-    const action =
-      mode === 'staged'
-        ? {
-            icon: <Minus aria-hidden />,
-            label: `Unstage ${file.path}`,
-            handler: () => handleUnstage([file.path]),
-            disabled: isOperating,
-          }
-        : {
-            icon: <Plus aria-hidden />,
-            label: `Stage ${file.path}`,
-            handler: () => handleStage([file.path]),
-            disabled: isOperating,
-          }
-
-    return (
-      <div
-        key={`${mode}:${file.path}`}
-        className={`git-change-row${isSelected ? ' active' : ''}`}
-        role="button"
-        tabIndex={0}
-        onClick={() => handleSelectFile(file, mode)}
-        onKeyDown={(event) => handleChangeRowKeyDown(event, file, mode)}
-      >
-        <span className="git-change-path" title={file.path}>
-          {file.path}
-        </span>
-        <span className="git-change-stats">
-          <span className={getLineStatClassName(stats.additions, 'addition')}>+{stats.additions}</span>
-          <span className={getLineStatClassName(stats.deletions, 'deletion')}>-{stats.deletions}</span>
-        </span>
-        <span className={`git-change-kind ${file.kind}`}>{getFileStatusLabel(file)}</span>
-        <button
-          type="button"
-          className="git-change-row-action"
-          onClick={(event) => {
-            event.stopPropagation()
-            void action.handler()
-          }}
-          disabled={action.disabled}
-          aria-label={action.label}
-          title={action.label}
-        >
-          {action.icon}
-        </button>
-      </div>
-    )
-  }
-
   if (!isOpen) return null
 
   return createPortal(
@@ -601,13 +468,7 @@ export function GitPanel({
             <GitBranch aria-hidden />
             <div>
               <h2>Git</h2>
-              <p>
-                {isWaitingForFirstStatus
-                  ? '正在读取 Git 状态...'
-                  : `${status?.branch ? status.branch : 'Vault 备份'}${status?.remoteUrl ? ' · origin' : ''}${
-                      status?.ahead ? ` · ahead ${status.ahead}` : ''
-                    }${status?.behind ? ` · behind ${status.behind}` : ''}${isRefreshingStatus ? ' · 正在刷新' : ''}`}
-              </p>
+              <p>{getGitStatusSummary(status, isWaitingForFirstStatus, isRefreshingStatus)}</p>
             </div>
           </div>
           <div className="git-panel-header-actions">
@@ -647,203 +508,76 @@ export function GitPanel({
         {isRefreshingStatus ? <div className="git-panel-hint">正在刷新 Git 状态，先展示最近一次结果。</div> : null}
 
         {status && (!status.isGitRepository || !status.isVaultGitRoot) ? (
-          <section className="git-setup-band">
-            <div>
-              <h3>{status.isGitRepository ? 'Vault 不是仓库根目录' : '初始化本地 Git 仓库'}</h3>
-              <p>
-                {status.repositoryProblem ??
-                  '本地初始化只会在 vault 根目录执行 git init，并默认忽略 .mira/。远端仓库可以之后再连接。'}
-              </p>
-            </div>
-            {!status.repositoryProblem ? (
-              <div className="git-setup-actions">
-                <Button className="git-local-init-button" onClick={handleInitLocalRepository} disabled={isOperating}>
-                  {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <GitBranch aria-hidden />}
-                  本地初始化
-                </Button>
-              </div>
-            ) : null}
-          </section>
+          <GitSetupBand
+            status={status}
+            isOperating={isOperating}
+            onInitLocalRepository={() => void handleInitLocalRepository()}
+          />
         ) : null}
 
         {shouldShowRemoteSetup ? (
-          <section className="git-remote-band">
-            <div className="git-remote-heading">
-              <div className="git-remote-heading-text">
-                <h3>连接 GitHub 远端</h3>
-                <p>先在 GitHub 网页创建一个空仓库，再把仓库地址粘贴到这里；Mira 只会执行本地 git remote 与 git push。</p>
-              </div>
-              <Button
-                className="git-remote-close-button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setIsRemoteSetupOpen(false)}
-                aria-label="收起连接远端"
-              >
-                <X aria-hidden />
-              </Button>
-            </div>
-            {remoteRecoveryMessage ? <div className="git-remote-recovery">{remoteRecoveryMessage}</div> : null}
-            <div className="git-remote-actions">
-              <Button variant="outline" onClick={handleOpenGitHubNewRepository} disabled={isOperating}>
-                <ExternalLink aria-hidden />
-                打开 GitHub 新建仓库
-              </Button>
-            </div>
-            <div className="git-remote-row">
-              <Input
-                ref={remoteInputRef}
-                value={remoteUrl}
-                onChange={(event) => {
-                  setRemoteUrl(event.target.value)
-                  setRemoteRecoveryMessage(null)
-                }}
-                placeholder="https://github.com/you/repo.git 或 git@github.com:you/repo.git"
-              />
-              <Button variant="outline" onClick={handleConnectRemote} disabled={isOperating || !remoteUrl.trim()}>
-                连接远端
-              </Button>
-            </div>
-          </section>
+          <GitRemoteSetup
+            remoteRecoveryMessage={remoteRecoveryMessage}
+            remoteUrl={remoteUrl}
+            remoteInputRef={remoteInputRef}
+            isOperating={isOperating}
+            onClose={() => setIsRemoteSetupOpen(false)}
+            onOpenGitHubNewRepository={() => void handleOpenGitHubNewRepository()}
+            onConnectRemote={() => void handleConnectRemote()}
+            onRemoteUrlChange={(value) => {
+              setRemoteUrl(value)
+              setRemoteRecoveryMessage(null)
+            }}
+          />
         ) : null}
 
         <div className="git-panel-grid">
           <aside className="git-changes">
-            <section className="git-commit-box">
-              <div className="git-commit-row">
-                <Textarea
-                  ref={commitInputRef}
-                  value={commitMessage}
-                  onChange={(event) => setCommitMessage(event.target.value)}
-                  placeholder="Commit message"
-                  rows={COMMIT_INPUT_MIN_LINES}
-                  className="git-commit-input"
-                />
-                <div className="git-commit-actions">
-                  <Button size="sm" onClick={handleCommit} disabled={!canUseGit || isOperating || stagedCount === 0}>
-                    {isOperating ? <Loader2 className="git-spin" aria-hidden /> : <Check aria-hidden />}
-                    Commit
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handlePush} disabled={!canUseGit || isOperating}>
-                    <Send aria-hidden />
-                    Push
-                  </Button>
-                </div>
-              </div>
-            </section>
+            <GitCommitBox
+              commitInputRef={commitInputRef}
+              commitMessage={commitMessage}
+              canUseGit={canUseGit}
+              isOperating={isOperating}
+              stagedCount={stagedCount}
+              onCommitMessageChange={setCommitMessage}
+              onCommit={() => void handleCommit()}
+              onPush={() => void handlePush()}
+            />
 
             <div className="git-change-list">
-              {isWaitingForFirstStatus ? (
-                <div className="git-empty loading">正在读取变更列表...</div>
-              ) : !status?.changedFiles.length ? (
-                <div className="git-empty">没有未提交变更</div>
-              ) : (
-                <>
-                  <section className="git-change-group">
-                    <header className="git-change-group-header">
-                      <button type="button" className="git-change-group-toggle" onClick={() => setIsStagedOpen((value) => !value)}>
-                        {isStagedOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
-                        <span>Staged</span>
-                        <span>{stagedFiles.length}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="git-change-group-action"
-                        onClick={() => void handleUnstage([])}
-                        disabled={!canUseGit || isOperating || stagedFiles.length === 0}
-                        aria-label="Unstage 全部 staged 变更"
-                        title="Unstage 全部"
-                      >
-                        <Minus aria-hidden />
-                      </button>
-                    </header>
-                    {isStagedOpen ? (
-                      <div className="git-change-group-list">
-                        {stagedFiles.length ? (
-                          stagedFiles.map((file) => renderChangeRow(file, 'staged'))
-                        ) : (
-                          <div className="git-change-group-empty">没有 staged 文件</div>
-                        )}
-                      </div>
-                    ) : null}
-                  </section>
-
-                  <section className="git-change-group">
-                    <header className="git-change-group-header">
-                      <button type="button" className="git-change-group-toggle" onClick={() => setIsUnstagedOpen((value) => !value)}>
-                        {isUnstagedOpen ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
-                        <span>未 staged</span>
-                        <span>{unstagedFiles.length}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="git-change-group-action"
-                        onClick={() => void handleStage([])}
-                        disabled={!canUseGit || isOperating || unstagedFiles.length === 0}
-                        aria-label="Stage 全部未 staged 变更"
-                        title="Stage 全部"
-                      >
-                        <Plus aria-hidden />
-                      </button>
-                    </header>
-                    {isUnstagedOpen ? (
-                      <div className="git-change-group-list">
-                        {unstagedFiles.length ? (
-                          unstagedFiles.map((file) => renderChangeRow(file, 'unstaged'))
-                        ) : (
-                          <div className="git-change-group-empty">没有未 staged 变更</div>
-                        )}
-                      </div>
-                    ) : null}
-                  </section>
-                </>
-              )}
+              <GitChangeList
+                isWaitingForFirstStatus={isWaitingForFirstStatus}
+                changedFileCount={status?.changedFiles.length ?? 0}
+                canUseGit={canUseGit}
+                isOperating={isOperating}
+                stagedFiles={stagedFiles}
+                unstagedFiles={unstagedFiles}
+                selectedPath={selectedPath}
+                diffMode={diffMode}
+                isStagedOpen={isStagedOpen}
+                isUnstagedOpen={isUnstagedOpen}
+                onToggleStagedOpen={() => setIsStagedOpen((value) => !value)}
+                onToggleUnstagedOpen={() => setIsUnstagedOpen((value) => !value)}
+                onSelectFile={handleSelectFile}
+                onStage={(paths) => void handleStage(paths)}
+                onUnstage={(paths) => void handleUnstage(paths)}
+              />
             </div>
           </aside>
 
           <main className="git-diff-pane">
-            <div className="git-diff-toolbar">
-              <div className="git-selected-file">
-                <span>{isWaitingForFirstStatus ? '正在读取变更列表...' : selectedFile?.path ?? '未选择文件'}</span>
-                {selectedLineStats ? <span>+{selectedLineStats.additions} -{selectedLineStats.deletions}</span> : null}
-              </div>
-              <div className="git-diff-actions">
-                {shouldShowStageButton ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => selectedFile && handleStage([selectedFile.path])}
-                    disabled={!selectedFile || isOperating}
-                  >
-                    <Plus aria-hidden />
-                    Stage
-                  </Button>
-                ) : null}
-                {shouldShowDiscardButton ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-                    onClick={() => selectedFile && handleDiscardChanges(selectedFile)}
-                    disabled={!selectedFile || isOperating}
-                  >
-                    <RotateCcw aria-hidden />
-                    撤销修改
-                  </Button>
-                ) : null}
-                {shouldShowUnstageButton ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => selectedFile && handleUnstage([selectedFile.path])}
-                    disabled={!selectedFile || isOperating}
-                  >
-                    <Minus aria-hidden />
-                    Unstage
-                  </Button>
-                ) : null}
-              </div>
-            </div>
+            <GitDiffToolbar
+              isWaitingForFirstStatus={isWaitingForFirstStatus}
+              selectedFile={selectedFile}
+              selectedLineStats={selectedLineStats}
+              shouldShowStageButton={shouldShowStageButton}
+              shouldShowDiscardButton={shouldShowDiscardButton}
+              shouldShowUnstageButton={shouldShowUnstageButton}
+              isOperating={isOperating}
+              onStageSelected={() => selectedFile && void handleStage([selectedFile.path])}
+              onDiscardSelected={() => selectedFile && void handleDiscardChanges(selectedFile)}
+              onUnstageSelected={() => selectedFile && void handleUnstage([selectedFile.path])}
+            />
             <GitDiffView
               diff={diff}
               emptyState={isWaitingForFirstStatus ? '正在读取 Git 状态...' : selectedFile ? '当前视图没有 diff' : '选择一个文件查看 diff'}
