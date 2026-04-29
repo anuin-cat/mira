@@ -1,6 +1,7 @@
 import { openUrl } from '@tauri-apps/plugin-opener'
 import 'katex/dist/katex.min.css'
 import rehypeKatex from 'rehype-katex'
+import type { ComponentProps } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -58,12 +59,18 @@ const MARKDOWN_COMPONENTS: Components = {
   },
 }
 
+const AI_MARKDOWN_REMARK_PLUGINS: NonNullable<ComponentProps<typeof Markdown>['remarkPlugins']> = [
+  [remarkGfm, { singleTilde: false }],
+  remarkMath,
+  remarkAiMarkdownCompat,
+]
+
 /** AI 回复的只读 Markdown 渲染组件 */
 export function AiMarkdown({ content }: Props) {
   return (
     <div className="ai-markdown">
       <Markdown
-        remarkPlugins={[remarkGfm, remarkMath, remarkAiMarkdownCompat]}
+        remarkPlugins={AI_MARKDOWN_REMARK_PLUGINS}
         rehypePlugins={[rehypeKatex]}
         components={MARKDOWN_COMPONENTS}
       >

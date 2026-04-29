@@ -20,6 +20,7 @@ import type { EditorSearchSelectionResult } from './currentFileSearch'
 import { MiraLinkDialog } from './MiraLinkDialog'
 import { MiraToolbar } from './MiraToolbar'
 import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
+import { singleTildeStrikethroughPlugin } from './singleTildeStrikethroughPlugin'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
 const CODE_BLOCK_MAX_EDIT_LINES = 8
@@ -244,6 +245,7 @@ export function createEditorPlugins({
   onSelectEditorSearchMatch,
 }: CreateEditorPluginsOptions): RealmPlugin[] {
   return [
+    singleTildeStrikethroughPlugin(),
     headingsPlugin({ allowedHeadingLevels: [1, 2, 3, 4, 5, 6] }),
     listsPlugin(),
     quotePlugin(),
