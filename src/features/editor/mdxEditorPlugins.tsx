@@ -20,6 +20,7 @@ import type { EditorSearchSelectionResult } from './currentFileSearch'
 import { MiraLinkDialog } from './MiraLinkDialog'
 import { MiraToolbar } from './MiraToolbar'
 import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
+import { mdxListStartPlugin } from './mdxListStartPlugin'
 import { singleTildeStrikethroughPlugin } from './singleTildeStrikethroughPlugin'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
@@ -248,6 +249,7 @@ export function createEditorPlugins({
     singleTildeStrikethroughPlugin(),
     headingsPlugin({ allowedHeadingLevels: [1, 2, 3, 4, 5, 6] }),
     listsPlugin(),
+    mdxListStartPlugin(),
     quotePlugin(),
     thematicBreakPlugin(),
     linkPlugin({ disableAutoLink: true }),
