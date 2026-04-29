@@ -37,11 +37,29 @@ import {
   type PendingEditorSelection,
 } from './vaultWorkspaceModel'
 
+const AI_REFERENCE_DEDUP_WINDOW_MS = 800
+
 interface UseVaultWorkspaceOptions {
   isAiSidebarOpen: boolean
   openAiSidebar: () => void
   handleToggleAiSidebar: () => void
   handleToggleFileSidebar: () => void
+}
+
+interface LastAiTextReference {
+  signature: string
+  addedAt: number
+}
+
+/** 生成用于短时间去重的引用签名，忽略每次新建时随机生成的 id */
+function getAiTextReferenceSignature(reference: AiTextReference) {
+  return [
+    reference.path,
+    reference.title,
+    reference.startLine,
+    reference.endLine,
+    reference.content,
+  ].join('\u001f')
 }
 
 /** 管理 vault、文件树、编辑器内容、菜单命令和 Git badge 状态 */
@@ -74,6 +92,7 @@ export function useVaultWorkspace({
   const fileTreeRef = useRef<FileTreeHandle>(null)
   const editorHandleRef = useRef<MdxEditorHandle>(null)
   const aiSidebarRef = useRef<AiSidebarHandle>(null)
+  const lastAiTextReferenceRef = useRef<LastAiTextReference | null>(null)
   const fileActions = createVaultWorkspaceFileActions({
     getActivePath: () => activePathRef.current,
     getTreeData: () => treeData,
@@ -123,8 +142,24 @@ export function useVaultWorkspace({
     }
   }
 
+  /** 跳过同一选区在同一次快捷键链路中被重复加入 */
+  function shouldSkipDuplicateAiTextReference(reference: AiTextReference) {
+    const signature = getAiTextReferenceSignature(reference)
+    const now = performance.now()
+    const lastReference = lastAiTextReferenceRef.current
+    lastAiTextReferenceRef.current = { signature, addedAt: now }
+
+    return Boolean(
+      lastReference &&
+        lastReference.signature === signature &&
+        now - lastReference.addedAt <= AI_REFERENCE_DEDUP_WINDOW_MS
+    )
+  }
+
   /** 把指定编辑器引用加入 AI 输入框，并确保侧栏打开聚焦 */
   function addTextReferenceToAiComposer(reference: AiTextReference) {
+    if (shouldSkipDuplicateAiTextReference(reference)) return
+
     openAiSidebar()
     window.requestAnimationFrame(() => {
       aiSidebarRef.current?.addReference(reference)

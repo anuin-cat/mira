@@ -22,17 +22,30 @@ import {
 import type { AiTextReference } from '../../domain/ai'
 import { isImeComposing } from '../../lib/keyboard'
 import {
-  createAiComposerReferencePart,
   createAiComposerTextPart,
-  formatAiReferenceLabel,
   hasAiComposerContent,
   normalizeAiComposerParts,
   type AiComposerPart,
 } from './aiComposerModel'
-
-const AI_COMPOSER_MIN_ROWS = 3
-const AI_COMPOSER_MAX_ROWS = 8
-const AI_COMPOSER_FALLBACK_LINE_HEIGHT = 22
+import {
+  AI_REFERENCE_REMOVE_SELECTOR,
+  AI_REFERENCE_SELECTOR,
+  applyComposerSelection,
+  createReferencePillNodes,
+  createTextNode,
+  getCurrentComposerRange,
+  getReferencePillAfterCaret,
+  getReferencePillBeforeCaret,
+  insertTextAtSelection,
+  isComposerRangeUsable,
+  placeCaretAfterReferencePill,
+  placeCaretAtEnd,
+  placeCaretBeforeReferencePill,
+  placeCaretInTextNode,
+  readComposerParts,
+  removeReferencePill,
+  resizeComposerInput,
+} from './aiComposerDom'
 
 interface AiComposerModelGroup {
   providerId: string
@@ -63,184 +76,6 @@ export interface AiComposerHandle {
   setPlainText: (text: string) => void
 }
 
-/** 根据内容把富文本输入区高度限制在 3 到 8 行之间 */
-function resizeComposerInput(inputElement: HTMLElement) {
-  // 1. 先恢复自动高度，让删除内容时输入区也能收回
-  inputElement.style.height = 'auto'
-
-  // 2. 根据当前字体行高计算 3 行和 8 行的真实像素高度
-  const styles = window.getComputedStyle(inputElement)
-  const lineHeight = Number.parseFloat(styles.lineHeight) || AI_COMPOSER_FALLBACK_LINE_HEIGHT
-  const paddingTop = Number.parseFloat(styles.paddingTop) || 0
-  const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0
-  const minHeight = lineHeight * AI_COMPOSER_MIN_ROWS + paddingTop + paddingBottom
-  const maxHeight = lineHeight * AI_COMPOSER_MAX_ROWS + paddingTop + paddingBottom
-  const nextHeight = Math.min(maxHeight, Math.max(minHeight, inputElement.scrollHeight))
-
-  // 3. 超过 8 行后固定高度并开启内部滚动
-  inputElement.style.height = `${nextHeight}px`
-  inputElement.style.overflowY = inputElement.scrollHeight > maxHeight ? 'auto' : 'hidden'
-}
-
-/** 判断某个节点是否位于 composer 输入区内 */
-function isNodeInsideComposer(rootElement: HTMLElement, node: Node | null) {
-  return Boolean(node && (node === rootElement || rootElement.contains(node)))
-}
-
-/** 把光标放到指定节点之后 */
-function placeCaretAfterNode(rootElement: HTMLElement, node: Node) {
-  const selection = window.getSelection()
-  if (!selection) return
-
-  const range = document.createRange()
-  range.setStartAfter(node)
-  range.collapse(true)
-  selection.removeAllRanges()
-  selection.addRange(range)
-  rootElement.focus()
-}
-
-/** 把光标放到输入区末尾 */
-function placeCaretAtEnd(rootElement: HTMLElement) {
-  const selection = window.getSelection()
-  if (!selection) return
-
-  const range = document.createRange()
-  range.selectNodeContents(rootElement)
-  range.collapse(false)
-  selection.removeAllRanges()
-  selection.addRange(range)
-  rootElement.focus()
-}
-
-/** 创建引用胶囊 DOM，避免 React 重绘打断 contentEditable 光标 */
-function createReferencePillElement(reference: AiTextReference) {
-  const pillElement = document.createElement('span')
-  pillElement.className = 'ai-composer-reference-pill'
-  pillElement.contentEditable = 'false'
-  pillElement.dataset.aiReferenceId = reference.id
-  pillElement.setAttribute('role', 'button')
-  pillElement.setAttribute('aria-label', `引用 ${formatAiReferenceLabel(reference)}`)
-
-  const labelElement = document.createElement('span')
-  labelElement.className = 'ai-composer-reference-label'
-  labelElement.textContent = formatAiReferenceLabel(reference)
-  pillElement.append(labelElement)
-
-  const removeElement = document.createElement('span')
-  removeElement.className = 'ai-composer-reference-remove'
-  removeElement.dataset.aiReferenceRemove = 'true'
-  removeElement.setAttribute('aria-hidden', 'true')
-  removeElement.textContent = '×'
-  pillElement.append(removeElement)
-
-  return pillElement
-}
-
-/** 创建普通文本节点 */
-function createTextNode(text: string) {
-  return document.createTextNode(text)
-}
-
-/** 在当前光标位置插入文本 */
-function insertTextAtSelection(rootElement: HTMLElement, text: string) {
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0 || !isNodeInsideComposer(rootElement, selection.anchorNode)) {
-    rootElement.append(createTextNode(text))
-    placeCaretAtEnd(rootElement)
-    return
-  }
-
-  const range = selection.getRangeAt(0)
-  range.deleteContents()
-  const textNode = createTextNode(text)
-  range.insertNode(textNode)
-  range.setStartAfter(textNode)
-  range.collapse(true)
-  selection.removeAllRanges()
-  selection.addRange(range)
-}
-
-/** 读取紧邻光标左侧的引用胶囊 */
-function getReferencePillBeforeCaret(rootElement: HTMLElement) {
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return null
-  if (!isNodeInsideComposer(rootElement, selection.anchorNode)) return null
-
-  const range = selection.getRangeAt(0)
-  const container = range.startContainer
-  const offset = range.startOffset
-
-  if (container === rootElement) {
-    return findPreviousReferencePill(rootElement.childNodes[offset - 1] ?? null)
-  }
-
-  if (container.nodeType === Node.TEXT_NODE && offset === 0) {
-    return findPreviousReferencePill(container.previousSibling)
-  }
-
-  return null
-}
-
-/** 跳过空文本节点，寻找左侧最近的引用胶囊 */
-function findPreviousReferencePill(node: Node | null): HTMLElement | null {
-  let currentNode = node
-  while (currentNode) {
-    if (currentNode instanceof HTMLElement && currentNode.dataset.aiReferenceId) return currentNode
-    if (currentNode.nodeType === Node.TEXT_NODE && (currentNode.textContent ?? '') === '') {
-      currentNode = currentNode.previousSibling
-      continue
-    }
-    return null
-  }
-
-  return null
-}
-
-/** 把 DOM 子树读回 composer 片段 */
-function collectComposerPartsFromNode(
-  node: Node,
-  referencesById: Map<string, AiTextReference>,
-  parts: AiComposerPart[]
-) {
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = (node.textContent ?? '').replace(/\u200b/g, '')
-    if (text) parts.push(createAiComposerTextPart(text))
-    return
-  }
-  if (!(node instanceof HTMLElement)) return
-
-  const referenceId = node.dataset.aiReferenceId
-  if (referenceId) {
-    const reference = referencesById.get(referenceId)
-    if (reference) parts.push(createAiComposerReferencePart(reference))
-    return
-  }
-
-  if (node.tagName === 'BR') {
-    parts.push(createAiComposerTextPart('\n'))
-    return
-  }
-
-  const isBlockElement = node.tagName === 'DIV' || node.tagName === 'P'
-  if (isBlockElement && parts.length > 0) parts.push(createAiComposerTextPart('\n'))
-  Array.from(node.childNodes).forEach((childNode) => {
-    collectComposerPartsFromNode(childNode, referencesById, parts)
-  })
-}
-
-/** 从输入区 DOM 读取所有片段 */
-function readComposerParts(rootElement: HTMLElement | null, referencesById: Map<string, AiTextReference>) {
-  if (!rootElement) return []
-
-  const parts: AiComposerPart[] = []
-  Array.from(rootElement.childNodes).forEach((node) => {
-    collectComposerPartsFromNode(node, referencesById, parts)
-  })
-
-  return normalizeAiComposerParts(parts)
-}
-
 /** 支持引用胶囊和文本混排的 AI 输入区 */
 export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function AiComposer(
   { modelGroups, modelValue, isSending, onModelChange, onCreateSession, onSend },
@@ -249,8 +84,29 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
   const editorRef = useRef<HTMLDivElement | null>(null)
   const referencesByIdRef = useRef(new Map<string, AiTextReference>())
   const partsRef = useRef<AiComposerPart[]>([])
+  const lastSelectionRangeRef = useRef<Range | null>(null)
   const [hasContent, setHasContent] = useState(false)
   const [composerVersion, setComposerVersion] = useState(0)
+
+  /** 记录输入框最近一次有效选区，方便从编辑器划词回来后按原位置插入胶囊 */
+  function saveComposerSelection() {
+    const editorElement = editorRef.current
+    if (!editorElement) return
+
+    const range = getCurrentComposerRange(editorElement)
+    if (range) lastSelectionRangeRef.current = range.cloneRange()
+  }
+
+  /** 获取引用插入位置：优先当前选区，其次上次输入框选区 */
+  function getReferenceInsertionRange(editorElement: HTMLElement) {
+    const currentRange = getCurrentComposerRange(editorElement)
+    if (currentRange) return currentRange.cloneRange()
+
+    const savedRange = lastSelectionRangeRef.current
+    if (isComposerRangeUsable(editorElement, savedRange)) return savedRange?.cloneRange() ?? null
+
+    return null
+  }
 
   /** 同步 DOM、ref 和可发送状态 */
   function syncComposerState() {
@@ -266,6 +122,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     if (!editorElement) return
 
     referencesByIdRef.current.clear()
+    lastSelectionRangeRef.current = null
     editorElement.replaceChildren()
     parts.forEach((part) => {
       if (part.type === 'text') {
@@ -274,13 +131,17 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
       }
 
       referencesByIdRef.current.set(part.reference.id, part.reference)
-      editorElement.append(createReferencePillElement(part.reference))
+      const { pillElement, spacerNode } = createReferencePillNodes(part.reference)
+      editorElement.append(pillElement, spacerNode)
     })
 
     partsRef.current = normalizeAiComposerParts(parts)
     setHasContent(hasAiComposerContent(partsRef.current))
     setComposerVersion((version) => version + 1)
-    if (shouldFocus) placeCaretAtEnd(editorElement)
+    if (shouldFocus) {
+      placeCaretAtEnd(editorElement)
+      saveComposerSelection()
+    }
   }
 
   /** 在当前光标位置插入引用胶囊 */
@@ -289,25 +150,24 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     if (!editorElement) return
 
     referencesByIdRef.current.set(reference.id, reference)
-    editorElement.focus()
+    const { pillElement, spacerNode } = createReferencePillNodes(reference)
+    const insertionRange = getReferenceInsertionRange(editorElement)
 
-    const selection = window.getSelection()
-    const pillElement = createReferencePillElement(reference)
-    if (!selection || selection.rangeCount === 0 || !isNodeInsideComposer(editorElement, selection.anchorNode)) {
-      editorElement.append(pillElement)
-      placeCaretAfterNode(editorElement, pillElement)
+    if (!insertionRange) {
+      editorElement.append(pillElement, spacerNode)
+      placeCaretInTextNode(editorElement, spacerNode, spacerNode.data.length)
       syncComposerState()
+      saveComposerSelection()
       return
     }
 
-    const range = selection.getRangeAt(0)
-    range.deleteContents()
-    range.insertNode(pillElement)
-    range.setStartAfter(pillElement)
-    range.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(range)
+    const fragment = document.createDocumentFragment()
+    fragment.append(pillElement, spacerNode)
+    insertionRange.deleteContents()
+    insertionRange.insertNode(fragment)
+    placeCaretInTextNode(editorElement, spacerNode, spacerNode.data.length)
     syncComposerState()
+    saveComposerSelection()
   }
 
   useImperativeHandle(ref, () => ({
@@ -320,7 +180,23 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     focus() {
       const editorElement = editorRef.current
       if (!editorElement) return
+
+      const currentRange = getCurrentComposerRange(editorElement)
+      if (currentRange) {
+        applyComposerSelection(editorElement, currentRange.cloneRange())
+        saveComposerSelection()
+        return
+      }
+
+      const savedRange = lastSelectionRangeRef.current
+      if (isComposerRangeUsable(editorElement, savedRange) && savedRange) {
+        applyComposerSelection(editorElement, savedRange.cloneRange())
+        saveComposerSelection()
+        return
+      }
+
       placeCaretAtEnd(editorElement)
+      saveComposerSelection()
     },
     getParts() {
       syncComposerState()
@@ -348,22 +224,55 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     resizeComposerInput(editorElement)
   }, [composerVersion])
 
+  useEffect(() => {
+    document.addEventListener('selectionchange', saveComposerSelection)
+    return () => document.removeEventListener('selectionchange', saveComposerSelection)
+  }, [])
+
   /** 处理输入变化 */
   function handleInput() {
     syncComposerState()
+    saveComposerSelection()
   }
 
-  /** 处理键盘发送、换行与胶囊删除 */
+  /** 处理普通选区变化 */
+  function handleSelectionChange() {
+    saveComposerSelection()
+  }
+
+  /** 处理键盘发送、换行与胶囊作为文本单位的跳转/删除 */
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const editorElement = editorRef.current
+
+    if (event.key === 'ArrowRight' && editorElement) {
+      const nextPill = getReferencePillAfterCaret(editorElement)
+      if (nextPill) {
+        event.preventDefault()
+        placeCaretAfterReferencePill(editorElement, nextPill)
+        saveComposerSelection()
+      }
+      return
+    }
+
+    if (event.key === 'ArrowLeft' && editorElement) {
+      const previousPill = getReferencePillBeforeCaret(editorElement)
+      if (previousPill) {
+        event.preventDefault()
+        placeCaretBeforeReferencePill(editorElement, previousPill)
+        saveComposerSelection()
+      }
+      return
+    }
+
     if (event.key === 'Enter') {
       if (isImeComposing(event)) return
       event.preventDefault()
 
       if (event.shiftKey && !(event.metaKey || event.ctrlKey)) {
-        const editorElement = editorRef.current
         if (editorElement) {
           insertTextAtSelection(editorElement, '\n')
           syncComposerState()
+          saveComposerSelection()
         }
         return
       }
@@ -372,16 +281,28 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
       return
     }
 
-    if (event.key !== 'Backspace') return
-    const editorElement = editorRef.current
     if (!editorElement) return
 
-    const previousPill = getReferencePillBeforeCaret(editorElement)
-    if (!previousPill) return
+    if (event.key === 'Backspace') {
+      const previousPill = getReferencePillBeforeCaret(editorElement)
+      if (!previousPill) return
 
-    event.preventDefault()
-    previousPill.remove()
-    syncComposerState()
+      event.preventDefault()
+      removeReferencePill(editorElement, previousPill)
+      syncComposerState()
+      saveComposerSelection()
+      return
+    }
+
+    if (event.key === 'Delete') {
+      const nextPill = getReferencePillAfterCaret(editorElement)
+      if (!nextPill) return
+
+      event.preventDefault()
+      removeReferencePill(editorElement, nextPill)
+      syncComposerState()
+      saveComposerSelection()
+    }
   }
 
   /** 粘贴时只接收纯文本，避免外部 HTML 破坏胶囊结构 */
@@ -394,26 +315,30 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     if (!editorElement) return
     insertTextAtSelection(editorElement, pastedText)
     syncComposerState()
+    saveComposerSelection()
   }
 
   /** 删除引用胶囊，或点击胶囊时把光标放到胶囊后 */
   function handleMouseDown(event: MouseEvent<HTMLDivElement>) {
     const targetElement = event.target instanceof HTMLElement ? event.target : null
-    const pillElement = targetElement?.closest<HTMLElement>('[data-ai-reference-id]') ?? null
+    const pillElement = targetElement?.closest<HTMLElement>(AI_REFERENCE_SELECTOR) ?? null
     if (!pillElement) return
+
+    const editorElement = editorRef.current
+    if (!editorElement) return
 
     event.preventDefault()
     event.stopPropagation()
 
-    if (targetElement?.closest('[data-ai-reference-remove]')) {
-      pillElement.remove()
+    if (targetElement?.closest(AI_REFERENCE_REMOVE_SELECTOR)) {
+      removeReferencePill(editorElement, pillElement)
       syncComposerState()
-      editorRef.current?.focus()
+      saveComposerSelection()
       return
     }
 
-    const editorElement = editorRef.current
-    if (editorElement) placeCaretAfterNode(editorElement, pillElement)
+    placeCaretAfterReferencePill(editorElement, pillElement)
+    saveComposerSelection()
   }
 
   /** 发送当前 composer 内容 */
@@ -439,6 +364,9 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
             suppressContentEditableWarning
             onInput={handleInput}
             onKeyDown={handleKeyDown}
+            onKeyUp={handleSelectionChange}
+            onFocus={handleSelectionChange}
+            onMouseUp={handleSelectionChange}
             onPaste={handlePaste}
             onMouseDown={handleMouseDown}
           />

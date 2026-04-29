@@ -56,6 +56,9 @@ importers:
       lucide-react:
         specifier: ^1.11.0
         version: 1.11.0(react@19.2.5)
+      micromark-extension-gfm-strikethrough:
+        specifier: ^2.1.0
+        version: 2.1.0
       openai:
         specifier: ^6.34.0
         version: 6.34.0(zod@3.25.76)
