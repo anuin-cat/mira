@@ -12,7 +12,6 @@ import {
   AgentToolRegistry,
   buildAiFileEditBatch,
   convertAgentTranscriptToCompletionMessages,
-  createGitAgentTools,
   createVaultEditAgentTools,
   createVaultAgentTools,
   createWebSearchAgentTools,
@@ -198,7 +197,6 @@ export async function requestAiChatReply(
   const toolRegistry = new AgentToolRegistry([
     ...createVaultAgentTools(),
     ...createVaultEditAgentTools(),
-    ...createGitAgentTools(),
     ...createWebSearchAgentTools(request.settings.searchService),
   ])
   let agentResult: AgentRunResult

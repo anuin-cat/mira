@@ -42,7 +42,7 @@
 ## 产品与数据设计原则
 
 - 人类可读优先，再考虑 AI/机器可读；一般情况下，人类可读的结构天然也利于 AI 理解
-- vault 在 Finder、Obsidian、普通编辑器和 Git 中都应自然可读、可迁移、可备份
+- vault 在 Finder、Obsidian、普通编辑器和常见备份工具中都应自然可读、可迁移、可备份
 - 用户可见文件夹和文件名应承载主要分类语义，避免用过度程序化命名或隐藏索引替代用户可理解的组织方式
 - 新增文件优先使用低心智负担交互：在文件树中创建实体，再让用户直接重命名；避免要求普通用户输入抽象相对路径
 - 索引、缓存、最近打开、展开状态等只能作为 `.mira/` 内部可重建数据，不应成为理解或恢复 vault 的必要条件
@@ -84,11 +84,6 @@
   - `View > 主题 > 暮光蓝` → `theme_twilight` → `menu:theme-twilight`
   - `View > 主题 > 森林绿` → `theme_forest` → `menu:theme-forest`
   - `View > 主题 > 经典深色` → `theme_dark_classic` → `menu:theme-dark-classic`
-  - `Git > 打开 Git 面板` → `git_panel` → `menu:git-panel`
-  - `Git > 连接 GitHub 远端...` → `git_connect_remote` → `menu:git-connect-remote`
-  - `Git > Stage 全部变更` → `git_stage_all` → `menu:git-stage-all`
-  - `Git > Commit...` → `git_commit` → `menu:git-commit`
-  - `Git > Push` → `git_push` → `menu:git-push`
   - `AI > 新建 AI 对话` → `ai_new_chat` → `menu:ai-new-chat`
   - `AI > 基于当前笔记提问` → `ai_ask_current_note` → `menu:ai-ask-current-note`
   - `App > 设置` → `app_settings` → `menu:app-settings`
@@ -117,7 +112,6 @@
 - `src/components`：UI 组件
 - `src/features`：功能模块
 - `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
-- `src/features/git`：Git 面板 UI，包括变更列表、diff、stage/unstage、撤销未 staged 修改、commit、push、本地 Git 初始化与 GitHub 远端连接入口
 - `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
 - `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务
@@ -144,14 +138,6 @@ vault/
 * 用户可见的目录和 `.md` 文件是唯一主数据，文件名和文件夹名应尽量人类可读
 * `.mira/` 是应用内部目录，只能存放可丢弃、可重建的状态、索引或缓存
 * 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复
-
-## Git 自动化约定
-
-- Git 功能要求 vault 根目录就是 Git 仓库根目录，不操作外层仓库
-- 用户触发的 `add` / `commit` / `push` / remote 连接只能通过 Git 面板或原生 `Git` 菜单执行
-- agent 只能调用内置 allowlist 中已启用的 `git_readonly` 命令，禁止执行会改变仓库状态的 Git 命令
-- 初始化本地 Git 仓库时默认把 `.mira/` 与常见系统缓存规则写到 `.gitignore` 顶部
-- Mira 不负责创建 GitHub 远端仓库；用户在 GitHub 网页创建仓库后粘贴 remote URL，Mira 只执行本地 `git remote add/set-url` 与 `git push`
 
 ## AI 文件编辑约定
 

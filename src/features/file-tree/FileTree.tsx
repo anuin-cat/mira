@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import type { CSSProperties, MouseEvent } from 'react'
 import { Tree } from 'react-arborist'
 import type { NodeApi, RenameHandler, TreeApi } from 'react-arborist'
-import { GitFork, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
 import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
@@ -34,8 +34,6 @@ interface FileTreeProps {
   ) => Promise<void>
   onDeleteEntry: (path: string, kind: VaultEntryKind) => Promise<void>
   onExpandedDirsChange: (paths: string[]) => void
-  onOpenGitPanel: () => void
-  gitChangeCount?: number
   style?: CSSProperties
 }
 
@@ -89,8 +87,6 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     onReorderEntry,
     onDeleteEntry,
     onExpandedDirsChange,
-    onOpenGitPanel,
-    gitChangeCount = 0,
     style,
   },
   ref
@@ -297,15 +293,6 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       >
         <div className="file-sidebar-header-title" />
         <div className="file-sidebar-header-actions">
-          <button
-            className="btn-sidebar-icon"
-            onClick={onOpenGitPanel}
-            title="Git 操作"
-            aria-label="打开 Git 面板"
-          >
-            <GitFork aria-hidden />
-            {gitChangeCount > 0 ? <span className="git-sidebar-badge">{gitChangeCount}</span> : null}
-          </button>
           <button
             className="btn-new btn-sidebar-icon"
             onClick={() => handleCreateFile(defaultCreateParent)}

@@ -9,7 +9,6 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { FileTree } from '../file-tree/FileTree'
 import { MdxEditor } from '../editor/MdxEditor'
 import { AiSidebar } from '../ai/AiSidebar'
-import { GitPanelHost } from '../git/GitPanelHost'
 import {
   COMMAND_DEFINITIONS,
   CommandPalette,
@@ -42,7 +41,7 @@ interface AppLayoutProps {
   workspace: VaultWorkspace
 }
 
-/** 应用主布局：文件树、编辑器、AI 侧栏、命令弹层和 Git 面板 */
+/** 应用主布局：文件树、编辑器、AI 侧栏和命令弹层 */
 export function AppLayout({ panels, workspace }: AppLayoutProps) {
   const editorWorkspace = workspace.activePath ? (
     <section className="editor-workspace">
@@ -97,8 +96,6 @@ export function AppLayout({ panels, workspace }: AppLayoutProps) {
               onReorderEntry={workspace.handleReorderEntry}
               onDeleteEntry={workspace.handleDeleteEntry}
               onExpandedDirsChange={workspace.handleExpandedDirsChange}
-              onOpenGitPanel={() => workspace.gitPanelHostRef.current?.open()}
-              gitChangeCount={workspace.gitChangeCount}
             />
           </Panel>
           <PanelResizeHandle
@@ -172,14 +169,6 @@ export function AppLayout({ panels, workspace }: AppLayoutProps) {
           onOpenFile={(filePath, match) => {
             void workspace.handleOpenSearchResult(filePath, match)
           }}
-        />
-        <GitPanelHost
-          ref={workspace.gitPanelHostRef}
-          vaultPath={workspace.vaultPath ?? ''}
-          getInitialStatus={() => workspace.lastGitStatusRef.current}
-          onBeforeWrite={workspace.flushActiveSave}
-          onFilesChanged={workspace.handleGitFilesChanged}
-          onStatusChange={workspace.handleGitStatusChange}
         />
       </>
     </TooltipProvider>

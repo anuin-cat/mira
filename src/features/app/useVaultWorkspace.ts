@@ -12,15 +12,11 @@ import {
   saveNote,
   scanVaultTree,
 } from '../../services/noteService'
-import { getGitStatus } from '../../services/gitService'
-import type { GitStatusResult } from '../../domain/git'
 import type { AiTextReference } from '../../domain/ai'
 import type { FontSize, Theme, VaultState, VaultTreeNode } from '../../domain/note'
 import type { FileTreeHandle } from '../file-tree/FileTree'
 import type { MdxEditorHandle } from '../editor/MdxEditor'
 import type { AiSidebarHandle } from '../ai/AiSidebar'
-import type { GitPanelAction } from '../git/GitPanel'
-import type { GitPanelHostHandle } from '../git/GitPanelHost'
 import {
   useAppCommands,
   type ActiveCommandDialog,
@@ -62,7 +58,7 @@ function getAiTextReferenceSignature(reference: AiTextReference) {
   ].join('\u001f')
 }
 
-/** 管理 vault、文件树、编辑器内容、菜单命令和 Git badge 状态 */
+/** 管理 vault、文件树、编辑器内容和菜单命令状态 */
 export function useVaultWorkspace({
   isAiSidebarOpen,
   openAiSidebar,
@@ -78,17 +74,14 @@ export function useVaultWorkspace({
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [activeCommandDialog, setActiveCommandDialog] = useState<ActiveCommandDialog>(null)
-  const [gitChangeCount, setGitChangeCount] = useState(0)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vaultPathRef = useRef<string | null>(null)
   const vaultStateRef = useRef<VaultState>(DEFAULT_VAULT_STATE)
   const activePathRef = useRef<string | null>(null)
   const latestContentRef = useRef('')
-  const lastGitStatusRef = useRef<GitStatusResult | null>(null)
   const navigationHistoryRef = useRef<NavigationHistory>({ paths: [], index: -1 })
   const pendingEditorSelectionRef = useRef<PendingEditorSelection | null>(null)
-  const gitPanelHostRef = useRef<GitPanelHostHandle>(null)
   const fileTreeRef = useRef<FileTreeHandle>(null)
   const editorHandleRef = useRef<MdxEditorHandle>(null)
   const aiSidebarRef = useRef<AiSidebarHandle>(null)
@@ -111,35 +104,6 @@ export function useVaultWorkspace({
     if (!saveTimerRef.current) return
     clearTimeout(saveTimerRef.current)
     saveTimerRef.current = null
-  }
-
-  /** 打开 Git 面板，可选择触发一个菜单动作 */
-  function openGitPanel(action: GitPanelAction | null = null) {
-    gitPanelHostRef.current?.open(action)
-  }
-
-  /** 根据 Git 状态更新左侧入口 badge */
-  function handleGitStatusChange(status: GitStatusResult) {
-    lastGitStatusRef.current = status
-    const nextCount = status.isGitRepository && status.isVaultGitRoot ? status.changedFiles.length : 0
-    setGitChangeCount(nextCount)
-  }
-
-  /** 轻量刷新 Git badge，失败时不打断笔记编辑 */
-  async function refreshGitStatusBadge(path = vaultPathRef.current) {
-    if (!path) {
-      lastGitStatusRef.current = null
-      setGitChangeCount(0)
-      return
-    }
-
-    try {
-      const status = await getGitStatus(path)
-      handleGitStatusChange(status)
-    } catch {
-      lastGitStatusRef.current = null
-      setGitChangeCount(0)
-    }
   }
 
   /** 跳过同一选区在同一次快捷键链路中被重复加入 */
@@ -187,7 +151,6 @@ export function useVaultWorkspace({
     openAiSidebar,
     addSelectedTextToAiComposer,
     handleToggleAiSidebar,
-    openGitPanel,
     handleChangeVault,
     handleRefreshVault,
     handleNavigateHistory,
@@ -329,7 +292,6 @@ export function useVaultWorkspace({
   async function initVault(path: string) {
     setIsLoading(true)
     setLoadError(null)
-    lastGitStatusRef.current = null
     navigationHistoryRef.current = { paths: [], index: -1 }
 
     await ensureVaultSystem(path)
@@ -341,7 +303,6 @@ export function useVaultWorkspace({
     setVaultPathState(path)
     setVaultState(state)
     setTreeData(tree)
-    void refreshGitStatusBadge(path)
 
     const openPath = chooseOpenPath(tree, state.lastOpenedPath)
     if (openPath) {
@@ -364,7 +325,6 @@ export function useVaultWorkspace({
     const nextActivePath = chooseOpenPath(tree, preferredActivePath)
     if (!nextActivePath) {
       clearActiveFile()
-      void refreshGitStatusBadge(path)
       return tree
     }
 
@@ -372,7 +332,6 @@ export function useVaultWorkspace({
       await openFileFromDisk(path, nextActivePath)
     }
 
-    void refreshGitStatusBadge(path)
     return tree
   }
 
@@ -404,7 +363,6 @@ export function useVaultWorkspace({
     const newPath = await setupVault()
     if (!newPath) return
 
-    lastGitStatusRef.current = null
     activePathRef.current = null
     latestContentRef.current = ''
     setActivePath(null)
@@ -471,7 +429,7 @@ export function useVaultWorkspace({
     }
   }
 
-  /** agent 写入或回退文件后，同步文件树、Git badge 和当前编辑器内容 */
+  /** agent 写入或回退文件后，同步文件树和当前编辑器内容 */
   async function handleAgentFilesChanged(changedPaths: string[]) {
     const path = vaultPathRef.current
     if (!path) return
@@ -486,11 +444,6 @@ export function useVaultWorkspace({
     }
 
     await reloadTree(activePathRef.current)
-  }
-
-  /** Git 撤销修改后，沿用同一套磁盘刷新逻辑同步编辑器与文件树 */
-  async function handleGitFilesChanged(changedPaths: string[]) {
-    await handleAgentFilesChanged(changedPaths)
   }
 
   /** 提供给 agent 工具的当前编辑器快照，用于拒绝覆盖未保存内容 */
@@ -515,7 +468,6 @@ export function useVaultWorkspace({
       saveNote(path, filePath, markdown)
         .then(() => {
           if (activePathRef.current === filePath) void reloadTree(filePath)
-          void refreshGitStatusBadge(path)
         })
         .catch((error) => {
           window.alert(getErrorMessage(error))
@@ -534,16 +486,12 @@ export function useVaultWorkspace({
     fileTreeRef,
     flushActiveSave,
     getCurrentNoteSnapshot,
-    gitChangeCount,
-    gitPanelHostRef,
     handleAgentFilesChanged,
     handleContentChange,
     handleCreateFile: fileActions.handleCreateFile,
     handleCreateFolder: fileActions.handleCreateFolder,
     handleDeleteEntry: fileActions.handleDeleteEntry,
     handleExpandedDirsChange,
-    handleGitFilesChanged,
-    handleGitStatusChange,
     handleMoveEntry: fileActions.handleMoveEntry,
     handleOpenFile,
     handleOpenSearchResult,
@@ -551,7 +499,6 @@ export function useVaultWorkspace({
     handleReorderEntry: fileActions.handleReorderEntry,
     initVault,
     isLoading,
-    lastGitStatusRef,
     loadError,
     runCommand,
     setActiveCommandDialog,

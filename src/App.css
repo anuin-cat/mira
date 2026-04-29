@@ -184,26 +184,6 @@ body {
   outline: none;
 }
 
-.git-sidebar-badge {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  min-width: 11px;
-  height: 11px;
-  border-radius: 999px;
-  padding: 0 2px;
-  box-sizing: border-box;
-  background: var(--theme-accent);
-  color: var(--theme-bg-primary);
-  font-size: 8px;
-  line-height: 10px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  text-align: center;
-  /* 角标挂到按钮右上角外侧，少压住分叉图标 */
-  transform: translate(35%, -30%);
-}
-
 .btn-sidebar-icon::selection,
 .btn-new::selection {
   background: transparent;

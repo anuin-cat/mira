@@ -8,7 +8,6 @@ import { COMMAND_MENU_EVENTS, getCommandIdByMenuEvent, type CommandId } from './
 
 const FONT_SIZE_ORDER: FontSize[] = ['small', 'medium', 'large', 'xlarge']
 const CURRENT_NOTE_PROMPT = '请总结当前笔记，并提出 3 个值得继续追问的问题。'
-type GitCommandAction = 'connect-remote' | 'stage-all' | 'commit' | 'push'
 
 export type ActiveCommandDialog = 'command-palette' | 'quick-open' | 'vault-search' | null
 
@@ -23,7 +22,6 @@ interface AppCommandContext {
   openAiSidebar: () => void
   addSelectedTextToAiComposer: () => boolean
   handleToggleAiSidebar: () => void
-  openGitPanel: (action?: GitCommandAction | null) => void
   handleChangeVault: () => Promise<void>
   handleRefreshVault: () => Promise<void>
   handleNavigateHistory: (offset: -1 | 1) => Promise<void>
@@ -140,21 +138,6 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       break
     case 'theme-dark-classic':
       context.handleThemeChange('dark-classic')
-      break
-    case 'git-panel':
-      context.openGitPanel()
-      break
-    case 'git-connect-remote':
-      context.openGitPanel('connect-remote')
-      break
-    case 'git-stage-all':
-      context.openGitPanel('stage-all')
-      break
-    case 'git-commit':
-      context.openGitPanel('commit')
-      break
-    case 'git-push':
-      context.openGitPanel('push')
       break
     case 'ai-new-chat':
       context.openAiSidebar()

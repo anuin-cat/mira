@@ -1,10 +1,3 @@
-mod git;
-mod git_policy;
-mod git_process;
-mod git_status;
-#[cfg(test)]
-mod git_status_tests;
-mod git_types;
 mod web_fetch;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -16,19 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![
-            git::git_get_status,
-            git::git_init_local_repository,
-            git::git_get_diff,
-            git::git_stage_paths,
-            git::git_unstage_paths,
-            git::git_discard_paths,
-            git::git_commit,
-            git::git_push,
-            git::git_connect_remote_repository,
-            git::git_run_readonly,
-            web_fetch::web_fetch_url,
-        ])
+        .invoke_handler(tauri::generate_handler![web_fetch::web_fetch_url,])
         .setup(|app| {
             // 1. 构建 File 菜单
             let change_vault =
@@ -260,43 +241,7 @@ pub fn run() {
                 ],
             )?;
 
-            // 6. 构建 Git 菜单
-            let git_panel = MenuItem::with_id(
-                app,
-                "git_panel",
-                "打开 Git 面板",
-                true,
-                Some("CmdOrCtrl+Shift+KeyG"),
-            )?;
-            let git_connect_remote = MenuItem::with_id(
-                app,
-                "git_connect_remote",
-                "连接 GitHub 远端...",
-                true,
-                None::<&str>,
-            )?;
-            let git_stage_all =
-                MenuItem::with_id(app, "git_stage_all", "Stage 全部变更", true, None::<&str>)?;
-            let git_commit = MenuItem::with_id(app, "git_commit", "Commit...", true, None::<&str>)?;
-            let git_push = MenuItem::with_id(app, "git_push", "Push", true, None::<&str>)?;
-            let git_separator_1 = PredefinedMenuItem::separator(app)?;
-            let git_separator_2 = PredefinedMenuItem::separator(app)?;
-            let git_menu = Submenu::with_items(
-                app,
-                "Git",
-                true,
-                &[
-                    &git_panel,
-                    &git_separator_1,
-                    &git_connect_remote,
-                    &git_separator_2,
-                    &git_stage_all,
-                    &git_commit,
-                    &git_push,
-                ],
-            )?;
-
-            // 7. 构建 AI 与 App 菜单
+            // 6. 构建 AI 与 App 菜单
             let ai_new_chat = MenuItem::with_id(
                 app,
                 "ai_new_chat",
@@ -325,7 +270,6 @@ pub fn run() {
                     &search_menu,
                     &navigate_menu,
                     &view_menu,
-                    &git_menu,
                     &ai_menu,
                     &app_menu,
                 ],
@@ -334,7 +278,7 @@ pub fn run() {
             Ok(())
         })
         .on_menu_event(|app, event| {
-            // 8. 菜单点击时向前端发送事件
+            // 7. 菜单点击时向前端发送事件
             let event_name = match event.id().as_ref() {
                 "change_vault" => "menu:change-vault",
                 "new_file" => "menu:new-file",
@@ -364,11 +308,6 @@ pub fn run() {
                 "theme_twilight" => "menu:theme-twilight",
                 "theme_forest" => "menu:theme-forest",
                 "theme_dark_classic" => "menu:theme-dark-classic",
-                "git_panel" => "menu:git-panel",
-                "git_connect_remote" => "menu:git-connect-remote",
-                "git_stage_all" => "menu:git-stage-all",
-                "git_commit" => "menu:git-commit",
-                "git_push" => "menu:git-push",
                 "ai_new_chat" => "menu:ai-new-chat",
                 "ai_ask_current_note" => "menu:ai-ask-current-note",
                 "app_settings" => "menu:app-settings",

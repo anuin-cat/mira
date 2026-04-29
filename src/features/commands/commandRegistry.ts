@@ -1,4 +1,4 @@
-export type CommandGroup = 'file' | 'search' | 'navigate' | 'view' | 'git' | 'ai' | 'app'
+export type CommandGroup = 'file' | 'search' | 'navigate' | 'view' | 'ai' | 'app'
 
 export type CommandId =
   | 'change-vault'
@@ -29,11 +29,6 @@ export type CommandId =
   | 'theme-twilight'
   | 'theme-forest'
   | 'theme-dark-classic'
-  | 'git-panel'
-  | 'git-connect-remote'
-  | 'git-stage-all'
-  | 'git-commit'
-  | 'git-push'
   | 'ai-new-chat'
   | 'ai-ask-current-note'
   | 'app-settings'
@@ -75,11 +70,6 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'theme-twilight', title: '主题：暮光蓝', group: 'view', menuEvent: 'menu:theme-twilight' },
   { id: 'theme-forest', title: '主题：森林绿', group: 'view', menuEvent: 'menu:theme-forest' },
   { id: 'theme-dark-classic', title: '主题：经典深色', group: 'view', menuEvent: 'menu:theme-dark-classic' },
-  { id: 'git-panel', title: '打开 Git 面板', group: 'git', menuEvent: 'menu:git-panel', shortcut: '⇧⌘G' },
-  { id: 'git-connect-remote', title: '连接 GitHub 远端', group: 'git', menuEvent: 'menu:git-connect-remote' },
-  { id: 'git-stage-all', title: 'Stage 全部变更', group: 'git', menuEvent: 'menu:git-stage-all' },
-  { id: 'git-commit', title: 'Commit', group: 'git', menuEvent: 'menu:git-commit' },
-  { id: 'git-push', title: 'Push', group: 'git', menuEvent: 'menu:git-push' },
   { id: 'ai-new-chat', title: '新建 AI 对话', group: 'ai', menuEvent: 'menu:ai-new-chat', shortcut: '⌥⌘N' },
   { id: 'ai-ask-current-note', title: '基于当前笔记提问', group: 'ai', menuEvent: 'menu:ai-ask-current-note', shortcut: '⌥⌘↩' },
   { id: 'app-settings', title: '设置', group: 'app', menuEvent: 'menu:app-settings', shortcut: '⌘,' },
