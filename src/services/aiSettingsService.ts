@@ -686,9 +686,22 @@ export function saveAiChatSessions(vaultPath: string, sessions: AiChatSession[])
   localStorage.setItem(getAiSessionsStorageKey(vaultPath), JSON.stringify(sessions))
 }
 
+/** 从带引用的用户消息里提取更适合做标题的问题正文 */
+function getAiSessionTitleSource(firstPrompt: string): string {
+  const questionMarker = '用户问题：'
+  const questionMarkerIndex = firstPrompt.lastIndexOf(questionMarker)
+  if (!firstPrompt.trim().startsWith('引用：') || questionMarkerIndex === -1) return firstPrompt
+
+  const questionText = firstPrompt
+    .slice(questionMarkerIndex + questionMarker.length)
+    .replace(/\[\d+]/g, '')
+    .trim()
+  return questionText || firstPrompt
+}
+
 /** 根据首条提问生成会话标题 */
 export function createAiSessionTitle(firstPrompt: string, noteTitle: string | null): string {
-  const normalizedPrompt = firstPrompt.replace(/\s+/g, ' ').trim()
+  const normalizedPrompt = getAiSessionTitleSource(firstPrompt).replace(/\s+/g, ' ').trim()
   if (normalizedPrompt) return normalizedPrompt.slice(0, 28)
   return noteTitle ? `关于《${noteTitle}》` : '新对话'
 }

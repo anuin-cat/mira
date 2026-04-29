@@ -1,4 +1,5 @@
 import type { AiTextReference } from '../../domain/ai'
+import { serializeAiUserReferencePrompt } from './aiReferenceText'
 
 export type AiComposerPart =
   | {
@@ -64,11 +65,6 @@ export function hasAiComposerContent(parts: AiComposerPart[]): boolean {
   return parts.some((part) => (part.type === 'reference' ? true : part.text.trim().length > 0))
 }
 
-/** 格式化引用胶囊标签 */
-export function formatAiReferenceLabel(reference: AiTextReference) {
-  return `${reference.title}：L${reference.startLine}-L${reference.endLine}`
-}
-
 /** 将混排输入组装为实际发送给模型的用户消息 */
 export function buildAiUserPrompt(parts: AiComposerPart[]): string {
   const normalizedParts = normalizeAiComposerParts(parts)
@@ -88,19 +84,5 @@ export function buildAiUserPrompt(parts: AiComposerPart[]): string {
   const userQuestion = questionParts.join('').trim()
   if (references.length === 0) return userQuestion
 
-  const referenceText = references
-    .map((reference, index) => {
-      const content = reference.content.trim() || '(空白)'
-      return [
-        `[${index + 1}] ${formatAiReferenceLabel(reference)}`,
-        `路径：${reference.path}`,
-        '内容：',
-        content,
-      ].join('\n')
-    })
-    .join('\n\n')
-
-  const fallbackQuestion = references.map((_, index) => `[${index + 1}]`).join(' ')
-
-  return ['引用：', referenceText, '用户问题：', userQuestion || fallbackQuestion].join('\n\n')
+  return serializeAiUserReferencePrompt(references, userQuestion)
 }

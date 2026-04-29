@@ -1,0 +1,226 @@
+.ai-user-message-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+}
+
+.ai-reference-pill {
+  --ai-reference-pill-height: 18px;
+  --ai-reference-pill-padding-x: 8px;
+  --ai-reference-pill-gap: 5px;
+  min-width: 0;
+  max-width: min(100%, 260px);
+  height: var(--ai-reference-pill-height);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ai-reference-pill-gap);
+  margin: 0 1px;
+  padding: 0 var(--ai-reference-pill-padding-x);
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 32%, var(--theme-editor-control-border) 68%);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--theme-selection) 34%, var(--theme-editor-control-bg) 66%),
+      color-mix(in srgb, var(--theme-selection) 22%, var(--theme-bg-primary) 78%)
+    );
+  color: color-mix(in srgb, var(--theme-accent) 76%, var(--theme-text-primary) 24%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--theme-bg-primary) 68%, transparent 32%),
+    0 4px 12px color-mix(in srgb, var(--theme-text-primary) 4%, transparent 96%);
+  vertical-align: middle;
+  cursor: default;
+  user-select: none;
+  transition:
+    border-color 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-reference-pill:hover,
+.ai-reference-pill:focus-visible {
+  border-color: color-mix(in srgb, var(--theme-accent) 54%, var(--theme-editor-control-border) 46%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--theme-bg-primary) 74%, transparent 26%),
+    0 8px 18px color-mix(in srgb, var(--theme-accent) 10%, transparent 90%);
+  outline: none;
+}
+
+.ai-reference-pill--composer {
+  --ai-reference-pill-height: 18px;
+  max-width: min(100%, 260px);
+  margin: 0 3px 0 0;
+  padding: 0 0 0 6px;
+}
+
+.ai-reference-pill--inline {
+  --ai-reference-pill-height: 20px;
+  --ai-reference-pill-padding-x: 6px;
+  --ai-reference-pill-gap: 4px;
+  max-width: min(100%, 260px);
+  margin: 0 2px;
+}
+
+.ai-reference-pill--inline .ai-reference-index {
+  font-size: 10px;
+}
+
+.ai-reference-pill--inline .ai-reference-title {
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.ai-reference-pill--inline .ai-reference-lines {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.ai-reference-index {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--theme-accent) 88%, var(--theme-text-primary) 12%);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-reference-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--theme-text-primary);
+  font-size: 11.5px;
+  font-weight: 680;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-reference-lines {
+  flex-shrink: 0;
+  color: var(--theme-text-tertiary);
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-reference-pill--composer .ai-reference-title,
+.ai-reference-pill--composer .ai-reference-lines {
+  font-size: 10px;
+}
+
+.ai-reference-remove {
+  display: inline-flex;
+  width: 17px;
+  height: 17px;
+  margin-right: 1px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--theme-accent) 58%, var(--theme-text-secondary) 42%);
+  font-size: 13px;
+  line-height: 1;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.ai-reference-remove:hover {
+  background: color-mix(in srgb, var(--theme-accent) 14%, transparent 86%);
+  color: var(--theme-text-primary);
+}
+
+.ai-reference-tooltip {
+  width: min(360px, calc(100vw - 32px));
+  max-width: min(360px, calc(100vw - 32px));
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--theme-border) 72%, transparent 28%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--theme-bg-primary) 92%, var(--theme-bg-sidebar) 8%);
+  color: var(--theme-text-primary);
+  box-shadow:
+    0 18px 42px color-mix(in srgb, var(--theme-text-primary) 14%, transparent 86%),
+    inset 0 1px 0 color-mix(in srgb, var(--theme-bg-primary) 82%, transparent 18%);
+  backdrop-filter: blur(22px) saturate(180%);
+}
+
+.ai-reference-tooltip--floating {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.ai-reference-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ai-reference-tooltip-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--theme-selection) 24%, transparent 76%);
+  color: color-mix(in srgb, var(--theme-accent) 82%, var(--theme-text-primary) 18%);
+}
+
+.ai-reference-tooltip-title {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.ai-reference-tooltip-title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--theme-text-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-reference-tooltip-title span,
+.ai-reference-tooltip-path {
+  color: var(--theme-text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.ai-reference-tooltip-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-reference-tooltip-content {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px 9px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--theme-text-primary) 5%, transparent 95%);
+  color: var(--theme-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.62;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-reference-tooltip > svg {
+  background: color-mix(in srgb, var(--theme-bg-primary) 92%, var(--theme-bg-sidebar) 8%);
+  fill: color-mix(in srgb, var(--theme-bg-primary) 92%, var(--theme-bg-sidebar) 8%);
+}

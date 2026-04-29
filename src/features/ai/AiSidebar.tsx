@@ -27,8 +27,10 @@ import { AiComposer, type AiComposerHandle } from './AiComposer'
 import { AiAssistantMessage } from './AiAssistantMessage'
 import { AiHistoryPanel } from './AiHistoryPanel'
 import { AiSettingsDialog } from './AiSettingsDialog'
+import { AiUserMessage } from './AiUserMessage'
 import { buildAiUserPrompt, type AiComposerPart } from './aiComposerModel'
 import './ai-sidebar.css'
+import './ai-reference-pill.css'
 
 const AI_MESSAGE_LIST_BOTTOM_THRESHOLD = 40
 
@@ -695,9 +697,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
               </article>
             ) : (
               <article key={message.id} className="ai-message ai-message-user">
-                <div className="ai-message-content">
-                  <div className="ai-message-plain-text">{message.content}</div>
-                </div>
+                <AiUserMessage content={message.content} />
               </article>
             )
           )

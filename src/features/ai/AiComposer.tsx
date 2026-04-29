@@ -21,6 +21,7 @@ import {
 } from '../../components/ui/select'
 import type { AiTextReference } from '../../domain/ai'
 import { isImeComposing } from '../../lib/keyboard'
+import { AiReferenceFloatingTooltip } from './AiReferencePill'
 import {
   createAiComposerTextPart,
   hasAiComposerContent,
@@ -46,6 +47,11 @@ import {
   removeReferencePill,
   resizeComposerInput,
 } from './aiComposerDom'
+
+interface HoveredReference {
+  reference: AiTextReference
+  anchorRect: DOMRect
+}
 
 interface AiComposerModelGroup {
   providerId: string
@@ -87,6 +93,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
   const lastSelectionRangeRef = useRef<Range | null>(null)
   const [hasContent, setHasContent] = useState(false)
   const [composerVersion, setComposerVersion] = useState(0)
+  const [hoveredReference, setHoveredReference] = useState<HoveredReference | null>(null)
 
   /** 记录输入框最近一次有效选区，方便从编辑器划词回来后按原位置插入胶囊 */
   function saveComposerSelection() {
@@ -168,6 +175,17 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     placeCaretInTextNode(editorElement, spacerNode, spacerNode.data.length)
     syncComposerState()
     saveComposerSelection()
+  }
+
+  /** 读取鼠标事件命中的引用胶囊和对应引用数据 */
+  function getReferencePillFromEventTarget(target: EventTarget | null) {
+    const targetElement = target instanceof HTMLElement ? target : null
+    const pillElement = targetElement?.closest<HTMLElement>(AI_REFERENCE_SELECTOR) ?? null
+    if (!pillElement || !editorRef.current?.contains(pillElement)) return null
+
+    const referenceId = pillElement.dataset.aiReferenceId
+    const reference = referenceId ? referencesByIdRef.current.get(referenceId) : null
+    return reference ? { pillElement, reference } : null
   }
 
   useImperativeHandle(ref, () => ({
@@ -331,6 +349,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     event.stopPropagation()
 
     if (targetElement?.closest(AI_REFERENCE_REMOVE_SELECTOR)) {
+      setHoveredReference(null)
       removeReferencePill(editorElement, pillElement)
       syncComposerState()
       saveComposerSelection()
@@ -339,6 +358,27 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
 
     placeCaretAfterReferencePill(editorElement, pillElement)
     saveComposerSelection()
+  }
+
+  /** 鼠标悬浮输入区胶囊时展示同款引用预览 */
+  function handleMouseOver(event: MouseEvent<HTMLDivElement>) {
+    const matchedReference = getReferencePillFromEventTarget(event.target)
+    if (!matchedReference) return
+
+    setHoveredReference({
+      reference: matchedReference.reference,
+      anchorRect: matchedReference.pillElement.getBoundingClientRect(),
+    })
+  }
+
+  /** 鼠标离开当前胶囊后隐藏引用预览 */
+  function handleMouseOut(event: MouseEvent<HTMLDivElement>) {
+    const matchedReference = getReferencePillFromEventTarget(event.target)
+    if (!matchedReference) return
+
+    const relatedTarget = event.relatedTarget
+    if (relatedTarget instanceof Node && matchedReference.pillElement.contains(relatedTarget)) return
+    setHoveredReference(null)
   }
 
   /** 发送当前 composer 内容 */
@@ -369,6 +409,8 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
             onMouseUp={handleSelectionChange}
             onPaste={handlePaste}
             onMouseDown={handleMouseDown}
+            onMouseOver={handleMouseOver}
+            onMouseOut={handleMouseOut}
           />
           {!hasContent ? <div className="ai-composer-placeholder">基于当前笔记继续聊...</div> : null}
         </div>
@@ -417,6 +459,12 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
           </div>
         </div>
       </div>
+      {hoveredReference ? (
+        <AiReferenceFloatingTooltip
+          reference={hoveredReference.reference}
+          anchorRect={hoveredReference.anchorRect}
+        />
+      ) : null}
     </div>
   )
 })

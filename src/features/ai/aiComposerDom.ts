@@ -2,10 +2,13 @@ import type { AiTextReference } from '../../domain/ai'
 import {
   createAiComposerReferencePart,
   createAiComposerTextPart,
-  formatAiReferenceLabel,
   normalizeAiComposerParts,
   type AiComposerPart,
 } from './aiComposerModel'
+import {
+  formatAiReferenceLabel,
+  formatAiReferenceLineRange,
+} from './aiReferenceText'
 
 const AI_COMPOSER_MIN_ROWS = 3
 const AI_COMPOSER_MAX_ROWS = 8
@@ -94,19 +97,24 @@ export function placeCaretAtEnd(rootElement: HTMLElement) {
 /** 创建引用胶囊 DOM，避免 React 重绘打断 contentEditable 光标 */
 function createReferencePillElement(reference: AiTextReference) {
   const pillElement = document.createElement('span')
-  pillElement.className = 'ai-composer-reference-pill'
+  pillElement.className = 'ai-reference-pill ai-reference-pill--composer'
   pillElement.contentEditable = 'false'
   pillElement.dataset.aiReferenceId = reference.id
   pillElement.setAttribute('role', 'button')
   pillElement.setAttribute('aria-label', `引用 ${formatAiReferenceLabel(reference)}`)
 
-  const labelElement = document.createElement('span')
-  labelElement.className = 'ai-composer-reference-label'
-  labelElement.textContent = formatAiReferenceLabel(reference)
-  pillElement.append(labelElement)
+  const titleElement = document.createElement('span')
+  titleElement.className = 'ai-reference-title'
+  titleElement.textContent = reference.title
+  pillElement.append(titleElement)
+
+  const lineRangeElement = document.createElement('span')
+  lineRangeElement.className = 'ai-reference-lines'
+  lineRangeElement.textContent = formatAiReferenceLineRange(reference)
+  pillElement.append(lineRangeElement)
 
   const removeElement = document.createElement('span')
-  removeElement.className = 'ai-composer-reference-remove'
+  removeElement.className = 'ai-reference-remove'
   removeElement.dataset.aiReferenceRemove = 'true'
   removeElement.setAttribute('aria-hidden', 'true')
   removeElement.textContent = '×'
