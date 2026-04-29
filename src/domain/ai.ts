@@ -96,6 +96,16 @@ export interface AiModelCatalogItem {
 
 export type AiChatRole = 'user' | 'assistant'
 
+/** 用户从编辑器正文选中的一段引用 */
+export interface AiTextReference {
+  id: string
+  path: string
+  title: string
+  startLine: number
+  endLine: number
+  content: string
+}
+
 /** 单次 AI 响应的 token 与接口缓存用量 */
 export interface AiTokenUsage {
   promptTokens?: number

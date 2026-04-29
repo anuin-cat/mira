@@ -14,6 +14,7 @@ import {
 } from '../../services/noteService'
 import { getGitStatus } from '../../services/gitService'
 import type { GitStatusResult } from '../../domain/git'
+import type { AiTextReference } from '../../domain/ai'
 import type { FontSize, Theme, VaultState, VaultTreeNode } from '../../domain/note'
 import type { FileTreeHandle } from '../file-tree/FileTree'
 import type { MdxEditorHandle } from '../editor/MdxEditor'
@@ -122,6 +123,24 @@ export function useVaultWorkspace({
     }
   }
 
+  /** 把指定编辑器引用加入 AI 输入框，并确保侧栏打开聚焦 */
+  function addTextReferenceToAiComposer(reference: AiTextReference) {
+    openAiSidebar()
+    window.requestAnimationFrame(() => {
+      aiSidebarRef.current?.addReference(reference)
+      aiSidebarRef.current?.focusComposer()
+    })
+  }
+
+  /** 从当前编辑器选区创建引用并加入 AI 输入框 */
+  function addSelectedTextToAiComposer() {
+    const reference = editorHandleRef.current?.getSelectionReference()
+    if (!reference) return false
+
+    addTextReferenceToAiComposer(reference)
+    return true
+  }
+
   const runCommand = useAppCommands({
     vaultPathRef,
     activePathRef,
@@ -131,6 +150,7 @@ export function useVaultWorkspace({
     setActiveCommandDialog,
     isAiSidebarOpen: () => isAiSidebarOpen,
     openAiSidebar,
+    addSelectedTextToAiComposer,
     handleToggleAiSidebar,
     openGitPanel,
     handleChangeVault,
@@ -469,6 +489,7 @@ export function useVaultWorkspace({
   }, [])
 
   return {
+    addTextReferenceToAiComposer,
     activeCommandDialog,
     activeContent,
     activePath,

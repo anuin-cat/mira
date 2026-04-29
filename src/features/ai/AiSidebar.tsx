@@ -1,17 +1,12 @@
-import { BrushCleaning, History, Settings } from 'lucide-react'
+import { History, Settings } from 'lucide-react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select'
-import type { AiChatMessage, AiChatSession, AiSettingsState } from '../../domain/ai'
-import { isImeComposing } from '../../lib/keyboard'
+  type AiChatMessage,
+  type AiChatSession,
+  type AiSettingsState,
+  type AiTextReference,
+} from '../../domain/ai'
 import { revertAiFileEditBatch } from '../../services/agent'
 import {
   getAiChatErrorFileEditBatch,
@@ -28,14 +23,13 @@ import {
   saveAiSettings,
   selectAiProviderModel,
 } from '../../services/aiSettingsService'
+import { AiComposer, type AiComposerHandle } from './AiComposer'
 import { AiAssistantMessage } from './AiAssistantMessage'
 import { AiHistoryPanel } from './AiHistoryPanel'
 import { AiSettingsDialog } from './AiSettingsDialog'
+import { buildAiUserPrompt, type AiComposerPart } from './aiComposerModel'
 import './ai-sidebar.css'
 
-const AI_COMPOSER_MIN_ROWS = 3
-const AI_COMPOSER_MAX_ROWS = 8
-const AI_COMPOSER_FALLBACK_LINE_HEIGHT = 22
 const AI_MESSAGE_LIST_BOTTOM_THRESHOLD = 40
 
 interface Props {
@@ -52,6 +46,7 @@ export interface AiSidebarHandle {
   createSession: () => void
   focusComposer: () => void
   fillCurrentNotePrompt: (prompt: string) => void
+  addReference: (reference: AiTextReference) => void
   openSettings: () => void
   isComposerFocused: () => boolean
 }
@@ -111,25 +106,6 @@ function getSidebarHeaderLabel(session: AiChatSession | null): string {
   return '新对话'
 }
 
-/** 根据内容把输入框高度限制在 3 到 8 行之间 */
-function resizeComposerInput(textarea: HTMLTextAreaElement) {
-  // 1. 先恢复自动高度，让删除内容时输入框也能收回
-  textarea.style.height = 'auto'
-
-  // 2. 根据当前字体行高计算 3 行和 8 行的真实像素高度
-  const styles = window.getComputedStyle(textarea)
-  const lineHeight = Number.parseFloat(styles.lineHeight) || AI_COMPOSER_FALLBACK_LINE_HEIGHT
-  const paddingTop = Number.parseFloat(styles.paddingTop) || 0
-  const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0
-  const minHeight = lineHeight * AI_COMPOSER_MIN_ROWS + paddingTop + paddingBottom
-  const maxHeight = lineHeight * AI_COMPOSER_MAX_ROWS + paddingTop + paddingBottom
-  const nextHeight = Math.min(maxHeight, Math.max(minHeight, textarea.scrollHeight))
-
-  // 3. 超过 8 行后固定高度并开启内部滚动
-  textarea.style.height = `${nextHeight}px`
-  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
-}
-
 /** 判断消息列表是否还处在“吸底”范围内 */
 function isMessageListNearBottom(messageList: HTMLDivElement): boolean {
   const distanceToBottom = messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight
@@ -177,7 +153,6 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   const [settings, setSettings] = useState<AiSettingsState>(() => loadAiSettings())
   const [sessions, setSessions] = useState<AiChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-  const [draftMessage, setDraftMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSending, setIsSending] = useState(false)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
@@ -188,8 +163,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   const [isMessageListPinnedToBottom, setIsMessageListPinnedToBottom] = useState(true)
 
   const messageListRef = useRef<HTMLDivElement | null>(null)
-  const composerInputRef = useRef<HTMLTextAreaElement | null>(null)
-  const draftMessageRef = useRef('')
+  const composerRef = useRef<AiComposerHandle | null>(null)
   const previousScrolledSessionIdRef = useRef<string | null>(null)
   const activeRequestIdRef = useRef(0)
   const activeAbortControllerRef = useRef<AbortController | null>(null)
@@ -223,12 +197,6 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
         [messageId]: true,
       }
     })
-  }
-
-  /** 更新输入草稿，并同步 ref，避免异步发送期间读到旧值 */
-  function updateDraftMessage(nextMessage: string) {
-    draftMessageRef.current = nextMessage
-    setDraftMessage(nextMessage)
   }
 
   /** 同步会话到内存与 localStorage */
@@ -313,11 +281,6 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     })
   }, [currentSessionId, isMessageListPinnedToBottom, sessions, streamingMessageId])
 
-  useEffect(() => {
-    if (!composerInputRef.current) return
-    resizeComposerInput(composerInputRef.current)
-  }, [draftMessage])
-
   const currentSession = sessions.find((session) => session.id === currentSessionId) ?? null
   const activeRequestSettings = resolveActiveAiRequestSettings(settings)
   const composerModelGroups = buildComposerModelGroups(settings)
@@ -335,19 +298,25 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
       handleCreateSession()
     },
     focusComposer() {
-      window.requestAnimationFrame(() => composerInputRef.current?.focus())
+      window.requestAnimationFrame(() => composerRef.current?.focus())
     },
     fillCurrentNotePrompt(prompt: string) {
-      if (!draftMessageRef.current.trim()) updateDraftMessage(prompt)
+      if (!composerRef.current?.hasContent()) composerRef.current?.setPlainText(prompt)
       setIsHistoryOpen(false)
       setErrorMessage(null)
-      window.requestAnimationFrame(() => composerInputRef.current?.focus())
+      window.requestAnimationFrame(() => composerRef.current?.focus())
+    },
+    addReference(reference) {
+      composerRef.current?.addReference(reference)
+      setIsHistoryOpen(false)
+      setErrorMessage(null)
+      window.requestAnimationFrame(() => composerRef.current?.focus())
     },
     openSettings() {
       setIsSettingsOpen(true)
     },
     isComposerFocused() {
-      return document.activeElement === composerInputRef.current
+      return composerRef.current?.isFocused() ?? false
     },
   }))
 
@@ -384,8 +353,8 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
     if (!currentSession || currentSession.messages.length) createAndSelectSession()
     setIsHistoryOpen(false)
     setErrorMessage(null)
-    updateDraftMessage('')
-    window.requestAnimationFrame(() => composerInputRef.current?.focus())
+    composerRef.current?.clear()
+    window.requestAnimationFrame(() => composerRef.current?.focus())
   }
 
   /** 删除会话，并尽量保留合理的当前选中项 */
@@ -471,7 +440,8 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   async function doSendMessage(
     trimmedMessage: string,
     baseSession: AiChatSession,
-    previousSessions: AiChatSession[]
+    previousSessions: AiChatSession[],
+    restoreComposerParts: AiComposerPart[] | null = null
   ) {
     if (isSending) return
 
@@ -596,7 +566,13 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
 
       // 5. 请求失败时回滚 optimistic 结果，并恢复输入框，方便用户修改后重试
       commitSessions(previousSessions, baseSession.id)
-      if (!draftMessageRef.current.trim()) updateDraftMessage(trimmedMessage)
+      if (!composerRef.current?.hasContent()) {
+        if (restoreComposerParts) {
+          composerRef.current?.setParts(restoreComposerParts)
+        } else {
+          composerRef.current?.setPlainText(trimmedMessage)
+        }
+      }
       setErrorMessage(getAiErrorMessage(error))
     } finally {
       if (activeAbortControllerRef.current === abortController) {
@@ -610,15 +586,16 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
   }
 
   /** 从输入框发送一条用户消息 */
-  async function handleSendMessage() {
-    const trimmedMessage = draftMessageRef.current.trim()
+  async function handleSendMessage(parts: AiComposerPart[]) {
+    const composerParts = parts.length > 0 ? parts : composerRef.current?.getParts() ?? []
+    const trimmedMessage = buildAiUserPrompt(composerParts).trim()
     if (!trimmedMessage || isSending) return
 
     const baseSession = currentSession ?? createAndSelectSession()
     const previousSessions = currentSession ? sessions : [baseSession, ...sessions]
 
-    updateDraftMessage('')
-    await doSendMessage(trimmedMessage, baseSession, previousSessions)
+    composerRef.current?.clear()
+    await doSendMessage(trimmedMessage, baseSession, previousSessions, composerParts)
   }
 
   /** 重新生成某条 assistant 消息的回复 */
@@ -734,75 +711,15 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
 
       {errorMessage ? <div className="ai-error-banner">{errorMessage}</div> : null}
 
-      <div className="ai-composer">
-        <div className="ai-composer-box">
-          <textarea
-            ref={composerInputRef}
-            className="ai-composer-input"
-            value={draftMessage}
-            onChange={(event) => updateDraftMessage(event.target.value)}
-            placeholder="基于当前笔记继续聊..."
-            rows={AI_COMPOSER_MIN_ROWS}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && ((event.metaKey || event.ctrlKey) || !event.shiftKey)) {
-                if (isImeComposing(event)) return
-                event.preventDefault()
-                void handleSendMessage()
-              }
-            }}
-          />
-          <div className="ai-composer-controls">
-            <Select value={composerModelValue} onValueChange={handleComposerModelChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="选择模型" />
-              </SelectTrigger>
-              <SelectContent position="popper" side="top">
-                {composerModelGroups.map((group) => (
-                  <SelectGroup key={group.providerId}>
-                    <SelectLabel>{group.providerLabel}</SelectLabel>
-                    {group.options.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label || '选择模型'}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="ai-composer-actions">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="ai-composer-new-session-btn"
-                onClick={handleCreateSession}
-                disabled={isSending}
-                aria-label="开启新对话"
-                title="开启新对话"
-              >
-                <BrushCleaning className="size-[17px]" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                size="icon"
-                className="size-8 shrink-0 rounded-full shadow-[0_4px_12px_color-mix(in_srgb,var(--theme-text-primary)_18%,transparent_82%)] transition-[transform,box-shadow,opacity] hover:-translate-y-px hover:shadow-[0_8px_18px_color-mix(in_srgb,var(--theme-text-primary)_22%,transparent_78%)] active:translate-y-0 active:shadow-[0_3px_10px_color-mix(in_srgb,var(--theme-text-primary)_14%,transparent_86%)] disabled:opacity-[0.36] disabled:shadow-none disabled:hover:translate-y-0"
-                onClick={() => void handleSendMessage()}
-                disabled={!draftMessage.trim() || isSending}
-                aria-label="发送消息"
-              >
-                <svg
-                  className="size-[18px] fill-none stroke-current stroke-[2.2] [stroke-linecap:round] [stroke-linejoin:round]"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  <path d="M10 16V4m0 0L5.5 8.5M10 4l4.5 4.5" />
-                </svg>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AiComposer
+        ref={composerRef}
+        modelGroups={composerModelGroups}
+        modelValue={composerModelValue}
+        isSending={isSending}
+        onModelChange={handleComposerModelChange}
+        onCreateSession={handleCreateSession}
+        onSend={(parts) => void handleSendMessage(parts)}
+      />
 
       {isSettingsOpen ? (
         <AiSettingsDialog

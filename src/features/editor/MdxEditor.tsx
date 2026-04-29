@@ -54,12 +54,17 @@ import {
   type EditorScrollSnapshot,
 } from './mdxEditorDom'
 import { createEditorPlugins, translateMdxToolbar } from './mdxEditorPlugins'
+import type { AiTextReference } from '../../domain/ai'
+import { createSelectionTextReference } from './selectionReference'
 
 interface Props {
   initialContent: string
   isAiSidebarOpen: boolean
+  notePath: string | null
+  noteTitle: string | null
   onChange: (markdown: string) => void
   onToggleAiSidebar: () => void
+  onAddSelectionToAi: (reference: AiTextReference) => void
 }
 
 export interface MdxEditorHandle {
@@ -67,12 +72,13 @@ export interface MdxEditorHandle {
   toggleSearch: () => void
   focusEditor: () => void
   selectSearchMatch: (query: string, matchOrdinal: number) => boolean
+  getSelectionReference: () => AiTextReference | null
 }
 
 
 /** MDXEditor 富文本 Markdown 编辑器，输入输出均保持 .md 文本内容 */
 export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
-  { initialContent, isAiSidebarOpen, onChange, onToggleAiSidebar },
+  { initialContent, isAiSidebarOpen, notePath, noteTitle, onChange, onToggleAiSidebar, onAddSelectionToAi },
   ref
 ) {
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -132,6 +138,14 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       const isSelected = selectVisibleTextMatch(shellRef.current, query, matchOrdinal)
       if (isSelected) scrollSelectionIntoView(shellRef.current)
       return isSelected
+    },
+    getSelectionReference() {
+      return createSelectionTextReference({
+        shellElement: shellRef.current,
+        path: notePath,
+        title: noteTitle,
+        sourceMarkdown: latestMarkdownRef.current,
+      })
     },
   }))
 
@@ -445,11 +459,24 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       link: ['插入链接', 'Create link'],
     }
 
-    // 1. 先收起菜单，避免它遮挡 MDXEditor 自己的链接弹层
+    // 1. 引用动作必须先读取当前选区，再把焦点交给 AI 输入框
+    if (actionId === 'add-to-ai') {
+      const reference = createSelectionTextReference({
+        shellElement,
+        path: notePath,
+        title: noteTitle,
+        sourceMarkdown: latestMarkdownRef.current,
+      })
+      setContextMenu(null)
+      if (reference) onAddSelectionToAi(reference)
+      return
+    }
+
+    // 2. 先收起菜单，避免它遮挡 MDXEditor 自己的链接弹层
     setContextMenu(null)
     editorRef.current?.focus()
 
-    // 2. 富文本命令走现有工具栏，剪贴板命令走浏览器标准命令
+    // 3. 富文本命令走现有工具栏，剪贴板命令走浏览器标准命令
     const labels = toolbarLabels[actionId]
     if (labels && clickToolbarButtonByLabel(shellElement, labels)) return
     if (actionId === 'copy') document.execCommand('copy')

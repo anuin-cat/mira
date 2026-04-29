@@ -51,8 +51,11 @@ export function AppLayout({ panels, workspace }: AppLayoutProps) {
         ref={workspace.editorHandleRef}
         initialContent={workspace.activeContent}
         isAiSidebarOpen={panels.isAiSidebarOpen}
+        notePath={workspace.activePath}
+        noteTitle={workspace.activePath ? getDisplayName(workspace.activePath, 'file') : null}
         onChange={workspace.handleContentChange}
         onToggleAiSidebar={panels.handleToggleAiSidebar}
+        onAddSelectionToAi={workspace.addTextReferenceToAiComposer}
       />
     </section>
   ) : null

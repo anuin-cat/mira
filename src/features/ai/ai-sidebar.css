@@ -859,8 +859,11 @@
     0 10px 24px color-mix(in srgb, var(--theme-text-primary) 9%, transparent 91%);
 }
 
-.ai-composer-input {
-  display: block;
+.ai-composer-editor-wrap {
+  position: relative;
+}
+
+.ai-composer-rich-input {
   width: 100%;
   min-height: calc(4.95em + 14px);
   max-height: calc(13.2em + 14px);
@@ -871,16 +874,77 @@
   font: inherit;
   font-size: 13.5px;
   line-height: 1.65;
-  resize: none;
+  white-space: pre-wrap;
+  word-break: break-word;
   overflow-y: hidden;
+  caret-color: var(--theme-accent);
 }
 
-.ai-composer-input:focus {
+.ai-composer-rich-input:focus {
   outline: none;
 }
 
-.ai-composer-input::placeholder {
+.ai-composer-placeholder {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  pointer-events: none;
   color: var(--theme-editor-control-placeholder);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.ai-composer-reference-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(100%, 260px);
+  height: 24px;
+  margin: 0 3px 2px 0;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 32%, var(--theme-editor-control-border) 68%);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--theme-selection) 34%, var(--theme-editor-control-bg) 66%),
+      color-mix(in srgb, var(--theme-selection) 22%, var(--theme-bg-primary) 78%)
+    );
+  color: color-mix(in srgb, var(--theme-accent) 76%, var(--theme-text-primary) 24%);
+  vertical-align: -5px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--theme-bg-primary) 68%, transparent 32%);
+  cursor: default;
+  user-select: none;
+}
+
+.ai-composer-reference-label {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 5px 0 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 22px;
+}
+
+.ai-composer-reference-remove {
+  display: inline-flex;
+  width: 19px;
+  height: 19px;
+  margin-right: 2px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--theme-accent) 58%, var(--theme-text-secondary) 42%);
+  font-size: 15px;
+  line-height: 1;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.ai-composer-reference-remove:hover {
+  background: color-mix(in srgb, var(--theme-accent) 14%, transparent 86%);
+  color: var(--theme-text-primary);
 }
 
 .ai-composer-controls {

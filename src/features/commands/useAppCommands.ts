@@ -21,6 +21,7 @@ interface AppCommandContext {
   setActiveCommandDialog: (dialog: ActiveCommandDialog) => void
   isAiSidebarOpen: () => boolean
   openAiSidebar: () => void
+  addSelectedTextToAiComposer: () => boolean
   handleToggleAiSidebar: () => void
   openGitPanel: (action?: GitCommandAction | null) => void
   handleChangeVault: () => Promise<void>
@@ -96,6 +97,7 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       context.handleToggleFileSidebar()
       break
     case 'toggle-ai-sidebar':
+      if (context.addSelectedTextToAiComposer()) break
       if (context.isAiSidebarOpen() && context.aiSidebarRef.current?.isComposerFocused()) {
         context.handleToggleAiSidebar()
         break

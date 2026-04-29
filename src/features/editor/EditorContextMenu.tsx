@@ -1,10 +1,21 @@
 import { type MDXEditorMethods } from '@mdxeditor/editor'
-import { Bold, ClipboardPaste, Code2, Copy, Italic, Link, Scissors, Strikethrough, Underline } from 'lucide-react'
+import {
+  Bold,
+  ClipboardPaste,
+  Code2,
+  Copy,
+  Italic,
+  Link,
+  MessageSquarePlus,
+  Scissors,
+  Strikethrough,
+  Underline,
+} from 'lucide-react'
 import { type ReactNode, type RefObject } from 'react'
 import { sanitizeMarkdownForMdxPaste } from './markdownPaste'
 
 const EDITOR_CONTEXT_MENU_WIDTH = 172
-const EDITOR_CONTEXT_MENU_HEIGHT = 284
+const EDITOR_CONTEXT_MENU_HEIGHT = 316
 const EDITOR_CONTEXT_MENU_VIEWPORT_MARGIN = 8
 
 export interface EditorContextMenuState {
@@ -19,6 +30,7 @@ export type EditorContextMenuActionId =
   | 'strikethrough'
   | 'inline-code'
   | 'link'
+  | 'add-to-ai'
   | 'cut'
   | 'copy'
   | 'paste'
@@ -38,6 +50,7 @@ const EDITOR_CONTEXT_MENU_ACTIONS: Array<EditorContextMenuAction | 'separator'> 
   { id: 'inline-code', label: '行内代码', shortcut: '⌘E', icon: <Code2 /> },
   'separator',
   { id: 'link', label: '插入链接', shortcut: '⌘K', icon: <Link /> },
+  { id: 'add-to-ai', label: '添加到 AI 对话', shortcut: '⌘L', icon: <MessageSquarePlus /> },
   'separator',
   { id: 'cut', label: '剪切', shortcut: '⌘X', icon: <Scissors /> },
   { id: 'copy', label: '复制', shortcut: '⌘C', icon: <Copy /> },
