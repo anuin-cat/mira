@@ -45,6 +45,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -57,8 +58,8 @@
 }
 
 .mira-mdx-content
-  > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, .mira-code-block)
-  + :where(p, ul, ol, blockquote, table, pre, hr, img, figure, .mira-code-block) {
+  > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> .mira-code-block), .mira-code-block)
+  + :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> .mira-code-block), .mira-code-block) {
   margin-top: var(--mira-space-block);
 }
 
@@ -85,6 +86,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -106,6 +108,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -127,6 +130,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -148,6 +152,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -169,6 +174,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -190,6 +196,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -211,6 +218,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
@@ -232,6 +240,7 @@
   hr,
   img,
   figure,
+  div:has(> .mira-code-block),
   .mira-code-block,
   h1,
   h2,
