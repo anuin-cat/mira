@@ -11,52 +11,10 @@
   --mira-mdx-table-grid: color-mix(in srgb, var(--theme-border) 86%, var(--theme-text-primary) 14%);
 }
 
-/* 1. 表格参与正文块间距，但节奏规则留在本模块内 */
+/* 1. 表格自身不带外边距，正文块间距统一由 mdx-editor-theme-typora-compact.css 维护 */
 .mira-mdx-editor .mira-mdx-content > table {
-  margin: 0;
-}
-
-.mira-mdx-editor
-  .mira-mdx-content
-  > :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block)
-  + table,
-.mira-mdx-editor
-  .mira-mdx-content
-  > table
-  + :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block) {
-  margin-top: var(--mira-space-block);
-}
-
-.mira-mdx-editor .mira-mdx-content > h1 + table {
-  margin-top: var(--mira-space-heading-1-after);
-}
-
-.mira-mdx-editor .mira-mdx-content > h2 + table {
-  margin-top: var(--mira-space-heading-2-after);
-}
-
-.mira-mdx-editor .mira-mdx-content > h3 + table {
-  margin-top: var(--mira-space-heading-3-after);
-}
-
-.mira-mdx-editor .mira-mdx-content > :is(h4, h5, h6) + table {
-  margin-top: var(--mira-space-heading-4-after);
-}
-
-.mira-mdx-editor .mira-mdx-content > table + h1 {
-  margin-top: var(--mira-space-heading-1-before);
-}
-
-.mira-mdx-editor .mira-mdx-content > table + h2 {
-  margin-top: var(--mira-space-heading-2-before);
-}
-
-.mira-mdx-editor .mira-mdx-content > table + h3 {
-  margin-top: var(--mira-space-heading-3-before);
-}
-
-.mira-mdx-editor .mira-mdx-content > table + :is(h4, h5, h6) {
-  margin-top: var(--mira-space-heading-4-before);
+  margin-inline: 0;
+  margin-bottom: 0;
 }
 
 .mira-mdx-editor .mira-mdx-content li > table,
@@ -120,7 +78,8 @@
 /* 3. MDXEditor 编辑态：真实单元格成表格，工具列不参与外框视觉 */
 .mira-mdx-editor .mira-mdx-content table[class*='_tableEditor_'] {
   table-layout: auto;
-  margin: 0.72em 0;
+  margin-inline: 0;
+  margin-bottom: 0;
   width: 100%;
   border: 0 !important;
   border-radius: 0;

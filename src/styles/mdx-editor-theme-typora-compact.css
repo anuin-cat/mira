@@ -12,9 +12,7 @@
   line-height: var(--mira-editor-body-line-height, 1.68);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --mira-space-block: 0.8em;
-  --mira-space-paragraph: 0.72em;
-  --mira-space-list-after: 1.02em;
+  --mira-space-block: 0.86em;
   --mira-space-heading-1-before: 1.18em;
   --mira-space-heading-1-after: 0.9em;
   --mira-space-heading-2-before: 1.02em;
@@ -32,7 +30,7 @@
   line-height: inherit;
 }
 
-/* 1. 先约束正文根节点的直系块元素节奏，避免宽泛选择器误伤嵌套内容 */
+/* 1. 普通正文块的外边距集中在这里维护，避免不同块组合出现节奏缺口 */
 .mira-mdx-content > :first-child {
   margin-top: 0;
 }
@@ -42,6 +40,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -58,8 +57,8 @@
 }
 
 .mira-mdx-content
-  > :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block)
-  + :where(p, ul, ol, blockquote, pre, hr, img, figure, .mira-code-block) {
+  > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, .mira-code-block)
+  + :where(p, ul, ol, blockquote, table, pre, hr, img, figure, .mira-code-block) {
   margin-top: var(--mira-space-block);
 }
 
@@ -81,6 +80,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -101,6 +101,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -121,6 +122,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -141,6 +143,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -161,6 +164,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -181,6 +185,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -201,6 +206,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -221,6 +227,7 @@
   ul,
   ol,
   blockquote,
+  table,
   pre,
   hr,
   img,
@@ -267,17 +274,9 @@
   line-height: 1.45;
 }
 
-/* 3. 正文段落保持紧凑，但列表与正文之间仍保留清晰的块间距 */
-.mira-mdx-content p {
+/* 3. 正文段落与列表只保留自身结构样式，块间距由第 1 段统一处理 */
+.mira-mdx-content :where(li, blockquote, th, td) p {
   margin: 0;
-}
-
-.mira-mdx-content > p + p {
-  margin-top: var(--mira-space-paragraph);
-}
-
-.mira-mdx-content > :is(ul, ol) + p {
-  margin-top: var(--mira-space-list-after);
 }
 
 .mira-mdx-content ul,
@@ -415,7 +414,8 @@
 .mira-mdx-content pre,
 .mira-code-block {
   overflow: hidden;
-  margin-block: 0.75em;
+  margin-inline: 0;
+  margin-bottom: 0;
   border: 1px solid var(--theme-border);
   border-radius: 10px;
   background: var(--theme-editor-code-bg);
