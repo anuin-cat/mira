@@ -4,6 +4,7 @@ import {
   type AiUserMessageReference,
 } from '../references/aiReferenceText'
 import { AiReferencePill } from '../references/AiReferencePill'
+import './ai-message.css'
 
 interface Props {
   content: string

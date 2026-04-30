@@ -4,6 +4,7 @@ import type { AiChatMessage } from '@/domain/ai'
 import { AiMarkdown } from '../markdown/AiMarkdown'
 import { AgentTranscriptFlow, getReasoningTitle, formatReasoningDuration, ReasoningBlock, shouldShowReasoningBlock } from './AiAgentTranscript'
 import { getMessageMetaData, MetaPill } from './AiMessageMeta'
+import './ai-message.css'
 
 interface Props {
   message: AiChatMessage

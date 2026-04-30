@@ -1,6 +1,5 @@
 import type { AiChatSession } from '@/domain/ai'
-import { AiAssistantMessage } from '../messages/AiAssistantMessage'
-import { AiUserMessage } from '../messages/AiUserMessage'
+import { AiAssistantMessage, AiUserMessage } from '../messages'
 
 interface Props {
   currentSession: AiChatSession | null

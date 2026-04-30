@@ -47,6 +47,7 @@ import {
   removeReferencePill,
   resizeComposerInput,
 } from './aiComposerDom'
+import './ai-composer.css'
 
 interface HoveredReference {
   reference: AiTextReference

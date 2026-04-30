@@ -16,7 +16,7 @@ import type { AiTextReference } from '../../domain/ai'
 import type { FontSize, Theme, VaultState, VaultTreeNode } from '../../domain/note'
 import type { FileTreeHandle } from '../file-tree/FileTree'
 import type { MdxEditorHandle } from '../editor/MdxEditor'
-import type { AiSidebarHandle } from '../ai/sidebar/AiSidebar'
+import type { AiSidebarHandle } from '../ai/sidebar'
 import {
   useAppCommands,
   type ActiveCommandDialog,

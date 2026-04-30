@@ -8,7 +8,7 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FileTree } from '../file-tree/FileTree'
 import { MdxEditor } from '../editor/MdxEditor'
-import { AiSidebar } from '../ai/sidebar/AiSidebar'
+import { AiSidebar } from '../ai/sidebar'
 import {
   COMMAND_DEFINITIONS,
   CommandPalette,

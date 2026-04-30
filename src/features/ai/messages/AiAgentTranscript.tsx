@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { AiAgentTranscriptMessage, AiAgentTranscriptToolCall, AiChatMessage } from '@/domain/ai'
 import { AiMarkdown } from '../markdown/AiMarkdown'
+import './ai-agent-message.css'
 
 type AiAgentToolTranscriptMessage = Extract<AiAgentTranscriptMessage, { role: 'tool' }>
 type AgentReasoningEntry =

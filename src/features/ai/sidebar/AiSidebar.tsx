@@ -20,17 +20,12 @@ import {
   saveAiSettings,
   selectAiProviderModel,
 } from '@/services/aiSettingsService'
-import { AiComposer, type AiComposerHandle } from '../composer/AiComposer'
-import { buildAiUserPrompt, type AiComposerPart } from '../composer/aiComposerModel'
-import { AiSettingsDialog } from '../settings/AiSettingsDialog'
-import '../references/ai-reference-pill.css'
+import { AiComposer, buildAiUserPrompt, type AiComposerHandle, type AiComposerPart } from '../composer'
+import { AiSettingsDialog } from '../settings'
 import { AiHistoryPanel } from './AiHistoryPanel'
 import { AiSidebarHeader } from './AiSidebarHeader'
 import { AiSidebarMessages } from './AiSidebarMessages'
 import './ai-sidebar.css'
-import './ai-message.css'
-import './ai-agent-message.css'
-import './ai-composer-history.css'
 
 import {
   buildComposerModelGroups,

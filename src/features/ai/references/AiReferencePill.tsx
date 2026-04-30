@@ -6,6 +6,7 @@ import {
   formatAiReferenceLineRange,
   type AiReferencePreview,
 } from './aiReferenceText'
+import './ai-reference-pill.css'
 
 interface AiReferencePillProps {
   reference: AiReferencePreview

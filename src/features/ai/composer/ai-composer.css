@@ -1,0 +1,104 @@
+.ai-composer {
+  display: contents;
+}
+
+.ai-composer-box {
+  flex-shrink: 0;
+  margin: 0 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--theme-editor-control-border) 70%, transparent 30%);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--theme-editor-control-bg) 96%, var(--theme-selection) 4%),
+      color-mix(in srgb, var(--theme-editor-control-bg) 88%, var(--theme-bg-primary) 12%)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--theme-bg-primary) 80%, transparent 20%),
+    0 8px 20px color-mix(in srgb, var(--theme-text-primary) 8%, transparent 92%);
+  padding: 8px;
+  transition:
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-composer-box:focus-within {
+  border-color: color-mix(in srgb, var(--theme-accent) 72%, var(--theme-editor-control-border) 28%);
+  background: var(--theme-editor-control-bg);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--theme-selection) 24%, transparent 76%),
+    0 10px 24px color-mix(in srgb, var(--theme-text-primary) 9%, transparent 91%);
+}
+
+.ai-composer-editor-wrap {
+  position: relative;
+  --ai-composer-line-height: 16px;
+}
+
+.ai-composer-rich-input {
+  width: 100%;
+  min-height: calc(4.95em + 14px);
+  max-height: calc(13.2em + 14px);
+  border: none;
+  background: transparent;
+  color: var(--theme-text-primary);
+  padding: 2px 4px 8px;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-y: hidden;
+  caret-color: var(--theme-accent);
+}
+
+.ai-composer-rich-input:focus {
+  outline: none;
+}
+
+.ai-composer-placeholder {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  pointer-events: none;
+  color: var(--theme-editor-control-placeholder);
+  font-size: 13.5px;
+  line-height: 18px;
+}
+
+.ai-composer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ai-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ai-composer-new-session-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  color: var(--theme-text-tertiary);
+  transition:
+    background 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-composer-new-session-btn:hover {
+  background: color-mix(in srgb, var(--theme-selection) 18%, transparent 82%);
+  color: color-mix(in srgb, var(--theme-accent) 78%, var(--theme-text-primary) 22%);
+  transform: translateY(-1px);
+}
+
+.ai-composer-new-session-btn:active {
+  transform: translateY(0);
+}

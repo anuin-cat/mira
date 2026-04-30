@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import type { AiChatSession } from '@/domain/ai'
+import './ai-history.css'
 
 interface Props {
   sessions: AiChatSession[]
