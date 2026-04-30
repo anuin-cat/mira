@@ -1,18 +1,15 @@
-import { History, Settings } from 'lucide-react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import {
   type AiChatMessage,
   type AiChatSession,
   type AiSettingsState,
-  type AiTextReference,
-} from '../../domain/ai'
-import { revertAiFileEditBatch } from '../../services/agent'
+} from '@/domain/ai'
+import { revertAiFileEditBatch } from '@/services/agent'
 import {
   getAiChatErrorFileEditBatch,
   requestAiChatReply,
   type AiChatStreamUpdate,
-} from '../../services/aiService'
+} from '@/services/aiService'
 import {
   createAiChatSession,
   createAiSessionTitle,
@@ -22,133 +19,37 @@ import {
   saveAiChatSessions,
   saveAiSettings,
   selectAiProviderModel,
-} from '../../services/aiSettingsService'
-import { AiComposer, type AiComposerHandle } from './AiComposer'
-import { AiAssistantMessage } from './AiAssistantMessage'
+} from '@/services/aiSettingsService'
+import { AiComposer, type AiComposerHandle } from '../composer/AiComposer'
+import { buildAiUserPrompt, type AiComposerPart } from '../composer/aiComposerModel'
+import { AiSettingsDialog } from '../settings/AiSettingsDialog'
+import '../references/ai-reference-pill.css'
 import { AiHistoryPanel } from './AiHistoryPanel'
-import { AiSettingsDialog } from './AiSettingsDialog'
-import { AiUserMessage } from './AiUserMessage'
-import { buildAiUserPrompt, type AiComposerPart } from './aiComposerModel'
+import { AiSidebarHeader } from './AiSidebarHeader'
+import { AiSidebarMessages } from './AiSidebarMessages'
 import './ai-sidebar.css'
-import './ai-reference-pill.css'
+import './ai-message.css'
+import './ai-agent-message.css'
+import './ai-composer-history.css'
 
-const AI_MESSAGE_LIST_BOTTOM_THRESHOLD = 40
+import {
+  buildComposerModelGroups,
+  createAssistantPlaceholderMessage,
+  createUserMessage,
+  getAiErrorMessage,
+  isAbortError,
+  isMessageListNearBottom,
+  parseComposerModelValue,
+  pickSessionIdForNote,
+  replaceMessageInSession,
+  type AiSidebarHandle,
+  type AiSidebarProps,
+} from './aiSidebarModel'
 
-interface Props {
-  vaultPath: string
-  notePath: string | null
-  noteTitle: string | null
-  noteContent: string
-  onBeforeAgentRequest: () => Promise<void>
-  getCurrentNoteSnapshot: () => { path: string | null; content: string } | null
-  onAgentFilesChanged: (paths: string[]) => Promise<void> | void
-}
-
-export interface AiSidebarHandle {
-  createSession: () => void
-  focusComposer: () => void
-  fillCurrentNotePrompt: (prompt: string) => void
-  addReference: (reference: AiTextReference) => void
-  openSettings: () => void
-  isComposerFocused: () => boolean
-}
-
-/** 统一生成聊天消息 id */
-function createChatMessageId(): string {
-  return typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
-/** 统一生成 user 消息对象 */
-function createUserMessage(content: string): AiChatMessage {
-  return {
-    id: createChatMessageId(),
-    role: 'user',
-    content,
-    createdAt: new Date().toISOString(),
-  }
-}
-
-/** 创建一条空 assistant 占位消息，用于承接流式增量 */
-function createAssistantPlaceholderMessage(): AiChatMessage {
-  return {
-    id: createChatMessageId(),
-    role: 'assistant',
-    content: '',
-    createdAt: new Date().toISOString(),
-    isReasoningComplete: false,
-  }
-}
-
-/** 提取错误里的可展示信息 */
-function getAiErrorMessage(error: unknown): string {
-  if (typeof error === 'string') return error
-  if (error instanceof Error && error.message) return error.message
-  return '请求失败，请稍后重试'
-}
-
-/** 判断失败是否来自主动取消，避免把切换笔记误报成请求错误 */
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'AbortError'
-}
-
-/** 选择当前笔记最合适的会话：优先同笔记，其次最近一条 */
-function pickSessionIdForNote(sessions: AiChatSession[], notePath: string | null): string | null {
-  if (sessions.length === 0) return null
-  const matchedSession = sessions.find((session) => session.notePath === notePath)
-  return matchedSession?.id ?? sessions[0]?.id ?? null
-}
-
-/** 顶栏展示：有首条用户消息则用其摘要，否则占位 */
-function getSidebarHeaderLabel(session: AiChatSession | null): string {
-  if (!session) return '新对话'
-  const firstUser = session.messages.find((message) => message.role === 'user')
-  if (firstUser?.content.trim()) return createAiSessionTitle(firstUser.content, null)
-  return '新对话'
-}
-
-/** 判断消息列表是否还处在“吸底”范围内 */
-function isMessageListNearBottom(messageList: HTMLDivElement): boolean {
-  const distanceToBottom = messageList.scrollHeight - messageList.scrollTop - messageList.clientHeight
-  return distanceToBottom <= AI_MESSAGE_LIST_BOTTOM_THRESHOLD
-}
-
-/** 为输入框下方的模型选择器生成分组结构 */
-function buildComposerModelGroups(settings: AiSettingsState) {
-  return settings.providers
-    .filter((provider) => provider.isEnabled && provider.models.length > 0)
-    .map((provider) => ({
-      providerId: provider.id,
-      providerLabel: provider.label,
-      options: provider.models.map((model) => ({
-        value: `${provider.id}::${model.id}`,
-        label: model.label,
-      })),
-    }))
-}
-
-/** 解析下拉框里的 provider/model 复合值 */
-function parseComposerModelValue(value: string): { providerId: string; modelId: string } | null {
-  const separatorIndex = value.indexOf('::')
-  if (separatorIndex <= 0) return null
-
-  return {
-    providerId: value.slice(0, separatorIndex),
-    modelId: value.slice(separatorIndex + 2),
-  }
-}
-
-/** 用一条新消息替换会话中的同 id 消息 */
-function replaceMessageInSession(session: AiChatSession, nextMessage: AiChatMessage): AiChatSession {
-  return {
-    ...session,
-    messages: session.messages.map((message) => (message.id === nextMessage.id ? nextMessage : message)),
-  }
-}
+export type { AiSidebarHandle } from './aiSidebarModel'
 
 /** 侧边聊天栏：负责会话切换、设置编辑、流式发送与思考展示 */
-export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
+export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function AiSidebar(
   { vaultPath, notePath, noteTitle, noteContent, onBeforeAgentRequest, getCurrentNoteSnapshot, onAgentFilesChanged },
   ref
 ) {
@@ -637,31 +538,11 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
 
   return (
     <aside className="ai-sidebar">
-      <header className="ai-sidebar-header">
-        <div className="ai-sidebar-title">
-          <span className="ai-sidebar-session-heading">{getSidebarHeaderLabel(currentSession)}</span>
-        </div>
-        <div className="ai-sidebar-actions">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsHistoryOpen((value) => !value)}
-            aria-label="历史"
-          >
-            <History className="size-[18px]" aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsSettingsOpen(true)}
-            aria-label="设置"
-          >
-            <Settings className="size-[18px]" aria-hidden />
-          </Button>
-        </div>
-      </header>
+      <AiSidebarHeader
+        currentSession={currentSession}
+        onToggleHistory={() => setIsHistoryOpen((value) => !value)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
 
       {isHistoryOpen ? (
         <AiHistoryPanel
@@ -678,35 +559,16 @@ export const AiSidebar = forwardRef<AiSidebarHandle, Props>(function AiSidebar(
       ) : null}
 
       <div ref={messageListRef} className="ai-message-list">
-        {currentSession?.messages.length ? (
-          currentSession.messages.map((message) =>
-            message.role === 'assistant' ? (
-              <article key={message.id} className="ai-message ai-message-assistant">
-                <AiAssistantMessage
-                  message={message}
-                  isStreaming={streamingMessageId === message.id}
-                  isReasoningExpanded={!collapsedReasoningMessageIds[message.id]}
-                  onToggleReasoning={() => handleToggleReasoning(message.id)}
-                  onCopy={() => void handleCopy(message.content)}
-                  onRegenerate={() => void handleRegenerate(message.id)}
-                  onRevertFileEdits={() => void handleRevertFileEdits(message.id)}
-                  isRevertingFileEdits={
-                    message.fileEditBatch ? revertingBatchIds[message.fileEditBatch.id] === true : false
-                  }
-                />
-              </article>
-            ) : (
-              <article key={message.id} className="ai-message ai-message-user">
-                <AiUserMessage content={message.content} />
-              </article>
-            )
-          )
-        ) : (
-          <div className="ai-empty-state">
-            <strong>可以直接围绕当前笔记提问</strong>
-            <p>例如让它总结、追问、提炼结构，或者帮你把这篇笔记延展开来。</p>
-          </div>
-        )}
+        <AiSidebarMessages
+          currentSession={currentSession}
+          streamingMessageId={streamingMessageId}
+          collapsedReasoningMessageIds={collapsedReasoningMessageIds}
+          revertingBatchIds={revertingBatchIds}
+          onToggleReasoning={handleToggleReasoning}
+          onCopy={(text) => void handleCopy(text)}
+          onRegenerate={(messageId) => void handleRegenerate(messageId)}
+          onRevertFileEdits={(messageId) => void handleRevertFileEdits(messageId)}
+        />
       </div>
 
       {errorMessage ? <div className="ai-error-banner">{errorMessage}</div> : null}

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type { AiProviderConfig, AiProviderModel, AiSettingsState } from '../../domain/ai'
+import type { AiProviderConfig, AiProviderModel, AiSettingsState } from '@/domain/ai'
 import {
   addAiProvider,
   addAiProviderModel,
@@ -19,10 +19,10 @@ import {
   removeAiProvider,
   removeAiProviderModel,
   setAiProviderEnabled,
-} from '../../services/aiSettingsService'
-import { AddModelDialog } from './settings/AddModelDialog'
-import { AddProviderDialog } from './settings/AddProviderDialog'
-import { SearchServiceSettings } from './settings/SearchServiceSettings'
+} from '@/services/aiSettingsService'
+import { AddModelDialog } from './AddModelDialog'
+import { AddProviderDialog } from './AddProviderDialog'
+import { SearchServiceSettings } from './SearchServiceSettings'
 
 type NavSection = 'providers' | 'search' | 'chat-params'
 

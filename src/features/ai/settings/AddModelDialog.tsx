@@ -4,8 +4,8 @@ import { Check, LoaderCircle, RefreshCw, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import type { AiProviderConfig } from '../../../domain/ai'
-import { fetchAiModelCatalog, sortAiModelCatalog } from '../../../services/aiModelCatalogService'
+import type { AiProviderConfig } from '@/domain/ai'
+import { fetchAiModelCatalog, sortAiModelCatalog } from '@/services/aiModelCatalogService'
 
 interface Props {
   provider: AiProviderConfig

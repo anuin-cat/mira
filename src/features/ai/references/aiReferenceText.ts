@@ -1,4 +1,4 @@
-import type { AiTextReference } from '../../domain/ai'
+import type { AiTextReference } from '@/domain/ai'
 
 export interface AiReferencePreview {
   index?: number

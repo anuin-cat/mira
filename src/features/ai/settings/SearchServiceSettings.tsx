@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import type { AiSearchFreshnessPreset, AiSearchProviderConfig, AiSearchSettings } from '../../../domain/ai'
+import type { AiSearchFreshnessPreset, AiSearchProviderConfig, AiSearchSettings } from '@/domain/ai'
 import {
   getAiSearchProviderById,
   getAiSearchProviderPreset,
@@ -21,7 +21,7 @@ import {
   searchBochaWeb,
   setAiSearchProviderEnabled,
   type BochaWebPageResult,
-} from '../../../services/search'
+} from '@/services/search'
 
 interface Props {
   searchSettings: AiSearchSettings

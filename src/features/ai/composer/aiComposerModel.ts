@@ -1,5 +1,5 @@
-import type { AiTextReference } from '../../domain/ai'
-import { serializeAiUserReferencePrompt } from './aiReferenceText'
+import type { AiTextReference } from '@/domain/ai'
+import { serializeAiUserReferencePrompt } from '../references/aiReferenceText'
 
 export type AiComposerPart =
   | {

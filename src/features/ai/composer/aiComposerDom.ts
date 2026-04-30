@@ -1,4 +1,4 @@
-import type { AiTextReference } from '../../domain/ai'
+import type { AiTextReference } from '@/domain/ai'
 import {
   createAiComposerReferencePart,
   createAiComposerTextPart,
@@ -8,7 +8,7 @@ import {
 import {
   formatAiReferenceLabel,
   formatAiReferenceLineRange,
-} from './aiReferenceText'
+} from '../references/aiReferenceText'
 
 const AI_COMPOSER_MIN_ROWS = 3
 const AI_COMPOSER_MAX_ROWS = 8

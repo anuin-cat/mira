@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 import {
   parseAiUserMessageReferences,
   type AiUserMessageReference,
-} from './aiReferenceText'
-import { AiReferencePill } from './AiReferencePill'
+} from '../references/aiReferenceText'
+import { AiReferencePill } from '../references/AiReferencePill'
 
 interface Props {
   content: string

@@ -18,10 +18,10 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select'
-import type { AiTextReference } from '../../domain/ai'
-import { isImeComposing } from '../../lib/keyboard'
-import { AiReferenceFloatingTooltip } from './AiReferencePill'
+} from '@/components/ui/select'
+import type { AiTextReference } from '@/domain/ai'
+import { isImeComposing } from '@/lib/keyboard'
+import { AiReferenceFloatingTooltip } from '../references/AiReferencePill'
 import {
   createAiComposerTextPart,
   hasAiComposerContent,

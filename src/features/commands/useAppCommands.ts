@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import type { FontSize, Theme } from '../../domain/note'
-import type { AiSidebarHandle } from '../ai/AiSidebar'
+import type { AiSidebarHandle } from '../ai/sidebar/AiSidebar'
 import type { MdxEditorHandle } from '../editor/MdxEditor'
 import type { FileTreeHandle } from '../file-tree/FileTree'
 import { COMMAND_MENU_EVENTS, getCommandIdByMenuEvent, type CommandId } from './commandRegistry'

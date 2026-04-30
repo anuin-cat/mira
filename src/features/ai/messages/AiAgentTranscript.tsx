@@ -3,30 +3,13 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
-  Copy,
-  FilePenLine,
   LoaderCircle,
-  RefreshCw,
-  RotateCcw,
   Sparkles,
   Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Progress } from '@/components/ui/progress'
-import type { AiAgentTranscriptMessage, AiAgentTranscriptToolCall, AiChatMessage, AiTokenUsage } from '../../domain/ai'
-import { AiMarkdown } from './AiMarkdown'
-
-interface Props {
-  message: AiChatMessage
-  isStreaming: boolean
-  isReasoningExpanded: boolean
-  onToggleReasoning: () => void
-  onCopy: () => void
-  onRegenerate: () => void
-  onRevertFileEdits: () => void
-  isRevertingFileEdits: boolean
-}
+import type { AiAgentTranscriptMessage, AiAgentTranscriptToolCall, AiChatMessage } from '@/domain/ai'
+import { AiMarkdown } from '../markdown/AiMarkdown'
 
 type AiAgentToolTranscriptMessage = Extract<AiAgentTranscriptMessage, { role: 'tool' }>
 type AgentReasoningEntry =
@@ -39,7 +22,7 @@ type AgentReasoningDisplaySegment = Extract<AgentDisplaySegment, { type: 'reason
 type AgentReasoningSegmentToggleState = 'expanded' | 'collapsed'
 
 /** 把思考耗时整理成适合标题展示的短文本 */
-function formatReasoningDuration(reasoningDurationMs: number | null | undefined): string | null {
+export function formatReasoningDuration(reasoningDurationMs: number | null | undefined): string | null {
   if (reasoningDurationMs === null || reasoningDurationMs === undefined) return null
 
   const durationSeconds = reasoningDurationMs / 1000
@@ -76,7 +59,7 @@ function formatJsonLikeText(value: string): string {
 }
 
 /** 判断当前 assistant 消息是否需要展示思考/执行过程折叠块 */
-function shouldShowReasoningBlock(message: AiChatMessage, isStreaming: boolean): boolean {
+export function shouldShowReasoningBlock(message: AiChatMessage, isStreaming: boolean): boolean {
   return (
     Boolean(message.agentTranscript?.length) ||
     Boolean(message.reasoningContent?.trim()) ||
@@ -85,223 +68,13 @@ function shouldShowReasoningBlock(message: AiChatMessage, isStreaming: boolean):
 }
 
 /** 根据当前消息状态生成折叠块标题 */
-function getReasoningTitle(
+export function getReasoningTitle(
   hasAgentTranscript: boolean,
   isStreaming: boolean,
   isReasoningComplete: boolean | undefined
 ): string {
   if (hasAgentTranscript) return isStreaming ? '执行中' : '思考过程'
   return isStreaming && !isReasoningComplete ? '思考中' : '已思考'
-}
-
-/** 把 token 数整理成紧凑文本 */
-function formatTokenCount(value: number | undefined): string | null {
-  if (value === undefined) return null
-  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`
-  return `${value}`
-}
-
-/** 计算 provider prompt cache 命中比例，优先使用 DeepSeek 的 hit/miss 字段 */
-function getPromptCacheStats(tokenUsage: AiTokenUsage | undefined): {
-  hitTokens: number
-  missTokens: number | null
-  hitRate: number
-} | null {
-  if (!tokenUsage) return null
-
-  const hasDeepSeekCache =
-    tokenUsage.promptCacheHitTokens !== undefined || tokenUsage.promptCacheMissTokens !== undefined
-  if (hasDeepSeekCache) {
-    const hitTokens = tokenUsage.promptCacheHitTokens ?? 0
-    const missTokens = tokenUsage.promptCacheMissTokens ?? 0
-    const totalCacheTokens = hitTokens + missTokens
-    if (totalCacheTokens <= 0) return null
-
-    return {
-      hitTokens,
-      missTokens,
-      hitRate: hitTokens / totalCacheTokens,
-    }
-  }
-
-  if (tokenUsage.promptCachedTokens !== undefined && tokenUsage.promptTokens !== undefined) {
-    const hitTokens = tokenUsage.promptCachedTokens
-    const missTokens = Math.max(0, tokenUsage.promptTokens - hitTokens)
-    if (tokenUsage.promptTokens <= 0) return null
-
-    return {
-      hitTokens,
-      missTokens,
-      hitRate: hitTokens / tokenUsage.promptTokens,
-    }
-  }
-
-  return null
-}
-
-interface MessageMetaData {
-  cacheStats: { hitTokens: number; missTokens: number | null; hitRate: number } | null
-  promptTokens: string | null
-  completionTokens: string | null
-  reasoningTokens: string | null
-}
-
-/** 提取 assistant 消息底部所需的结构化数据 */
-function getMessageMetaData(message: AiChatMessage): MessageMetaData {
-  const tokenUsage = message.tokenUsage
-  return {
-    cacheStats: getPromptCacheStats(tokenUsage),
-    promptTokens: formatTokenCount(tokenUsage?.promptTokens),
-    completionTokens: formatTokenCount(tokenUsage?.completionTokens),
-    reasoningTokens: formatTokenCount(tokenUsage?.reasoningTokens),
-  }
-}
-
-/** 所有用量数据合并在一个胶囊内，各段 hover 显示 shadcn Tooltip */
-function MetaPill({ meta }: { meta: MessageMetaData }) {
-  const { cacheStats, promptTokens, completionTokens, reasoningTokens } = meta
-  const pct = cacheStats ? Math.round(cacheStats.hitRate * 100) : null
-  const hitFmt = cacheStats ? (formatTokenCount(cacheStats.hitTokens) ?? '') : ''
-  const missFmt = cacheStats?.missTokens != null ? (formatTokenCount(cacheStats.missTokens) ?? '') : null
-
-  return (
-    <span className="ai-meta-pill">
-      {cacheStats && pct !== null ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="ai-meta-seg ai-meta-seg--cache">
-              <Progress value={pct} className="ai-meta-progress" />
-              <span className="ai-meta-cache-pct">{pct}%</span>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            缓存命中率：已命中 {hitFmt} token{missFmt ? `，未命中 ${missFmt} token` : ''}
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
-      {(promptTokens || completionTokens || reasoningTokens) ? (
-        <>
-          {cacheStats ? <span className="ai-meta-divider" aria-hidden="true" /> : null}
-          <span className="ai-meta-seg--tokens">
-          {promptTokens ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="ai-meta-token-item">
-                  <span className="ai-meta-sym">↑</span>
-                  <span className="ai-meta-val">{promptTokens}</span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>输入 token：发送给模型的提示词长度</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {completionTokens ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="ai-meta-token-item ai-meta-token-item--out">
-                  <span className="ai-meta-sym">↓</span>
-                  <span className="ai-meta-val">{completionTokens}</span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>输出 token：模型生成的回复长度</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {reasoningTokens ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="ai-meta-token-item">
-                  <span className="ai-meta-sym">◈</span>
-                  <span className="ai-meta-val">{reasoningTokens}</span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>推理 token：模型内部思考消耗的 token</TooltipContent>
-            </Tooltip>
-          ) : null}
-        </span>
-        </>
-      ) : null}
-    </span>
-  )
-}
-
-/** 按正/负/零返回行数颜色语义，方便统一映射到样式类 */
-function getLineDeltaTone(value: number): 'positive' | 'negative' | 'zero' {
-  if (value > 0) return 'positive'
-  if (value < 0) return 'negative'
-  return 'zero'
-}
-
-/** 把增删行数拆成独立节点，支持分别着色 */
-function FileEditLineSummary({
-  addedLines,
-  removedLines,
-  className,
-}: {
-  addedLines: number
-  removedLines: number
-  className?: string
-}) {
-  return (
-    <span className={cn('ai-file-edit-line-stats', className)}>
-      <span className={cn('ai-file-edit-line-stat', `is-${getLineDeltaTone(addedLines)}`)}>+{addedLines}</span>
-      <span className={cn('ai-file-edit-line-stat', `is-${getLineDeltaTone(-removedLines)}`)}>-{removedLines}</span>
-    </span>
-  )
-}
-
-/** 展示 agent 本次实际写入的文件列表，并提供整批回退 */
-function FileEditSummaryCard({
-  message,
-  isReverting,
-  onRevert,
-}: {
-  message: AiChatMessage
-  isReverting: boolean
-  onRevert: () => void
-}) {
-  const batch = message.fileEditBatch
-  if (!batch || batch.files.length === 0) return null
-
-  const fileCountLabel = `${batch.files.length} 个文件`
-
-  return (
-    <section className={cn('ai-file-edit-summary', batch.isReverted && 'is-reverted')}>
-      <div className="ai-file-edit-summary-header">
-        <span className="ai-file-edit-summary-title">
-          <FilePenLine className="size-[14px]" aria-hidden="true" />
-          <span>已修改 {fileCountLabel}</span>
-        </span>
-        <div className="ai-file-edit-summary-actions">
-          {batch.isReverted ? (
-            <span className="ai-file-edit-reverted-label">已回退</span>
-          ) : (
-            <button
-              type="button"
-              className="ai-file-edit-revert-btn"
-              onClick={onRevert}
-              disabled={isReverting}
-              aria-label="回退本次 AI 修改"
-            >
-              {isReverting ? (
-                <LoaderCircle className="ai-agent-tool-spinner size-[13px]" aria-hidden="true" />
-              ) : (
-                <RotateCcw className="size-[13px]" aria-hidden="true" />
-              )}
-              <span>{isReverting ? '回退中' : '回退修改'}</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="ai-file-edit-list">
-        {batch.files.map((file) => (
-          <div key={file.path} className="ai-file-edit-row">
-            <code title={file.path}>{file.path}</code>
-            <FileEditLineSummary addedLines={file.addedLines} removedLines={file.removedLines} />
-          </div>
-        ))}
-      </div>
-    </section>
-  )
 }
 
 /** 判断 transcript 中最后一条 assistant 是否只是最终正文，避免和主回答重复展示 */
@@ -485,7 +258,7 @@ function ToolInvocationCard({
 }
 
 /** 通用思考块：负责标题、展开收起和统一的折叠面板样式 */
-function ReasoningBlock({
+export function ReasoningBlock({
   title,
   durationLabel,
   isExpanded,
@@ -565,7 +338,7 @@ function AgentReasoningSegment({
 }
 
 /** 展示可持久化 agent transcript，并在正文出现时切断思考过程 */
-function AgentTranscriptFlow({
+export function AgentTranscriptFlow({
   transcript,
   messageContent,
   isStreaming,
@@ -708,107 +481,6 @@ function AgentTranscriptFlow({
           </ReasoningBlock>
         )
       })}
-    </div>
-  )
-}
-
-/** assistant 消息：区分思考轨与正文轨，并负责思考折叠交互 */
-export function AiAssistantMessage({
-  message,
-  isStreaming,
-  isReasoningExpanded,
-  onToggleReasoning,
-  onCopy,
-  onRegenerate,
-  onRevertFileEdits,
-  isRevertingFileEdits,
-}: Props) {
-  const hasReasoningContent = Boolean(message.reasoningContent?.trim())
-  const hasAgentTranscript = Boolean(message.agentTranscript?.length)
-  const hasStandaloneReasoningBlock = !hasAgentTranscript && shouldShowReasoningBlock(message, isStreaming)
-  const reasoningDurationLabel = formatReasoningDuration(message.reasoningDurationMs)
-  const reasoningTitle = getReasoningTitle(hasAgentTranscript, isStreaming, message.isReasoningComplete)
-  const meta = getMessageMetaData(message)
-  const hasMetaData = meta.cacheStats || meta.promptTokens || meta.completionTokens || meta.reasoningTokens
-
-  return (
-    <div className="ai-assistant-shell">
-      {hasAgentTranscript ? (
-        <AgentTranscriptFlow
-          transcript={message.agentTranscript ?? []}
-          messageContent={message.content}
-          isStreaming={isStreaming}
-          isReasoningExpanded={isReasoningExpanded}
-          onToggleReasoning={onToggleReasoning}
-          reasoningTitle={reasoningTitle}
-          reasoningDurationLabel={reasoningDurationLabel}
-        />
-      ) : hasStandaloneReasoningBlock ? (
-        <ReasoningBlock
-          title={reasoningTitle}
-          durationLabel={reasoningDurationLabel}
-          isExpanded={isReasoningExpanded}
-          onToggle={onToggleReasoning}
-        >
-          {hasReasoningContent ? (
-            <div className="ai-reasoning-body">
-              <AiMarkdown content={message.reasoningContent ?? ''} />
-            </div>
-          ) : (
-            <div className="ai-reasoning-placeholder">正在等待模型返回可展示的思考过程...</div>
-          )}
-        </ReasoningBlock>
-      ) : null}
-
-      {message.content ? (
-        <div className="ai-message-content ai-assistant-content">
-          <AiMarkdown content={message.content} />
-          {isStreaming ? <span className="ai-streaming-cursor" aria-hidden="true" /> : null}
-        </div>
-      ) : isStreaming ? (
-        <div className="ai-answer-streaming-placeholder">
-          <span>正在生成回复</span>
-          <span className="ai-streaming-cursor" aria-hidden="true" />
-        </div>
-      ) : null}
-
-      {!isStreaming ? (
-        <FileEditSummaryCard
-          message={message}
-          isReverting={isRevertingFileEdits}
-          onRevert={onRevertFileEdits}
-        />
-      ) : null}
-
-      <div className="ai-message-footer">
-        {hasMetaData ? (
-          <div className="ai-message-meta" aria-label="缓存与用量">
-            <MetaPill meta={meta} />
-          </div>
-        ) : null}
-        {!isStreaming ? (
-          <div className="ai-assistant-actions">
-            <button
-              type="button"
-              className="ai-action-btn"
-              onClick={onCopy}
-              aria-label="复制"
-              title="复制"
-            >
-              <Copy className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              className="ai-action-btn"
-              onClick={onRegenerate}
-              aria-label="重新生成"
-              title="重新生成"
-            >
-              <RefreshCw className="size-3.5" />
-            </button>
-          </div>
-        ) : null}
-      </div>
     </div>
   )
 }
