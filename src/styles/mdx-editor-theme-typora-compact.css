@@ -45,8 +45,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -58,8 +58,8 @@
 }
 
 .mira-mdx-content
-  > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> [class*='_codeMirrorWrapper_']), [class*='_codeMirrorWrapper_'])
-  + :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> [class*='_codeMirrorWrapper_']), [class*='_codeMirrorWrapper_']) {
+  > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> .mira-code-mirror-block), .mira-code-mirror-block)
+  + :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> .mira-code-mirror-block), .mira-code-mirror-block) {
   margin-top: var(--mira-space-block);
 }
 
@@ -86,8 +86,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -108,8 +108,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -130,8 +130,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -152,8 +152,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -174,8 +174,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -196,8 +196,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -218,8 +218,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -240,8 +240,8 @@
   hr,
   img,
   figure,
-  div:has(> [class*='_codeMirrorWrapper_']),
-  [class*='_codeMirrorWrapper_'],
+  div:has(> .mira-code-mirror-block),
+  .mira-code-mirror-block,
   h1,
   h2,
   h3,
@@ -351,8 +351,8 @@
   margin-top: 0.46em;
 }
 
-.mira-mdx-content li > :is(ul, ol, blockquote, pre, [class*='_codeMirrorWrapper_']),
-.mira-mdx-content li > p + :is(ul, ol, blockquote, pre, [class*='_codeMirrorWrapper_']) {
+.mira-mdx-content li > :is(ul, ol, blockquote, pre, .mira-code-mirror-block),
+.mira-mdx-content li > p + :is(ul, ol, blockquote, pre, .mira-code-mirror-block) {
   margin-top: 0.34em;
 }
 
@@ -421,7 +421,7 @@
 
 /* 5. 代码块保留轻量背景，兼顾笔记感和可扫描性 */
 .mira-mdx-content pre,
-.mira-mdx-content [class*='_codeMirrorWrapper_'] {
+.mira-mdx-content .mira-code-mirror-block {
   overflow: hidden;
   margin-inline: 0;
   margin-bottom: 0;
@@ -448,64 +448,95 @@
   font-size: inherit;
 }
 
-.mira-mdx-content [class*='_codeMirrorWrapper_'] {
+.mira-mdx-content .mira-code-mirror-block {
+  --mira-code-block-font-size: 13px;
+  --mira-code-block-line-height: calc(var(--mira-code-block-font-size) * 1.62);
+  position: relative;
   padding: 0;
 }
 
-.mira-mdx-content [class*='_codeMirrorToolbar_'] {
-  position: static;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--theme-border);
-  background: var(--theme-editor-code-toolbar-bg);
+.mira-mdx-content .mira-code-mirror-block [class*='_codeMirrorWrapper_'] {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
-.mira-mdx-content [class*='_codeMirrorToolbar_'] button {
-  border: 1px solid var(--theme-editor-code-button-border);
+.mira-mdx-content .mira-code-mirror-block [class*='_codeMirrorToolbar_'] {
+  display: none;
+}
+
+.mira-code-copy-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
   border-radius: 6px;
-  background: var(--theme-editor-code-button-bg);
+  background: transparent;
   color: var(--theme-editor-control-text);
-  font-size: 12px;
-  line-height: 1.4;
-  padding: 3px 8px;
+  opacity: 0.78;
   transition:
     background-color 120ms ease,
-    border-color 120ms ease;
+    opacity 120ms ease;
 }
 
-.mira-mdx-content [class*='_codeMirrorToolbar_'] button:hover {
-  border-color: var(--theme-editor-code-button-hover-border);
+.mira-code-copy-button:hover,
+.mira-code-copy-button:focus-visible {
   background: var(--theme-editor-code-button-hover-bg);
+  opacity: 1;
 }
 
-.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-editor {
+.mira-code-copy-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--theme-accent) 42%, transparent);
+  outline-offset: 2px;
+}
+
+.mira-mdx-content .mira-code-mirror-block .cm-editor {
   padding: 0;
   background: transparent;
   color: var(--theme-editor-code-text);
+  line-height: var(--mira-code-block-line-height);
 }
 
-.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-scroller {
+.mira-mdx-content .mira-code-mirror-block .cm-scroller {
   font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.62;
-  padding: 12px 0 !important;
+  font-size: var(--mira-code-block-font-size);
+  line-height: inherit;
+  padding: 12px 44px 12px 0 !important;
   tab-size: 2;
 }
 
-.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-gutters {
+.mira-mdx-content .mira-code-mirror-block .cm-gutters {
   background: transparent;
   border-right: 1px solid var(--theme-border);
   color: var(--theme-text-tertiary);
 }
 
-.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-activeLine,
-.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-activeLineGutter {
-  background: transparent !important;
+.mira-mdx-content .mira-code-mirror-block .cm-line,
+.mira-mdx-content .mira-code-mirror-block .cm-gutterElement {
+  line-height: var(--mira-code-block-line-height);
 }
 
-.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-selectionBackground {
-  background: color-mix(in srgb, var(--theme-accent) 22%, transparent) !important;
+.mira-mdx-content .mira-code-mirror-block .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.mira-mdx-content .mira-code-mirror-block .cm-lineNumbers .cm-gutterElement {
+  justify-content: flex-end;
+}
+
+.mira-mdx-content .mira-code-mirror-block .cm-activeLine,
+.mira-mdx-content .mira-code-mirror-block .cm-activeLineGutter {
+  background: transparent !important;
 }

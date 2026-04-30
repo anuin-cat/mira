@@ -34,11 +34,7 @@
   --theme-editor-table-bg: #ffffff;
   --theme-editor-table-head-bg: #f7f7f5;
   --theme-editor-code-bg: #f7f7f5;
-  --theme-editor-code-toolbar-bg: rgba(248, 248, 246, 0.94);
-  --theme-editor-code-button-bg: #ffffff;
-  --theme-editor-code-button-border: #dddcd8;
   --theme-editor-code-button-hover-bg: #f2f2f0;
-  --theme-editor-code-button-hover-border: #cfceca;
   --theme-editor-code-text: #232320;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
   --accentBase: var(--theme-selection);
@@ -104,11 +100,7 @@
   --theme-editor-table-bg: #fffdfa;
   --theme-editor-table-head-bg: #faf7f1;
   --theme-editor-code-bg: #f7f4ee;
-  --theme-editor-code-toolbar-bg: rgba(255, 252, 246, 0.94);
-  --theme-editor-code-button-bg: #fffdfa;
-  --theme-editor-code-button-border: #ddd4c8;
   --theme-editor-code-button-hover-bg: #fcf8f2;
-  --theme-editor-code-button-hover-border: #cfc3b4;
   --theme-editor-code-text: #232320;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
@@ -149,11 +141,7 @@
   --theme-editor-table-bg: #1c2636;
   --theme-editor-table-head-bg: #243142;
   --theme-editor-code-bg: #1b2534;
-  --theme-editor-code-toolbar-bg: rgba(29, 39, 55, 0.94);
-  --theme-editor-code-button-bg: #223045;
-  --theme-editor-code-button-border: #33455e;
   --theme-editor-code-button-hover-bg: #29384c;
-  --theme-editor-code-button-hover-border: #41546f;
   --theme-editor-code-text: #dbe2ec;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -194,11 +182,7 @@
   --theme-editor-table-bg: #1f2924;
   --theme-editor-table-head-bg: #25322b;
   --theme-editor-code-bg: #1e2923;
-  --theme-editor-code-toolbar-bg: rgba(31, 41, 36, 0.94);
-  --theme-editor-code-button-bg: #253129;
-  --theme-editor-code-button-border: #384940;
   --theme-editor-code-button-hover-bg: #2c3932;
-  --theme-editor-code-button-hover-border: #496056;
   --theme-editor-code-text: #dce9e1;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -239,11 +223,7 @@
   --theme-editor-table-bg: #1e1e1e;
   --theme-editor-table-head-bg: #252526;
   --theme-editor-code-bg: #1f1f1f;
-  --theme-editor-code-toolbar-bg: rgba(31, 31, 31, 0.94);
-  --theme-editor-code-button-bg: #252525;
-  --theme-editor-code-button-border: #3b3b3b;
   --theme-editor-code-button-hover-bg: #2e2e2e;
-  --theme-editor-code-button-hover-border: #4b4b4b;
   --theme-editor-code-text: #d4d4d4;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }

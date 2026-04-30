@@ -1,4 +1,5 @@
 import {
+  CodeMirrorEditor,
   codeBlockPlugin,
   codeMirrorPlugin,
   headingsPlugin,
@@ -10,9 +11,12 @@ import {
   tablePlugin,
   thematicBreakPlugin,
   toolbarPlugin,
+  useCodeBlockEditorContext,
+  type CodeBlockEditorProps,
   type RealmPlugin,
 } from '@mdxeditor/editor'
-import { type Ref } from 'react'
+import { Check, Copy } from 'lucide-react'
+import { useEffect, useState, type MouseEvent, type Ref } from 'react'
 import { EditorSearchControlsHandle } from './EditorSearchControls'
 import type { EditorSearchSelectionResult } from './currentFileSearch'
 import { MiraLinkDialog } from './MiraLinkDialog'
@@ -22,21 +26,26 @@ import { mdxListStartPlugin } from './mdxListStartPlugin'
 import { singleTildeStrikethroughPlugin } from './singleTildeStrikethroughPlugin'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
-const CODE_BLOCK_LANGUAGES = {
-  txt: 'Plain Text',
-  js: 'JavaScript',
-  jsx: 'JavaScript (React)',
-  ts: 'TypeScript',
-  tsx: 'TypeScript (React)',
-  css: 'CSS',
-  html: 'HTML',
-  json: 'JSON',
-  md: 'Markdown',
-  sh: 'Shell',
-  bash: 'Bash',
-  py: 'Python',
-  rust: 'Rust',
-} satisfies Record<string, string>
+const DEFAULT_CODE_BLOCK_LANGUAGE = 'txt'
+const CODE_BLOCK_COPY_RESET_MS = 1200
+const CODE_BLOCK_LANGUAGE_DETECT_DELAY_MS = 260
+const AUTO_MANAGED_CODE_LANGUAGES = new Set([
+  '',
+  'txt',
+  'json',
+  'html',
+  'css',
+  'bash',
+  'sh',
+  'py',
+  'python',
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'md',
+  'markdown',
+])
 const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'toolbar.bold': '加粗',
   'toolbar.removeBold': '取消加粗',
@@ -72,10 +81,6 @@ const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'linkPreview.copyToClipboard': '复制链接',
   'linkPreview.copied': '已复制',
   'linkPreview.remove': '移除链接',
-  'codeBlock.selectLanguage': '选择代码块语言',
-  'codeBlock.inlineLanguage': '语言',
-  'codeBlock.language': '代码块语言',
-  'codeblock.delete': '删除代码块',
 }
 
 export interface CreateEditorPluginsOptions {
@@ -86,6 +91,99 @@ export interface CreateEditorPluginsOptions {
   onEditorSearchClose: () => void
   searchControlsRef: Ref<EditorSearchControlsHandle>
   onSelectEditorSearchMatch: (query: string, matchOrdinal: number) => EditorSearchSelectionResult
+}
+
+/** 判断代码内容是否是可高置信识别的 JSON */
+function looksLikeJsonCode(source: string) {
+  if (!/^[{\[]/.test(source)) return false
+
+  try {
+    JSON.parse(source)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 根据代码内容做保守语言检测，避免低置信度时频繁切换 */
+function detectCodeBlockLanguage(code: string) {
+  const source = code.trim()
+  if (!source) return DEFAULT_CODE_BLOCK_LANGUAGE
+
+  if (looksLikeJsonCode(source)) return 'json'
+  if (/^(<!doctype html|<html[\s>]|<[a-z][\w-]*(\s[^>]*)?>[\s\S]*<\/[a-z][\w-]*>)$/i.test(source)) {
+    return 'html'
+  }
+  if (/(^|\n)\s*([.#]?[\w-]+|:root|\*)\s*\{[\s\S]*?:[\s\S]*?;[\s\S]*?\}/.test(source)) return 'css'
+  if (/^(#!\/usr\/bin\/env\s+(ba)?sh|#!\/bin\/(ba)?sh)/.test(source)) return 'bash'
+  if (/^\s*(npx|npm|pnpm|yarn|git|cd|mkdir|rm|cp|mv|curl|ssh|docker|cargo|node|deno|bun|brew)\b/m.test(source)) {
+    return 'bash'
+  }
+  if (/\binterface\s+\w+|type\s+\w+\s*=|:\s*(string|number|boolean|unknown|Record<)/.test(source)) return 'ts'
+  if (/\b(import\s+.+\s+from|export\s+|const\s+|let\s+|function\s+|\)\s*=>|console\.)/.test(source)) return 'js'
+  if (/\bdef\s+\w+\(|\bclass\s+\w+[:(]|\bfrom\s+\S+\s+import\s+|\bif\s+__name__\s*==/.test(source)) return 'py'
+  if (/^(#{1,6}\s+|- \[[ x]\]\s+|[-*]\s+|\d+\.\s+|>\s+|```)/m.test(source)) return 'md'
+
+  return DEFAULT_CODE_BLOCK_LANGUAGE
+}
+
+/** 判断当前语言是否允许由内容检测接管 */
+function canAutoManageCodeLanguage(language: string) {
+  return AUTO_MANAGED_CODE_LANGUAGES.has(language.toLowerCase())
+}
+
+/** Mira 代码块编辑器：保留 CodeMirror 本体，外层只做自动语言和悬浮复制 */
+function MiraCodeMirrorEditor(props: CodeBlockEditorProps) {
+  const { code, language } = props
+  const { setLanguage } = useCodeBlockEditorContext()
+  const [isCopied, setIsCopied] = useState(false)
+
+  useEffect(() => {
+    if (!canAutoManageCodeLanguage(language)) return
+
+    const timerId = window.setTimeout(() => {
+      const nextLanguage = detectCodeBlockLanguage(code)
+      if (nextLanguage !== language) setLanguage(nextLanguage)
+    }, CODE_BLOCK_LANGUAGE_DETECT_DELAY_MS)
+
+    return () => window.clearTimeout(timerId)
+  }, [code, language, setLanguage])
+
+  useEffect(() => {
+    if (!isCopied) return
+
+    const timerId = window.setTimeout(() => setIsCopied(false), CODE_BLOCK_COPY_RESET_MS)
+    return () => window.clearTimeout(timerId)
+  }, [isCopied])
+
+  /** 复制代码块内容，按钮不抢走 CodeMirror 的焦点 */
+  async function handleCopyClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    try {
+      await navigator.clipboard.writeText(code)
+      setIsCopied(true)
+    } catch {
+      setIsCopied(false)
+    }
+  }
+
+  return (
+    <div className="mira-code-mirror-block">
+      <button
+        type="button"
+        className="mira-code-copy-button"
+        aria-label={isCopied ? '已复制代码' : '复制代码'}
+        title={isCopied ? '已复制' : '复制'}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={handleCopyClick}
+      >
+        {isCopied ? <Check size={17} strokeWidth={2} /> : <Copy size={17} strokeWidth={2} />}
+      </button>
+      <CodeMirrorEditor {...props} />
+    </div>
+  )
 }
 
 /** 翻译 MDXEditor 工具栏文案，并保留带快捷键的动态项 */
@@ -135,11 +233,17 @@ export function createEditorPlugins({
       allowSetImageDimensions: true,
     }),
     tablePlugin(),
-    codeBlockPlugin({ defaultCodeBlockLanguage: 'txt' }),
-    codeMirrorPlugin({
-      codeBlockLanguages: CODE_BLOCK_LANGUAGES,
-      autoLoadLanguageSupport: true,
+    codeBlockPlugin({
+      defaultCodeBlockLanguage: DEFAULT_CODE_BLOCK_LANGUAGE,
+      codeBlockEditorDescriptors: [
+        {
+          priority: 2,
+          match: () => true,
+          Editor: MiraCodeMirrorEditor,
+        },
+      ],
     }),
+    codeMirrorPlugin(),
     miraMarkdownShortcutPlugin(),
     toolbarPlugin({
       toolbarContents: () => (
