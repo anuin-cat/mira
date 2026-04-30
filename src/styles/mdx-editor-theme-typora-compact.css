@@ -45,8 +45,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -58,8 +58,8 @@
 }
 
 .mira-mdx-content
-  > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> .mira-code-block), .mira-code-block)
-  + :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> .mira-code-block), .mira-code-block) {
+  > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> [class*='_codeMirrorWrapper_']), [class*='_codeMirrorWrapper_'])
+  + :where(p, ul, ol, blockquote, table, pre, hr, img, figure, div:has(> [class*='_codeMirrorWrapper_']), [class*='_codeMirrorWrapper_']) {
   margin-top: var(--mira-space-block);
 }
 
@@ -86,8 +86,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -108,8 +108,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -130,8 +130,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -152,8 +152,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -174,8 +174,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -196,8 +196,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -218,8 +218,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -240,8 +240,8 @@
   hr,
   img,
   figure,
-  div:has(> .mira-code-block),
-  .mira-code-block,
+  div:has(> [class*='_codeMirrorWrapper_']),
+  [class*='_codeMirrorWrapper_'],
   h1,
   h2,
   h3,
@@ -351,8 +351,8 @@
   margin-top: 0.46em;
 }
 
-.mira-mdx-content li > :is(ul, ol, blockquote, pre, .mira-code-block),
-.mira-mdx-content li > p + :is(ul, ol, blockquote, pre, .mira-code-block) {
+.mira-mdx-content li > :is(ul, ol, blockquote, pre, [class*='_codeMirrorWrapper_']),
+.mira-mdx-content li > p + :is(ul, ol, blockquote, pre, [class*='_codeMirrorWrapper_']) {
   margin-top: 0.34em;
 }
 
@@ -421,7 +421,7 @@
 
 /* 5. 代码块保留轻量背景，兼顾笔记感和可扫描性 */
 .mira-mdx-content pre,
-.mira-code-block {
+.mira-mdx-content [class*='_codeMirrorWrapper_'] {
   overflow: hidden;
   margin-inline: 0;
   margin-bottom: 0;
@@ -448,34 +448,22 @@
   font-size: inherit;
 }
 
-.mira-code-block-toolbar {
+.mira-mdx-content [class*='_codeMirrorWrapper_'] {
+  padding: 0;
+}
+
+.mira-mdx-content [class*='_codeMirrorToolbar_'] {
+  position: static;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--theme-border);
   background: var(--theme-editor-code-toolbar-bg);
 }
 
-.mira-code-block-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.mira-code-block-language {
-  width: 96px;
-  border: 1px solid var(--theme-editor-code-button-border);
-  border-radius: 6px;
-  background: var(--theme-editor-code-button-bg);
-  color: var(--theme-editor-control-text);
-  font-size: 12px;
-  line-height: 1.4;
-  padding: 3px 6px;
-}
-
-.mira-code-block-toolbar button {
+.mira-mdx-content [class*='_codeMirrorToolbar_'] button {
   border: 1px solid var(--theme-editor-code-button-border);
   border-radius: 6px;
   background: var(--theme-editor-code-button-bg);
@@ -488,56 +476,36 @@
     border-color 120ms ease;
 }
 
-.mira-code-block-toolbar button:hover {
+.mira-mdx-content [class*='_codeMirrorToolbar_'] button:hover {
   border-color: var(--theme-editor-code-button-hover-border);
   background: var(--theme-editor-code-button-hover-bg);
 }
 
-.mira-code-block-preview,
-.mira-code-block-textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 50px;
-  min-height: calc(1lh + 28px);
-  margin: 0;
-  border: none;
+.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-editor {
+  padding: 0;
   background: transparent;
   color: var(--theme-editor-code-text);
+}
+
+.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-scroller {
   font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
   line-height: 1.62;
-  padding: 14px 16px;
+  padding: 12px 0 !important;
   tab-size: 2;
 }
 
-.mira-mdx-content .mira-code-block .mira-code-block-preview {
-  margin: 0;
-  border: none;
-  border-radius: 0;
+.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-gutters {
   background: transparent;
-  box-shadow: none;
-  overflow-x: auto;
-  white-space: pre;
+  border-right: 1px solid var(--theme-border);
+  color: var(--theme-text-tertiary);
 }
 
-.mira-code-block-textarea {
-  display: block;
-  max-height: 197px;
-  max-height: calc(8lh + 28px);
-  overflow-y: hidden;
-  resize: vertical;
-  outline: none;
+.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-activeLine,
+.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-activeLineGutter {
+  background: transparent !important;
 }
 
-.mira-code-token-comment {
-  color: var(--theme-editor-code-token-comment);
-}
-
-.mira-code-token-string {
-  color: var(--theme-editor-code-token-string);
-}
-
-.mira-code-token-keyword {
-  color: var(--theme-editor-code-token-keyword);
-  font-weight: 600;
+.mira-mdx-content [class*='_codeMirrorWrapper_'] .cm-selectionBackground {
+  background: color-mix(in srgb, var(--theme-accent) 22%, transparent) !important;
 }

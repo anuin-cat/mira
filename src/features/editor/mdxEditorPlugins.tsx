@@ -1,5 +1,6 @@
 import {
   codeBlockPlugin,
+  codeMirrorPlugin,
   headingsPlugin,
   imagePlugin,
   linkDialogPlugin,
@@ -9,12 +10,9 @@ import {
   tablePlugin,
   thematicBreakPlugin,
   toolbarPlugin,
-  useCodeBlockEditorContext,
-  type CodeBlockEditorProps,
   type RealmPlugin,
 } from '@mdxeditor/editor'
-import { useEffect, useRef, useState, type Ref } from 'react'
-import { isImeComposing } from '../../lib/keyboard'
+import { type Ref } from 'react'
 import { EditorSearchControlsHandle } from './EditorSearchControls'
 import type { EditorSearchSelectionResult } from './currentFileSearch'
 import { MiraLinkDialog } from './MiraLinkDialog'
@@ -24,9 +22,21 @@ import { mdxListStartPlugin } from './mdxListStartPlugin'
 import { singleTildeStrikethroughPlugin } from './singleTildeStrikethroughPlugin'
 
 const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
-const CODE_BLOCK_MAX_EDIT_LINES = 8
-const CODE_TOKEN_RE =
-  /(\/\/.*|#.*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b(?:const|let|var|function|return|import|export|from|if|else|for|while|class|interface|type|async|await|true|false|null|undefined)\b)/g
+const CODE_BLOCK_LANGUAGES = {
+  txt: 'Plain Text',
+  js: 'JavaScript',
+  jsx: 'JavaScript (React)',
+  ts: 'TypeScript',
+  tsx: 'TypeScript (React)',
+  css: 'CSS',
+  html: 'HTML',
+  json: 'JSON',
+  md: 'Markdown',
+  sh: 'Shell',
+  bash: 'Bash',
+  py: 'Python',
+  rust: 'Rust',
+} satisfies Record<string, string>
 const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'toolbar.bold': '加粗',
   'toolbar.removeBold': '取消加粗',
@@ -62,6 +72,10 @@ const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'linkPreview.copyToClipboard': '复制链接',
   'linkPreview.copied': '已复制',
   'linkPreview.remove': '移除链接',
+  'codeBlock.selectLanguage': '选择代码块语言',
+  'codeBlock.inlineLanguage': '语言',
+  'codeBlock.language': '代码块语言',
+  'codeblock.delete': '删除代码块',
 }
 
 export interface CreateEditorPluginsOptions {
@@ -72,146 +86,6 @@ export interface CreateEditorPluginsOptions {
   onEditorSearchClose: () => void
   searchControlsRef: Ref<EditorSearchControlsHandle>
   onSelectEditorSearchMatch: (query: string, matchOrdinal: number) => EditorSearchSelectionResult
-}
-
-/** 转义代码内容，避免高亮时把用户文本当作 HTML */
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-/** 根据代码片段内容判断高亮分类 */
-function getCodeTokenClass(token: string) {
-  if (token.startsWith('//') || token.startsWith('#')) return 'mira-code-token-comment'
-  if (token.startsWith('"') || token.startsWith("'") || token.startsWith('`')) {
-    return 'mira-code-token-string'
-  }
-  return 'mira-code-token-keyword'
-}
-
-/** 给轻量代码块做最小语法高亮，不引入额外高亮库 */
-function highlightCode(code: string) {
-  let html = ''
-  let cursor = 0
-
-  for (const match of code.matchAll(CODE_TOKEN_RE)) {
-    const index = match.index ?? 0
-    const token = match[0]
-    html += escapeHtml(code.slice(cursor, index))
-    html += `<span class="${getCodeTokenClass(token)}">${escapeHtml(token)}</span>`
-    cursor = index + token.length
-  }
-
-  return html + escapeHtml(code.slice(cursor))
-}
-
-/** 按内容同步代码块 textarea 高度，最多展示 8 行后再内部滚动 */
-function syncCodeBlockTextareaHeight(textarea: HTMLTextAreaElement) {
-  const styles = window.getComputedStyle(textarea)
-  const fontSize = Number.parseFloat(styles.fontSize) || 13
-  const lineHeight = Number.parseFloat(styles.lineHeight) || fontSize * 1.62
-  const paddingBlock =
-    (Number.parseFloat(styles.paddingTop) || 0) + (Number.parseFloat(styles.paddingBottom) || 0)
-  const borderBlock =
-    (Number.parseFloat(styles.borderTopWidth) || 0) + (Number.parseFloat(styles.borderBottomWidth) || 0)
-  const maxHeight = lineHeight * CODE_BLOCK_MAX_EDIT_LINES + paddingBlock + borderBlock
-
-  textarea.style.height = 'auto'
-  textarea.style.height = `${Math.min(textarea.scrollHeight + borderBlock, maxHeight)}px`
-  textarea.style.overflowY = textarea.scrollHeight + borderBlock > maxHeight ? 'auto' : 'hidden'
-}
-
-/** 轻量代码块编辑器：保留语言和内容编辑，避免拉入完整 CodeMirror 代码块编辑器 */
-function LightCodeBlockEditor({ code, language, focusEmitter }: CodeBlockEditorProps) {
-  // 1. 维护轻量编辑态，并响应 MDXEditor 的聚焦请求
-  const { setCode, setLanguage } = useCodeBlockEditorContext()
-  const [isEditing, setIsEditing] = useState(false)
-  const [copyLabel, setCopyLabel] = useState('复制')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  /** 聚焦编辑框并在进入编辑态时立即同步高度 */
-  function focusAndResizeTextarea() {
-    const textarea = textareaRef.current
-    if (!textarea) return
-    syncCodeBlockTextareaHeight(textarea)
-    textarea.focus()
-  }
-
-  useEffect(() => {
-    focusEmitter.subscribe(() => {
-      setIsEditing(true)
-      window.requestAnimationFrame(focusAndResizeTextarea)
-    })
-  }, [focusEmitter])
-
-  useEffect(() => {
-    if (isEditing) window.requestAnimationFrame(focusAndResizeTextarea)
-  }, [code, isEditing])
-
-  /** 复制代码块文本，优先走 Clipboard API，失败后给出重试提示 */
-  async function handleCopyClick() {
-    try {
-      await navigator.clipboard.writeText(code)
-      setCopyLabel('已复制')
-      window.setTimeout(() => setCopyLabel('复制'), 1200)
-    } catch {
-      setCopyLabel('复制失败')
-      window.setTimeout(() => setCopyLabel('复制'), 1200)
-    }
-  }
-
-  // 2. 预览态展示轻量高亮，编辑态使用原生 textarea 写回 Markdown
-  return (
-    <div className="mira-code-block">
-      <div className="mira-code-block-toolbar">
-        <input
-          className="mira-code-block-language"
-          value={language}
-          onChange={(event) => setLanguage(event.target.value)}
-          placeholder="txt"
-          aria-label="代码语言"
-        />
-        <div className="mira-code-block-actions">
-          <button type="button" onClick={handleCopyClick}>
-            {copyLabel}
-          </button>
-          <button type="button" onClick={() => setIsEditing((value) => !value)}>
-            {isEditing ? '完成' : '编辑'}
-          </button>
-        </div>
-      </div>
-      {isEditing ? (
-        <textarea
-          ref={textareaRef}
-          className="mira-code-block-textarea"
-          value={code}
-          rows={1}
-          spellCheck={false}
-          aria-label="代码内容"
-          onChange={(event) => {
-            setCode(event.target.value)
-            syncCodeBlockTextareaHeight(event.target)
-          }}
-          onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-              if (isImeComposing(event)) return
-              event.preventDefault()
-              setIsEditing(false)
-            }
-            if (event.key === 'Escape') setIsEditing(false)
-          }}
-        />
-      ) : (
-        <pre className="mira-code-block-preview" onDoubleClick={() => setIsEditing(true)}>
-          <code dangerouslySetInnerHTML={{ __html: highlightCode(code) }} />
-        </pre>
-      )}
-    </div>
-  )
 }
 
 /** 翻译 MDXEditor 工具栏文案，并保留带快捷键的动态项 */
@@ -261,15 +135,10 @@ export function createEditorPlugins({
       allowSetImageDimensions: true,
     }),
     tablePlugin(),
-    codeBlockPlugin({
-      defaultCodeBlockLanguage: 'txt',
-      codeBlockEditorDescriptors: [
-        {
-          priority: 1,
-          match: () => true,
-          Editor: LightCodeBlockEditor,
-        },
-      ],
+    codeBlockPlugin({ defaultCodeBlockLanguage: 'txt' }),
+    codeMirrorPlugin({
+      codeBlockLanguages: CODE_BLOCK_LANGUAGES,
+      autoLoadLanguageSupport: true,
     }),
     miraMarkdownShortcutPlugin(),
     toolbarPlugin({

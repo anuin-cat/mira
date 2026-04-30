@@ -41,9 +41,6 @@
   --theme-editor-code-button-hover-border: #cfceca;
   --theme-editor-code-text: #232320;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  --theme-editor-code-token-comment: #8a857d;
-  --theme-editor-code-token-string: #9a5a35;
-  --theme-editor-code-token-keyword: #365f8b;
   --accentBase: var(--theme-selection);
   --accentBgSubtle: var(--theme-selection);
   --accentBg: var(--theme-selection);
@@ -114,9 +111,6 @@
   --theme-editor-code-button-hover-border: #cfc3b4;
   --theme-editor-code-text: #232320;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  --theme-editor-code-token-comment: #8a857d;
-  --theme-editor-code-token-string: #8a4d32;
-  --theme-editor-code-token-keyword: #49658c;
 }
 
 /* 暮光蓝主题 */
@@ -162,9 +156,6 @@
   --theme-editor-code-button-hover-border: #41546f;
   --theme-editor-code-text: #dbe2ec;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --theme-editor-code-token-comment: #7c879a;
-  --theme-editor-code-token-string: #a8d2ff;
-  --theme-editor-code-token-keyword: #8fc1ff;
 }
 
 /* 森林绿主题 */
@@ -210,9 +201,6 @@
   --theme-editor-code-button-hover-border: #496056;
   --theme-editor-code-text: #dce9e1;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --theme-editor-code-token-comment: #7d8f86;
-  --theme-editor-code-token-string: #a8e7bf;
-  --theme-editor-code-token-keyword: #93c9a9;
 }
 
 /* 经典深色主题 */
@@ -258,7 +246,4 @@
   --theme-editor-code-button-hover-border: #4b4b4b;
   --theme-editor-code-text: #d4d4d4;
   --theme-editor-code-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  --theme-editor-code-token-comment: #808080;
-  --theme-editor-code-token-string: #ce9178;
-  --theme-editor-code-token-keyword: #569cd6;
 }
