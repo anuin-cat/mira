@@ -5,14 +5,19 @@ import type { AgentTool, AgentToolResult } from '../types'
 import { hashTextContent } from '../utils/fileEdit'
 import { extractMarkdownHeadings, searchMarkdownContent } from '../utils/markdown'
 import { normalizeReadableNotePath } from '../utils/pathGuard'
-import { clampNumber, clipWithMeta, readStringInput } from '../utils/text'
+import { clampNumber, readStringInput, sliceTextByLineRange } from '../utils/text'
 
 const DEFAULT_READ_NOTE_CHARS = 12000
 const MAX_READ_NOTE_CHARS = 24000
+const DEFAULT_READ_NOTE_START_LINE = 1
+const DEFAULT_READ_NOTE_LINE_LIMIT = 200
+const MAX_READ_NOTE_LINE_LIMIT = 800
 const DEFAULT_TREE_DEPTH = 4
 const MAX_TREE_DEPTH = 8
 const DEFAULT_SEARCH_RESULTS = 20
 const MAX_SEARCH_RESULTS = 60
+const DEFAULT_SEARCH_CONTEXT_LINES = 0
+const MAX_SEARCH_CONTEXT_LINES = 5
 const DEFAULT_HEADINGS = 80
 const MAX_HEADINGS = 160
 const MAX_REGEX_QUERY_CHARS = 120
@@ -22,6 +27,7 @@ interface SerializedTreeNode {
   name: string
   kind: VaultTreeNode['kind']
   updatedAt: string | null
+  sizeBytes?: number | null
   children?: SerializedTreeNode[]
 }
 
@@ -68,6 +74,7 @@ function serializeTree(nodes: VaultTreeNode[], maxDepth: number, depth = 1): Ser
       kind: node.kind,
       updatedAt: node.updatedAt ?? null,
     }
+    if (node.kind === 'file') serialized.sizeBytes = node.sizeBytes ?? null
 
     if (node.kind === 'directory' && depth < maxDepth) {
       serialized.children = serializeTree(node.children ?? [], maxDepth, depth + 1)
@@ -110,13 +117,26 @@ export function createVaultAgentTools(): AgentTool[] {
     {
       name: 'vault_read_note',
       description:
-        '读取当前 Mira vault 内某一篇 Markdown 文章的内容。path 必须来自 vault_list_tree、vault_search_notes 或当前笔记路径。',
+        '读取当前 Mira vault 内某一篇 Markdown 文章的原文片段。path 必须来自 vault_list_tree、vault_search_notes 或当前笔记路径。长文件会按行数和字符数分段返回；若 hasMoreAfter=true，请优先用 nextStartOffset 继续读取，或用 nextStartLine 从下一段行号读取。',
       parameters: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
             description: 'vault 内 Markdown 文件的相对路径，例如“日常/今天想法.md”。',
+          },
+          startLine: {
+            type: 'number',
+            description: '从第几行开始读取，1-based，默认 1。若传入 startOffset，则忽略此参数。',
+          },
+          lineLimit: {
+            type: 'number',
+            description: '最多返回多少行，默认 200，最大 800。',
+          },
+          startOffset: {
+            type: 'number',
+            description:
+              '从原文第几个字符偏移开始读取，0-based。用于接续超长单行或 char_limit 截断；传入时优先于 startLine。',
           },
           maxChars: {
             type: 'number',
@@ -136,7 +156,18 @@ export function createVaultAgentTools(): AgentTool[] {
           if (!note) return createErrorToolResult(`找不到文章：${normalizedPath}`)
 
           const maxChars = clampNumber(input.maxChars, DEFAULT_READ_NOTE_CHARS, 1, MAX_READ_NOTE_CHARS)
-          const clipped = clipWithMeta(note.content, maxChars)
+          const startLine = clampNumber(input.startLine, DEFAULT_READ_NOTE_START_LINE, 1, Number.MAX_SAFE_INTEGER)
+          const lineLimit = clampNumber(input.lineLimit, DEFAULT_READ_NOTE_LINE_LIMIT, 1, MAX_READ_NOTE_LINE_LIMIT)
+          const startOffset =
+            typeof input.startOffset === 'number' && !Number.isNaN(input.startOffset)
+              ? clampNumber(input.startOffset, 0, 0, Number.MAX_SAFE_INTEGER)
+              : null
+          const sliced = sliceTextByLineRange(note.content, {
+            startLine,
+            lineLimit,
+            startOffset,
+            maxChars,
+          })
 
           return createJsonToolResult({
             ok: true,
@@ -144,9 +175,20 @@ export function createVaultAgentTools(): AgentTool[] {
             title: note.meta.title,
             updatedAt: note.meta.updatedAt,
             contentHash: await hashTextContent(note.content),
-            content: clipped.text,
-            isTruncated: clipped.isTruncated,
-            remainingChars: clipped.remainingChars,
+            contentLength: sliced.contentLength,
+            totalLines: sliced.totalLines,
+            content: sliced.text,
+            startLine: sliced.startLine,
+            endLine: sliced.endLine,
+            startOffset: sliced.startOffset,
+            endOffset: sliced.endOffset,
+            hasMoreBefore: sliced.hasMoreBefore,
+            hasMoreAfter: sliced.hasMoreAfter,
+            nextStartLine: sliced.nextStartLine,
+            nextStartOffset: sliced.nextStartOffset,
+            truncationReason: sliced.truncationReason,
+            isTruncated: sliced.hasMoreAfter,
+            remainingChars: sliced.contentLength - sliced.endOffset,
           })
         } catch (error) {
           return createErrorToolResult(error instanceof Error ? error.message : '读取文章失败')
@@ -156,7 +198,7 @@ export function createVaultAgentTools(): AgentTool[] {
     {
       name: 'vault_search_notes',
       description:
-        '在当前 Mira vault 的所有可见 Markdown 文章中搜索关键词或正则。普通搜索会按空白拆分多个关键词，再返回同时命中这些词的文章片段；适合先找相关文章，再用 vault_read_note 深读。',
+        '在当前 Mira vault 的所有可见 Markdown 文章中搜索关键词或正则。普通搜索会按空白拆分多个关键词，再返回同时命中这些词的文章片段、行号范围和 readHint；适合先找相关文章，再用 vault_read_note 按 readHint 深读。',
       parameters: {
         type: 'object',
         properties: {
@@ -167,6 +209,10 @@ export function createVaultAgentTools(): AgentTool[] {
           maxResults: {
             type: 'number',
             description: '最多返回多少条命中，默认 20，最大 60。',
+          },
+          contextLines: {
+            type: 'number',
+            description: '每条命中前后额外返回多少行上下文，默认 0，最大 5。',
           },
           caseSensitive: {
             type: 'boolean',
@@ -193,9 +239,22 @@ export function createVaultAgentTools(): AgentTool[] {
           if (isRegex) new RegExp(query)
 
           const maxResults = clampNumber(input.maxResults, DEFAULT_SEARCH_RESULTS, 1, MAX_SEARCH_RESULTS)
+          const contextLines = clampNumber(input.contextLines, DEFAULT_SEARCH_CONTEXT_LINES, 0, MAX_SEARCH_CONTEXT_LINES)
           const tree = await scanVaultTree(context.vaultPath)
           const files = collectFileNodes(tree)
-          const matches: Array<{ path: string; title: string; lineNumber: number; snippet: string }> = []
+          const matches: Array<{
+            path: string
+            title: string
+            lineNumber: number
+            startLine: number
+            endLine: number
+            snippet: string
+            readHint: {
+              path: string
+              startLine: number
+              lineLimit: number
+            }
+          }> = []
 
           for (const file of files) {
             if (matches.length >= maxResults) break
@@ -207,6 +266,7 @@ export function createVaultAgentTools(): AgentTool[] {
               isCaseSensitive: input.caseSensitive === true,
               isRegex,
               maxMatches: maxResults - matches.length,
+              contextLines,
             })
 
             matches.push(
@@ -214,7 +274,14 @@ export function createVaultAgentTools(): AgentTool[] {
                 path: note.meta.path,
                 title: note.meta.title,
                 lineNumber: match.lineNumber,
+                startLine: match.startLine,
+                endLine: match.endLine,
                 snippet: match.snippet,
+                readHint: {
+                  path: note.meta.path,
+                  startLine: match.startLine,
+                  lineLimit: match.endLine - match.startLine + 1,
+                },
               }))
             )
           }
@@ -222,6 +289,7 @@ export function createVaultAgentTools(): AgentTool[] {
           return createJsonToolResult({
             ok: true,
             query,
+            contextLines,
             totalReturned: matches.length,
             isResultLimited: matches.length >= maxResults,
             matches,

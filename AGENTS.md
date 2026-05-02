@@ -149,6 +149,12 @@ vault/
 - assistant 消息必须展示本次 agent 修改的文件列表与增删行数，并保留一键回退本次修改的入口
 - 回退只能在目标文件仍保持 AI 修改后的 hash 时执行；若用户或外部程序后续改动过文件，必须拒绝回退以避免覆盖用户新内容
 
+## AI 文件读取约定
+
+- agent 读取长 Markdown 文件时应通过 `vault_read_note` 的 `startLine` / `lineLimit` 或 `startOffset` 分段读取；若返回 `hasMoreAfter=true`，必须使用 `nextStartLine` / `nextStartOffset` 继续读取缺失片段
+- `vault_read_note` 返回的 `content` 是原文片段，不应额外注入行号或格式标记，以免破坏后续精确编辑锚点；返回的 `contentHash` 始终代表全文件内容
+- `vault_search_notes` 返回的 `readHint` 可直接作为后续 `vault_read_note` 的定位入口
+
 ## 搜索性能约定
 
 - 全 Vault 搜索必须按 vault 规模选择策略：小 vault 可构建轻量内存索引，大 vault 或大文件按需逐文件扫描，避免打开搜索面板就把所有正文读入内存

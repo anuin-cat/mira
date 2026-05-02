@@ -13,6 +13,8 @@ export interface MarkdownHeading {
 
 export interface MarkdownSearchMatch {
   lineNumber: number
+  startLine: number
+  endLine: number
   snippet: string
 }
 
@@ -48,7 +50,7 @@ export function extractMarkdownHeadings(content: string, maxHeadings: number): M
 }
 
 /** 为搜索结果生成短片段，优先保留命中词附近文本 */
-function createSearchSnippet(line: string, matchIndex: number, matchLength: number): string {
+function createLineSearchSnippet(line: string, matchIndex: number, matchLength: number): string {
   const normalizedLine = line.replace(/\s+/g, ' ').trim()
   if (normalizedLine.length <= MAX_LINE_SNIPPET_CHARS) return normalizedLine
 
@@ -56,6 +58,40 @@ function createSearchSnippet(line: string, matchIndex: number, matchLength: numb
   const end = Math.min(line.length, matchIndex + matchLength + SNIPPET_SIDE_CHARS)
   const snippet = line.slice(start, end).replace(/\s+/g, ' ').trim()
   return `${start > 0 ? '...' : ''}${snippet}${end < line.length ? '...' : ''}`
+}
+
+/** 为普通上下文行生成受限长度的片段 */
+function createContextLineSnippet(line: string): string {
+  const normalizedLine = line.replace(/\s+/g, ' ').trim()
+  if (normalizedLine.length <= MAX_LINE_SNIPPET_CHARS) return normalizedLine
+  return `${normalizedLine.slice(0, MAX_LINE_SNIPPET_CHARS)}...`
+}
+
+/** 生成带上下文范围的搜索命中结果 */
+function createSearchMatch(
+  lines: string[],
+  lineIndex: number,
+  matchIndex: number,
+  matchLength: number,
+  contextLines: number
+): MarkdownSearchMatch {
+  const startIndex = Math.max(0, lineIndex - contextLines)
+  const endIndex = Math.min(lines.length - 1, lineIndex + contextLines)
+  const snippet = lines
+    .slice(startIndex, endIndex + 1)
+    .map((line, index) => {
+      const sourceIndex = startIndex + index
+      if (sourceIndex === lineIndex) return createLineSearchSnippet(line, matchIndex, matchLength)
+      return createContextLineSnippet(line)
+    })
+    .join('\n')
+
+  return {
+    lineNumber: lineIndex + 1,
+    startLine: startIndex + 1,
+    endLine: endIndex + 1,
+    snippet,
+  }
 }
 
 /** 在单篇 Markdown 中搜索 literal 或 regex 查询 */
@@ -66,21 +102,22 @@ export function searchMarkdownContent(
     isCaseSensitive: boolean
     isRegex: boolean
     maxMatches: number
+    contextLines?: number
   }
 ): MarkdownSearchMatch[] {
   const matches: MarkdownSearchMatch[] = []
+  const lines = content.split('\n')
+  const contextLines = Math.max(0, Math.round(options.contextLines ?? 0))
+
   if (options.isRegex) {
     const flags = options.isCaseSensitive ? '' : 'i'
     const regex = new RegExp(query, flags)
 
-    content.split('\n').some((line, index) => {
+    lines.some((line, index) => {
       const match = regex.exec(line)
       if (!match) return false
 
-      matches.push({
-        lineNumber: index + 1,
-        snippet: createSearchSnippet(line, match.index, match[0].length),
-      })
+      matches.push(createSearchMatch(lines, index, match.index, match[0].length, contextLines))
 
       return matches.length >= options.maxMatches
     })
@@ -96,15 +133,12 @@ export function searchMarkdownContent(
     return matches
   }
 
-  content.split('\n').some((line, index) => {
+  lines.some((line, index) => {
     const comparableLine = options.isCaseSensitive ? line : normalizeSearchText(line)
     const matchedTerm = findEarliestSearchTermMatch(comparableLine, searchTerms, { haystackIsNormalized: true })
     if (!matchedTerm) return false
 
-    matches.push({
-      lineNumber: index + 1,
-      snippet: createSearchSnippet(line, matchedTerm.index, matchedTerm.term.length),
-    })
+    matches.push(createSearchMatch(lines, index, matchedTerm.index, matchedTerm.term.length, contextLines))
 
     return matches.length >= options.maxMatches
   })
