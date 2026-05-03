@@ -2,6 +2,8 @@ const MARKDOWN_PASTE_BLOCK_RE =
   /(?:^|\n)\s{0,3}(?:#{1,6}\s+|>\s+|[-*+]\s+|\d+[.)]\s+|```|~~~|\|.+\|\s*$|(?:[-*_]\s*){3,}$)/m
 const MARKDOWN_PASTE_INLINE_RE =
   /(?:!\[[^\]]*]\([^)]+\)|\[[^\]]+\]\([^)]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`)/
+const MARKDOWN_PASTE_DISPLAY_MATH_RE = /(?:^|\n)\s{0,3}\$\$[\s\S]*?\S[\s\S]*?\$\$\s*(?=\n|$)/
+const MARKDOWN_PASTE_INLINE_MATH_RE = /(^|[^\\$])\$((?:\\.|[^$\n])+)\$(?!\$)/
 const FENCED_CODE_BLOCK_RE = /^(\s*)(`{3,}|~{3,})(.*)$/
 const MDX_SAFE_HTML_TAGS = new Set(['br', 'img', 'span', 'sub', 'sup', 'u'])
 const MDX_TAG_NAME_START_RE = /[A-Za-z/$!?]/
@@ -13,16 +15,25 @@ function normalizeMarkdownPasteText(text: string) {
   return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
 }
 
+/** 判断纯文本里是否有需要走 Markdown 导入的数学公式 */
+function hasMarkdownMath(text: string) {
+  if (MARKDOWN_PASTE_DISPLAY_MATH_RE.test(text)) return true
+  return MARKDOWN_PASTE_INLINE_MATH_RE.test(text)
+}
+
 /** 判断一段纯文本是否明显带有 Markdown 语法，避免误伤普通粘贴 */
 export function looksLikeMarkdown(text: string) {
   // 1. 先过滤空白内容，避免无意义的语法判断
   const normalizedText = text.trim()
   if (!normalizedText) return false
 
-  // 2. 优先识别标题、列表、引用、代码块、表格等块级语法
+  // 2. 公式需要主动走 Markdown 导入，否则会被 Lexical 当普通文本粘贴
+  if (hasMarkdownMath(normalizedText)) return true
+
+  // 3. 优先识别标题、列表、引用、代码块、表格等块级语法
   if (MARKDOWN_PASTE_BLOCK_RE.test(normalizedText)) return true
 
-  // 3. 再补充识别粗体、链接、行内代码等常见行内语法
+  // 4. 再补充识别粗体、链接、行内代码等常见行内语法
   return MARKDOWN_PASTE_INLINE_RE.test(normalizedText)
 }
 
