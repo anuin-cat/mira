@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { MouseEvent, RefObject } from 'react'
 import type { NodeApi, TreeApi } from 'react-arborist'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
@@ -12,6 +12,7 @@ const AUTO_SCROLL_SPEED = 12
 const AUTO_SCROLL_ZONE = 40
 const AUTO_OPEN_DELAY = 700
 const DIRECTORY_REORDER_ZONE_RATIO = 0.28
+const PRIMARY_MOUSE_BUTTONS = 1
 const TREE_DRAG_IGNORE_SELECTOR = 'button, input, textarea, select, a, [role="button"]'
 
 interface DragState {
@@ -69,6 +70,11 @@ function getErrorMessage(error: unknown): string {
 /** 转义 data-path 选择器中的路径值 */
 function escapeDataPath(path: string): string {
   return path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+/** 判断鼠标主键是否仍处于按下状态 */
+function isPrimaryMouseButtonPressed(event: { buttons: number }): boolean {
+  return event.buttons === PRIMARY_MOUSE_BUTTONS
 }
 
 /** 查找文件树节点是否属于 targetDir 的子树（防止自嵌套） */
@@ -138,6 +144,7 @@ export function useFileTreeDrag({
   onExpandedDirsChange,
 }: UseFileTreeDragOptions) {
   const dragRef = useRef<DragState | null>(null)
+  const detachDragListenersRef = useRef<() => void>(() => {})
   const onMoveEntryRef = useRef(onMoveEntry)
   onMoveEntryRef.current = onMoveEntry
   const onReorderEntryRef = useRef(onReorderEntry)
@@ -156,6 +163,12 @@ export function useFileTreeDrag({
   /** 获取 react-arborist 实际滚动容器 */
   function getTreeScrollElement(): HTMLDivElement | null {
     return treeRef.current?.listEl.current ?? null
+  }
+
+  /** 移除当前拖拽注册的全局监听 */
+  function detachDragListeners() {
+    detachDragListenersRef.current()
+    detachDragListenersRef.current = () => {}
   }
 
   /** 根据鼠标 Y 坐标计算当前悬停的目标节点与行内位置 */
@@ -279,10 +292,28 @@ export function useFileTreeDrag({
     dragRef.current = null
   }
 
+  /** 取消拖拽并释放所有临时状态 */
+  function cancelDrag() {
+    detachDragListeners()
+    cleanupDrag()
+  }
+
+  // 组件卸载时兜底释放 document/window 监听，避免残留拖拽状态影响后续点击。
+  useEffect(() => {
+    return () => {
+      cancelDrag()
+    }
+  }, [])
+
   /** document mousemove 处理 */
   const handleDragMove = useCallback((event: globalThis.MouseEvent) => {
     const drag = dragRef.current
     if (!drag) return
+
+    if (!isPrimaryMouseButtonPressed(event)) {
+      cancelDrag()
+      return
+    }
 
     // 1. 检查拖拽阈值
     if (!drag.hasMoved) {
@@ -341,8 +372,7 @@ export function useFileTreeDrag({
     const drag = dragRef.current
     if (!drag) return
 
-    document.removeEventListener('mousemove', handleDragMove)
-    document.removeEventListener('mouseup', handleDragEnd)
+    detachDragListeners()
 
     if (!drag.hasMoved) {
       cleanupDrag()
@@ -369,15 +399,16 @@ export function useFileTreeDrag({
     cleanupDrag()
   }, [handleDragMove, treeData])
 
+  /** 外部中断时取消当前拖拽 */
+  function handleDragCancel() {
+    cancelDrag()
+  }
+
   /** tree 容器 mousedown：检测拖拽意图 */
   function handleTreeMouseDown(event: MouseEvent) {
-    if (event.button !== 0) return
+    if (event.button !== 0 || !isPrimaryMouseButtonPressed(event)) return
 
-    if (dragRef.current) {
-      cleanupDrag()
-      document.removeEventListener('mousemove', handleDragMove)
-      document.removeEventListener('mouseup', handleDragEnd)
-    }
+    cancelDrag()
 
     const nodeEl = (event.target as HTMLElement).closest('.tree-node') as HTMLElement | null
     if (!nodeEl) return
@@ -404,6 +435,14 @@ export function useFileTreeDrag({
 
     document.addEventListener('mousemove', handleDragMove)
     document.addEventListener('mouseup', handleDragEnd)
+    document.addEventListener('contextmenu', handleDragCancel)
+    window.addEventListener('blur', handleDragCancel)
+    detachDragListenersRef.current = () => {
+      document.removeEventListener('mousemove', handleDragMove)
+      document.removeEventListener('mouseup', handleDragEnd)
+      document.removeEventListener('contextmenu', handleDragCancel)
+      window.removeEventListener('blur', handleDragCancel)
+    }
   }
 
   return { handleTreeMouseDown }
