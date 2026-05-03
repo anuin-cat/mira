@@ -45,7 +45,7 @@ import {
   isInlineMathCaretMarker,
   stripInlineMathCaretMarkers,
 } from './inlineMathCaret'
-import { registerInlineMathShiftSelection } from './inlineMathSelection'
+import { registerInlineMathBoundaryControls } from './inlineMathSelection'
 import { registerMathTextAutoConversion } from './mathAutoConvert'
 
 const MATH_PLUGIN_ID = 'math'
@@ -512,7 +512,7 @@ export const mdxMathPlugin = realmPlugin({
           $nodesOfType(MiraMathNode).forEach(ensureInlineMathCaretMarker)
         })
         const unregisterNodeTransform = editor.registerNodeTransform(MiraMathNode, ensureInlineMathCaretMarker)
-        const unregisterShiftSelection = registerInlineMathShiftSelection(editor, {
+        const unregisterBoundaryControls = registerInlineMathBoundaryControls(editor, {
           ensureCaretMarker: ensureInlineMathCaretMarker,
           isInlineMathNode: $isMiraMathNode,
         })
@@ -524,7 +524,7 @@ export const mdxMathPlugin = realmPlugin({
 
         return () => {
           unregisterNodeTransform()
-          unregisterShiftSelection()
+          unregisterBoundaryControls()
           unregisterTextAutoConversion()
         }
       },

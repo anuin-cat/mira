@@ -1,4 +1,5 @@
 import {
+  $createTextNode,
   $getSelection,
   $isElementNode,
   $isRangeSelection,
@@ -6,14 +7,19 @@ import {
   COMMAND_PRIORITY_HIGH,
   KEY_ARROW_LEFT_COMMAND,
   KEY_ARROW_RIGHT_COMMAND,
+  KEY_BACKSPACE_COMMAND,
+  KEY_DELETE_COMMAND,
+  type ElementNode,
   type LexicalEditor,
   type LexicalNode,
   type RangeSelection,
+  type TextNode,
 } from 'lexical'
 import {
   INLINE_MATH_CARET_MARKER_LENGTH,
   isBareInlineMathCaretMarker,
   isInlineMathCaretMarker,
+  stripInlineMathCaretMarkers,
 } from './inlineMathCaret'
 
 type InlineMathSelectionNode = LexicalNode & {
@@ -84,7 +90,14 @@ function getInlineMathAfterSelectionFocus<TNode extends InlineMathSelectionNode>
   const node = point.getNode()
 
   if (point.type === 'text') {
-    if (!$isTextNode(node) || point.offset !== node.getTextContentSize()) return null
+    if (!$isTextNode(node)) return null
+
+    if (isInlineMathCaretMarker(node) && point.offset <= INLINE_MATH_CARET_MARKER_LENGTH) {
+      const nextSibling = node.getNextSibling()
+      return isInlineMathNode(nextSibling) && nextSibling.isInline() ? nextSibling : null
+    }
+
+    if (point.offset !== node.getTextContentSize()) return null
     const nextSibling = node.getNextSibling()
     if (isInlineMathCaretMarker(nextSibling)) {
       const mathNode = nextSibling.getNextSibling()
@@ -132,6 +145,91 @@ function getInlineMathBeforeSelectionFocus<TNode extends InlineMathSelectionNode
   return isInlineMathNode(mathNode) && mathNode.isInline() ? mathNode : null
 }
 
+/** 普通退格 / 删除只处理无修饰键的单字符删除语义 */
+function isPlainDeleteEvent(event: globalThis.KeyboardEvent) {
+  return !event.altKey && !event.ctrlKey && !event.metaKey
+}
+
+/** 把零宽锚点还原成普通文本，保留用户可能输入在同一节点里的正文 */
+function replaceInlineMathCaretMarkerWithText(node: LexicalNode | null | undefined) {
+  if (!isInlineMathCaretMarker(node)) return null
+
+  const textContent = stripInlineMathCaretMarkers(node.getTextContent())
+  if (!textContent) {
+    node.remove(true)
+    return null
+  }
+
+  const textNode = $createTextNode(textContent)
+  node.replace(textNode)
+  return textNode
+}
+
+/** 删除公式后把光标放回公式原本位置，避免继续落在已删除的零宽锚点上 */
+function restoreSelectionAfterInlineMathDelete(
+  parentNode: ElementNode | null,
+  deletedIndex: number,
+  previousTextNode: TextNode | null,
+  nextTextNode: TextNode | null
+) {
+  if (nextTextNode?.isAttached()) {
+    nextTextNode.select(0, 0)
+    return
+  }
+
+  if (previousTextNode?.isAttached()) {
+    previousTextNode.selectEnd()
+    return
+  }
+
+  if (!parentNode?.isAttached()) return
+  const selectionOffset = Math.min(deletedIndex, parentNode.getChildrenSize())
+  parentNode.select(selectionOffset, selectionOffset)
+}
+
+/** 删除行内公式及其两侧零宽锚点，公式后方正文应继续保留 */
+function removeInlineMathNode(node: InlineMathSelectionNode) {
+  const parentNode = node.getParent()
+  const deletedIndex = node.getIndexWithinParent()
+  const previousSibling = node.getPreviousSibling()
+  const nextSibling = node.getNextSibling()
+  const previousTextBeforeMarker = previousSibling?.getPreviousSibling()
+  const nextTextAfterMarker = nextSibling?.getNextSibling()
+  const previousTextNode = replaceInlineMathCaretMarkerWithText(previousSibling)
+  const nextTextNode = replaceInlineMathCaretMarkerWithText(nextSibling)
+
+  node.remove(true)
+  restoreSelectionAfterInlineMathDelete(
+    parentNode,
+    deletedIndex,
+    $isTextNode(previousTextNode) ? previousTextNode : $isTextNode(previousTextBeforeMarker) ? previousTextBeforeMarker : null,
+    $isTextNode(nextTextNode) ? nextTextNode : $isTextNode(nextTextAfterMarker) ? nextTextAfterMarker : null
+  )
+}
+
+/** 处理紧贴行内公式边界的退格和删除，让公式作为一个整体被移除 */
+function handleInlineMathDelete<TNode extends InlineMathSelectionNode>(
+  event: globalThis.KeyboardEvent,
+  direction: 'backward' | 'forward',
+  options: InlineMathShiftSelectionOptions<TNode>
+) {
+  if (!isPlainDeleteEvent(event)) return false
+
+  const selection = $getSelection()
+  if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false
+
+  const mathNode =
+    direction === 'backward'
+      ? getInlineMathBeforeSelectionFocus(selection, options.isInlineMathNode)
+      : getInlineMathAfterSelectionFocus(selection, options.isInlineMathNode)
+  if (!mathNode) return false
+
+  event.preventDefault()
+  options.ensureCaretMarker(mathNode)
+  removeInlineMathNode(mathNode)
+  return true
+}
+
 /** 处理 Shift+方向键跨过行内公式边界，让公式能作为整体进入选区 */
 function handleInlineMathShiftSelection<TNode extends InlineMathSelectionNode>(
   event: globalThis.KeyboardEvent,
@@ -164,8 +262,8 @@ function handleInlineMathShiftSelection<TNode extends InlineMathSelectionNode>(
   return true
 }
 
-/** 注册行内公式 Shift+方向键选区兜底，只接管紧贴公式边界的移动 */
-export function registerInlineMathShiftSelection<TNode extends InlineMathSelectionNode>(
+/** 注册行内公式边界键盘控制：扩选、退格和删除都把公式当成一个整体 */
+export function registerInlineMathBoundaryControls<TNode extends InlineMathSelectionNode>(
   editor: LexicalEditor,
   options: InlineMathShiftSelectionOptions<TNode>
 ) {
@@ -179,9 +277,21 @@ export function registerInlineMathShiftSelection<TNode extends InlineMathSelecti
     (event) => handleInlineMathShiftSelection(event, 'left', options),
     COMMAND_PRIORITY_HIGH
   )
+  const unregisterBackspace = editor.registerCommand(
+    KEY_BACKSPACE_COMMAND,
+    (event) => handleInlineMathDelete(event, 'backward', options),
+    COMMAND_PRIORITY_HIGH
+  )
+  const unregisterDelete = editor.registerCommand(
+    KEY_DELETE_COMMAND,
+    (event) => handleInlineMathDelete(event, 'forward', options),
+    COMMAND_PRIORITY_HIGH
+  )
 
   return () => {
     unregisterShiftRight()
     unregisterShiftLeft()
+    unregisterBackspace()
+    unregisterDelete()
   }
 }
