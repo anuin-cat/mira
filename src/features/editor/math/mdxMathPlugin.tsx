@@ -46,6 +46,7 @@ import {
   stripInlineMathCaretMarkers,
 } from './inlineMathCaret'
 import { registerInlineMathShiftSelection } from './inlineMathSelection'
+import { registerMathTextAutoConversion } from './mathAutoConvert'
 
 const MATH_PLUGIN_ID = 'math'
 const INLINE_EDITOR_MIN_CH = 8
@@ -515,10 +516,16 @@ export const mdxMathPlugin = realmPlugin({
           ensureCaretMarker: ensureInlineMathCaretMarker,
           isInlineMathNode: $isMiraMathNode,
         })
+        const unregisterTextAutoConversion = registerMathTextAutoConversion(editor, {
+          createBlockMathNode: (value) => $createMiraMathNode(value, 'block'),
+          createInlineMathNode: (value) => $createMiraMathNode(value, 'inline'),
+          ensureInlineMathCaretMarker,
+        })
 
         return () => {
           unregisterNodeTransform()
           unregisterShiftSelection()
+          unregisterTextAutoConversion()
         }
       },
     })
