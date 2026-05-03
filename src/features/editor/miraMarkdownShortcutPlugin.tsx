@@ -13,6 +13,7 @@ import {
   QUOTE,
   UNORDERED_LIST,
   type ElementTransformer,
+  type TextMatchTransformer,
   type Transformer,
 } from '@lexical/markdown'
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin'
@@ -31,6 +32,8 @@ import {
   allowedHeadingLevels$,
   realmPlugin,
 } from '@mdxeditor/editor'
+import { $createMiraMathNode, $isMiraMathNode, MiraMathNode } from './math/mdxMathPlugin'
+import { createInlineMathCaretMarker } from './math/inlineMathCaret'
 
 const LIST_TRANSFORMERS = new Set<Transformer>([ORDERED_LIST, UNORDERED_LIST, CHECK_LIST])
 
@@ -56,6 +59,49 @@ const THEMATIC_BREAK: ElementTransformer = {
       parentNode.insertBefore(line)
     }
     line.selectNext()
+  },
+  type: 'element',
+}
+
+const INLINE_MATH: TextMatchTransformer = {
+  dependencies: [MiraMathNode],
+  export: (node) => {
+    if (!$isMiraMathNode(node) || !node.isInline()) return null
+    return `$${node.getValue()}$`
+  },
+  importRegExp: /(^|[^$])\$((?:\\.|[^$\n])+)\$/,
+  regExp: /(^|[^$])\$((?:\\.|[^$\n])+)\$$/,
+  replace: (textNode, match) => {
+    const prefix = match[1]
+    const mathNode = $createMiraMathNode(match[2], 'inline')
+    if (!prefix) {
+      textNode.replace(mathNode)
+      mathNode.insertBefore(createInlineMathCaretMarker())
+      mathNode.insertAfter(createInlineMathCaretMarker())
+      return
+    }
+
+    textNode.setTextContent(prefix)
+    textNode.insertAfter(mathNode)
+    mathNode.insertBefore(createInlineMathCaretMarker())
+    mathNode.insertAfter(createInlineMathCaretMarker())
+  },
+  trigger: '$',
+  type: 'text-match',
+}
+
+const BLOCK_MATH: ElementTransformer = {
+  dependencies: [MiraMathNode],
+  export: (node) => {
+    if (!$isMiraMathNode(node) || node.isInline()) return null
+    return `$$\n${node.getValue()}\n$$`
+  },
+  regExp: /^\$\$\s?$/,
+  replace: (parentNode) => {
+    const mathNode = $createMiraMathNode('', 'block')
+    parentNode.selectPrevious()
+    parentNode.replace(mathNode)
+    window.setTimeout(() => mathNode.select(), 80)
   },
   type: 'element',
 }
@@ -95,6 +141,7 @@ function pickTransformersForActivePlugins(pluginIds: string[], allowedHeadingLev
   if (pluginIds.includes('quote')) transformers.push(QUOTE)
   if (pluginIds.includes('link')) transformers.push(LINK)
   if (pluginIds.includes('lists')) transformers.push(ORDERED_LIST, UNORDERED_LIST, CHECK_LIST)
+  if (pluginIds.includes('math')) transformers.push(INLINE_MATH, BLOCK_MATH)
   if (pluginIds.includes('codeblock')) {
     const codeTransformer: typeof CODE = {
       ...CODE,

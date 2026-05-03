@@ -1,0 +1,171 @@
+/* Mira 公式节点：默认轻量渲染，点击后在原位切换为 Markdown 公式源码 */
+.mira-mdx-content > .mira-math-host-block {
+  margin: 0;
+}
+
+.mira-mdx-content > :first-child.mira-math-host-block {
+  margin-top: 0;
+}
+
+.mira-mdx-content > :where(p, ul, ol, blockquote, table, pre, hr, img, figure, .mira-code-mirror-block)
+  + .mira-math-host-block,
+.mira-mdx-content > .mira-math-host-block + :where(
+  p,
+  ul,
+  ol,
+  blockquote,
+  table,
+  pre,
+  hr,
+  img,
+  figure,
+  .mira-code-mirror-block,
+  .mira-math-host-block
+) {
+  margin-top: var(--mira-space-block);
+}
+
+.mira-mdx-content > h1 + .mira-math-host-block {
+  margin-top: var(--mira-space-heading-1-after);
+}
+
+.mira-mdx-content > h2 + .mira-math-host-block {
+  margin-top: var(--mira-space-heading-2-after);
+}
+
+.mira-mdx-content > h3 + .mira-math-host-block {
+  margin-top: var(--mira-space-heading-3-after);
+}
+
+.mira-mdx-content > :is(h4, h5, h6) + .mira-math-host-block {
+  margin-top: var(--mira-space-heading-4-after);
+}
+
+.mira-mdx-content > .mira-math-host-block + h1 {
+  margin-top: var(--mira-space-heading-1-before);
+}
+
+.mira-mdx-content > .mira-math-host-block + h2 {
+  margin-top: var(--mira-space-heading-2-before);
+}
+
+.mira-mdx-content > .mira-math-host-block + h3 {
+  margin-top: var(--mira-space-heading-3-before);
+}
+
+.mira-mdx-content > .mira-math-host-block + :is(h4, h5, h6) {
+  margin-top: var(--mira-space-heading-4-before);
+}
+
+.mira-math-host-inline {
+  display: inline;
+  -webkit-user-select: all;
+  user-select: all;
+}
+
+.mira-math-render {
+  color: var(--theme-text-primary);
+  outline: none;
+  transition:
+    background-color 0.14s ease,
+    box-shadow 0.14s ease,
+    color 0.14s ease;
+}
+
+.mira-math-render-inline {
+  display: inline;
+  max-width: 100%;
+  border-radius: 5px;
+  cursor: text;
+  -webkit-user-select: all;
+  user-select: all;
+  vertical-align: baseline;
+}
+
+.mira-math-render-inline .katex {
+  font-size: 1em;
+}
+
+.mira-math-render-block {
+  display: block;
+  min-height: 46px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 8px;
+  cursor: text;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.mira-math-render-block .katex-display {
+  width: 100%;
+  margin: 0;
+  overflow: visible;
+  padding-block: 2px;
+}
+
+.mira-math-render-block .katex-display > .katex {
+  display: inline-block;
+  min-width: min-content;
+}
+
+@media (hover: hover) {
+  .mira-math-render:hover {
+    background-color: color-mix(in srgb, var(--theme-selection) 42%, transparent);
+  }
+}
+
+.mira-math-render:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-selection) 44%, transparent);
+}
+
+.mira-math-render-error {
+  color: var(--theme-editor-inline-code-text);
+  background-color: var(--theme-editor-inline-code-bg);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, #dc2626 78%, transparent);
+}
+
+.mira-math-render-error code {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.92em;
+  white-space: pre-wrap;
+}
+
+.mira-math-source {
+  box-sizing: border-box;
+  border: 1px solid var(--theme-editor-control-border-strong);
+  border-radius: 7px;
+  background: var(--theme-editor-control-bg);
+  color: var(--theme-editor-control-text);
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  outline: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--theme-selection) 36%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.mira-math-source::selection {
+  background: var(--theme-selection);
+}
+
+.mira-math-source-inline {
+  width: var(--mira-math-inline-editor-width);
+  max-width: min(72ch, 100%);
+  min-width: 8ch;
+  margin-inline: 1px;
+  padding: 1px 6px;
+  font-size: 0.92em;
+  line-height: 1.45;
+  vertical-align: baseline;
+}
+
+.mira-math-source-block {
+  display: block;
+  width: 100%;
+  min-height: 86px;
+  resize: vertical;
+  padding: 10px 12px;
+  font-size: 0.94em;
+  line-height: 1.58;
+  tab-size: 2;
+}

@@ -22,6 +22,7 @@ import type { EditorSearchSelectionResult } from './currentFileSearch'
 import { MiraLinkDialog } from './MiraLinkDialog'
 import { MiraToolbar } from './MiraToolbar'
 import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
+import { mdxMathPlugin } from './math/mdxMathPlugin'
 import { mdxListStartPlugin } from './mdxListStartPlugin'
 import { singleTildeStrikethroughPlugin } from './singleTildeStrikethroughPlugin'
 
@@ -224,6 +225,7 @@ export function createEditorPlugins({
     mdxListStartPlugin(),
     quotePlugin(),
     thematicBreakPlugin(),
+    mdxMathPlugin(),
     linkPlugin({ disableAutoLink: true }),
     linkDialogPlugin({ LinkDialog: MiraLinkDialog, showLinkTitleField: true }),
     imagePlugin({

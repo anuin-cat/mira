@@ -56,12 +56,21 @@ importers:
       katex:
         specifier: ^0.16.45
         version: 0.16.45
+      lexical:
+        specifier: 0.35.0
+        version: 0.35.0
       lucide-react:
         specifier: ^1.11.0
         version: 1.11.0(react@19.2.5)
+      mdast-util-math:
+        specifier: 3.0.0
+        version: 3.0.0
       micromark-extension-gfm-strikethrough:
         specifier: ^2.1.0
         version: 2.1.0
+      micromark-extension-math:
+        specifier: 3.1.0
+        version: 3.1.0
       openai:
         specifier: ^6.34.0
         version: 6.34.0(zod@3.25.76)

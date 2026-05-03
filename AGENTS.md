@@ -21,6 +21,7 @@
 - Radix UI（通过 shadcn/ui 组件使用）
 - lucide-react
 - MDXEditor（Markdown/MDX 富文本编辑器，Lexical 底层，输入输出原生 .md 文件）
+- KaTeX（Markdown 数学公式渲染）
 - date-fns（日期格式化）
 
 ## 前端样式
@@ -112,6 +113,7 @@
 - `src/components`：UI 组件
 - `src/features`：功能模块
 - `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
+- `src/features/editor/math`：编辑器数学公式解析、渲染、原位源码编辑与 Markdown 导出逻辑
 - `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
 - `src/lib`：共享工具与轻量基础能力
 - `src/services`：文件、索引、AI 服务

@@ -1,5 +1,10 @@
 /** 从编辑器 DOM 选区生成 Markdown 复制文本 */
 
+import { INLINE_MATH_CARET_MARKER } from './math/inlineMathCaret'
+
+const MIRA_MATH_KIND_ATTR = 'data-mira-math-kind'
+const MIRA_MATH_VALUE_ATTR = 'data-mira-math-value'
+
 const BLOCK_TAGS = new Set([
   'ADDRESS',
   'ARTICLE',
@@ -52,7 +57,19 @@ function asBlock(value: string) {
 
 /** 获取元素的普通文本内容 */
 function getNodeText(node: Node) {
-  return (node.textContent ?? '').replace(/\u00a0/g, ' ')
+  return (node.textContent ?? '').replace(/\u00a0/g, ' ').split(INLINE_MATH_CARET_MARKER).join('')
+}
+
+/** 还原公式 DOM 节点对应的 Markdown 源文本 */
+function serializeMathElement(element: HTMLElement, options: SerializeOptions) {
+  const kind = element.getAttribute(MIRA_MATH_KIND_ATTR)
+  const value = element.getAttribute(MIRA_MATH_VALUE_ATTR) ?? ''
+  if (kind === 'inline') return `$${value}$`
+  if (kind === 'block') {
+    const markdown = `$$\n${value}\n$$`
+    return options.isInline ? markdown : asBlock(markdown)
+  }
+  return null
 }
 
 /** 序列化行内子节点 */
@@ -138,6 +155,9 @@ function serializeNodeToMarkdown(node: Node, options: SerializeOptions = {}): st
   if (!(node instanceof HTMLElement)) return ''
 
   // 2. 行内语义节点恢复 Markdown 标记
+  const mathMarkdown = serializeMathElement(node, options)
+  if (mathMarkdown !== null) return mathMarkdown
+
   const tagName = node.tagName
   if (tagName === 'BR') return '\n'
   if (tagName === 'STRONG' || tagName === 'B') return `**${serializeChildrenAsInline(node, options)}**`
