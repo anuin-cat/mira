@@ -1,6 +1,7 @@
 import {
   readTextFile,
   writeTextFile,
+  writeFile as writeBinaryFileData,
   readDir,
   mkdir,
   remove,
@@ -33,6 +34,11 @@ export async function readFile(path: string): Promise<string | null> {
 /** 写入文本文件 */
 export async function writeFile(path: string, content: string): Promise<void> {
   await writeTextFile(path, content)
+}
+
+/** 写入二进制文件 */
+export async function writeBinaryFile(path: string, content: Uint8Array): Promise<void> {
+  await writeBinaryFileData(path, content)
 }
 
 /** 读取目录实体，保留文件/目录/symlink 信息 */

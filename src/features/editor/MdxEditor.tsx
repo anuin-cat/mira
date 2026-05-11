@@ -60,6 +60,7 @@ import { createSelectionTextReference } from './selectionReference'
 interface Props {
   initialContent: string
   isAiSidebarOpen: boolean
+  vaultPath: string | null
   notePath: string | null
   noteTitle: string | null
   onChange: (markdown: string) => void
@@ -78,7 +79,7 @@ export interface MdxEditorHandle {
 
 /** MDXEditor 富文本 Markdown 编辑器，输入输出均保持 .md 文本内容 */
 export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
-  { initialContent, isAiSidebarOpen, notePath, noteTitle, onChange, onToggleAiSidebar, onAddSelectionToAi },
+  { initialContent, isAiSidebarOpen, vaultPath, notePath, noteTitle, onChange, onToggleAiSidebar, onAddSelectionToAi },
   ref
 ) {
   const shellRef = useRef<HTMLDivElement | null>(null)
@@ -99,6 +100,8 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       createEditorPlugins({
         isAiSidebarOpen,
         isEditorSearchOpen,
+        vaultPath,
+        notePath,
         onToggleAiSidebar,
         onEditorSearchOpen: handleEditorSearchOpen,
         onEditorSearchClose: handleEditorSearchClose,
@@ -111,7 +114,9 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       handleSelectEditorSearchMatch,
       isAiSidebarOpen,
       isEditorSearchOpen,
+      notePath,
       onToggleAiSidebar,
+      vaultPath,
     ]
   )
 

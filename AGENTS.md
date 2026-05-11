@@ -132,13 +132,19 @@ vault/
     今天想法.md
   项目/
     Mira 设计.md
+  attachment/
+    2026/
+      05/
+        image.png
   .mira/
     state.json
 
 其中：
 
 * 用户可见的目录和 `.md` 文件是唯一主数据，文件名和文件夹名应尽量人类可读
+* 图片附件是用户主数据，默认存放在 vault 根目录 `attachment/YYYY/MM/`，Markdown 正文使用相对路径引用
 * `.mira/` 是应用内部目录，只能存放可丢弃、可重建的状态、索引或缓存
+* `.mira/` 不存放图片等正文附件数据，最多存放可重建的附件索引或缩略图缓存
 * 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复
 
 ## AI 文件编辑约定

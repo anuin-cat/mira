@@ -25,8 +25,13 @@ import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
 import { mdxMathPlugin } from './math/mdxMathPlugin'
 import { mdxListStartPlugin } from './mdxListStartPlugin'
 import { singleTildeStrikethroughPlugin } from './singleTildeStrikethroughPlugin'
+import {
+  ATTACHMENTS_ROOT_DIR,
+  resolveImagePreviewSource,
+  saveImageAttachment,
+} from '../../services/attachments'
 
-const IMAGE_AUTOCOMPLETE_SUGGESTIONS = ['./', '../', 'assets/', 'images/']
+const IMAGE_AUTOCOMPLETE_SUGGESTIONS = [`${ATTACHMENTS_ROOT_DIR}/`, './', '../', 'assets/', 'images/']
 const DEFAULT_CODE_BLOCK_LANGUAGE = 'txt'
 const CODE_BLOCK_COPY_RESET_MS = 1200
 const CODE_BLOCK_LANGUAGE_DETECT_DELAY_MS = 260
@@ -82,11 +87,20 @@ const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'linkPreview.copyToClipboard': '复制链接',
   'linkPreview.copied': '已复制',
   'linkPreview.remove': '移除链接',
+  'uploadImage.dialogTitle': '插入图片',
+  'uploadImage.uploadInstructions': '从本机选择图片：',
+  'uploadImage.addViaUrlInstructions': '或粘贴图片 URL：',
+  'uploadImage.addViaUrlInstructionsNoUpload': '粘贴图片 URL：',
+  'uploadImage.autoCompletePlaceholder': '选择或粘贴图片地址',
+  'uploadImage.alt': '替代文本',
+  'uploadImage.title': '标题',
 }
 
 export interface CreateEditorPluginsOptions {
   isAiSidebarOpen: boolean
   isEditorSearchOpen: boolean
+  vaultPath: string | null
+  notePath: string | null
   onToggleAiSidebar: () => void
   onEditorSearchOpen: () => void
   onEditorSearchClose: () => void
@@ -212,12 +226,16 @@ export function translateMdxToolbar(
 export function createEditorPlugins({
   isAiSidebarOpen,
   isEditorSearchOpen,
+  vaultPath,
+  notePath,
   onToggleAiSidebar,
   onEditorSearchOpen,
   onEditorSearchClose,
   searchControlsRef,
   onSelectEditorSearchMatch,
 }: CreateEditorPluginsOptions): RealmPlugin[] {
+  const imageAttachmentContext = vaultPath && notePath ? { vaultPath, notePath } : null
+
   return [
     singleTildeStrikethroughPlugin(),
     headingsPlugin({ allowedHeadingLevels: [1, 2, 3, 4, 5, 6] }),
@@ -230,9 +248,15 @@ export function createEditorPlugins({
     linkDialogPlugin({ LinkDialog: MiraLinkDialog, showLinkTitleField: true }),
     imagePlugin({
       imageAutocompleteSuggestions: IMAGE_AUTOCOMPLETE_SUGGESTIONS,
-      disableImageResize: false,
+      imageUploadHandler: imageAttachmentContext
+        ? (image) => saveImageAttachment(image, imageAttachmentContext)
+        : undefined,
+      imagePreviewHandler: imageAttachmentContext
+        ? (src) => resolveImagePreviewSource(src, imageAttachmentContext)
+        : undefined,
+      disableImageResize: true,
       disableImageSettingsButton: false,
-      allowSetImageDimensions: true,
+      allowSetImageDimensions: false,
     }),
     tablePlugin(),
     codeBlockPlugin({

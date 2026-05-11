@@ -4,6 +4,7 @@ import {
   CodeToggle,
   CreateLink,
   InsertCodeBlock,
+  InsertImage,
   InsertTable,
   InsertThematicBreak,
   ListsToggle,
@@ -148,6 +149,7 @@ export function MiraToolbar({
         render: () => (
           <>
             <CreateLink />
+            <InsertImage />
             <InsertTable />
             <InsertThematicBreak />
           </>

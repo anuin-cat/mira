@@ -25,6 +25,14 @@
       ]
     },
     {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.mira" },
+        { "path": "$HOME/**/.mira/**" }
+      ]
+    },
+    {
       "identifier": "fs:allow-read-dir",
       "allow": [
         { "path": "$HOME/**" },
