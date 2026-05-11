@@ -11,6 +11,13 @@ const BLOCK_TYPE_SELECT_INTERACTION_SELECTOR = [
   '.mira-toolbar-primary [class*="_selectTrigger_"][data-toolbar-item="true"]',
   'body > .mdxeditor-popup-container.mira-mdx-editor .mdxeditor-select-content[class*="_selectContainer_"]',
 ].join(', ')
+const PASTE_MARKDOWN_IMPORT_IGNORED_TARGET_SELECTOR = [
+  'input',
+  'textarea',
+  '.mira-code-mirror-block',
+  '.cm-editor',
+  '.cm-content',
+].join(', ')
 const WINDOW_DRAG_IGNORE_SELECTOR =
   'button, input, textarea, select, a, [role="button"], [contenteditable="true"], [data-window-drag-ignore="true"]'
 
@@ -101,9 +108,9 @@ export function restoreEditorScrollSnapshot(snapshot: EditorScrollSnapshot | nul
 
 /** 判断本次粘贴是否应该走 Markdown 导入，而不是按普通文本插入 */
 export function shouldImportMarkdownFromPaste(event: ReactClipboardEvent<HTMLDivElement>) {
-  // 1. 输入框和 textarea 里应保留原生粘贴，避免代码块与弹窗输入被自动格式化
+  // 1. 表单控件和 CodeMirror 代码块应保留原生粘贴，避免 Markdown 自动导入吞掉文本
   const targetElement = event.target instanceof HTMLElement ? event.target : null
-  if (targetElement?.closest('input, textarea')) return false
+  if (targetElement?.closest(PASTE_MARKDOWN_IMPORT_IGNORED_TARGET_SELECTOR)) return false
 
   // 2. 文件/图片粘贴交给编辑器现有逻辑处理，不在这里接管
   const clipboardData = event.clipboardData
