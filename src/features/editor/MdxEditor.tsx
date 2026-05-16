@@ -56,6 +56,7 @@ import {
 import { createEditorPlugins, translateMdxToolbar } from './mdxEditorPlugins'
 import type { AiTextReference } from '../../domain/ai'
 import { createSelectionTextReference } from './selectionReference'
+import { createTaskListAutoNumberController } from './taskListAutoNumber'
 
 interface Props {
   initialContent: string
@@ -257,9 +258,11 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
 
     const tableSelectionController = createMdxTableCellSelectionController(shellElement)
     const tableInputLayoutController = createMdxTableInputLayoutController(shellElement)
+    const taskListAutoNumberController = createTaskListAutoNumberController(shellElement)
     tableSelectionControllerRef.current = tableSelectionController
 
     return () => {
+      taskListAutoNumberController.destroy()
       tableInputLayoutController.destroy()
       tableSelectionController.destroy()
       if (tableSelectionControllerRef.current === tableSelectionController) {

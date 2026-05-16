@@ -113,6 +113,7 @@
 - `src/components`：UI 组件
 - `src/features`：功能模块
 - `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
+- `src/features/editor/taskListAutoNumber.ts`：编辑器连续待办视觉编号标注逻辑；只增强展示，不把序号写入 Markdown 原文
 - `src/features/editor/math`：编辑器数学公式解析、渲染、原位源码编辑与 Markdown 导出逻辑
 - `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
 - `src/lib`：共享工具与轻量基础能力

@@ -328,15 +328,58 @@
   padding-inline-start: 1.5rem;
   padding-inline-end: 0;
   list-style-type: none;
+  --mira-task-number-left: 1.1rem;
+  --mira-task-number-width: 2ch;
+  --mira-task-number-gap: 0.42rem;
 }
 
 .mira-mdx-content li[class*='_listItemChecked_']::before,
 .mira-mdx-content li[class*='_listItemUnchecked_']::before {
   top: var(--mira-editor-task-checkbox-offset, 5.5px);
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.mira-mdx-content li[class*='_listItemChecked_']::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M3.4 8.2 6.4 11 12.7 4.9' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: center;
+  background-size: 82% 82%;
 }
 
 .mira-mdx-content li[class*='_listItemChecked_']::after {
-  top: calc(var(--mira-editor-task-checkbox-offset, 5.5px) + var(--spacing-0_5, 2px));
+  content: none;
+}
+
+.mira-mdx-content li.mira-task-list-numbered {
+  padding-inline-start: calc(
+    var(--mira-task-number-left) + var(--mira-task-number-width) + var(--mira-task-number-gap)
+  );
+}
+
+.mira-mdx-content li.mira-task-list-numbered::after {
+  content: attr(data-mira-task-ordinal) '.';
+  position: absolute;
+  top: 0;
+  right: auto;
+  left: var(--mira-task-number-left);
+  display: inline-flex;
+  width: var(--mira-task-number-width);
+  height: auto;
+  align-items: baseline;
+  border: 0;
+  background: none;
+  justify-content: flex-end;
+  color: color-mix(in srgb, var(--theme-text-primary) 82%, var(--theme-text-secondary) 18%);
+  cursor: inherit;
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: inherit;
+  pointer-events: none;
+  transform: none;
+  user-select: none;
 }
 
 .mira-mdx-content li + li {
