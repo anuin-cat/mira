@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read release version
+        id: meta
+        shell: bash
+        run: |
+          node <<'EOF'
+          const fs = require('fs')
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          const tauri = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'))
+
+          if (!pkg.version) {
+            throw new Error('Missing package.json version')
+          }
+
+          if (tauri.version !== '../package.json') {
+            throw new Error(`src-tauri/tauri.conf.json version must stay "../package.json", got ${tauri.version}`)
+          }
+
+          const tag = `v${pkg.version}`
+          if (process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF_NAME !== tag) {
+            throw new Error(`Git tag ${process.env.GITHUB_REF_NAME} does not match app version ${tag}`)
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`)
+          EOF
+
+      - name: Create release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          tag="${{ steps.meta.outputs.tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists. Bump the app version before publishing a new release."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${tag}"
+          git push origin "${tag}"
+
+  release:
+    name: Build ${{ matrix.name }}
+    needs: prepare
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            platform: macos-latest
+            args: --target universal-apple-darwin --bundles dmg
+          - name: Windows
+            platform: windows-latest
+            args: --bundles nsis
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add macOS universal targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and upload release assets
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseName: Mira ${{ needs.prepare.outputs.tag }}
+          releaseBody: |
+            下载对应系统的安装包即可安装。
+
+            当前是未签名的早期版本：
+            - macOS 首次打开可能需要在“系统设置 > 隐私与安全性”中选择“仍要打开”。
+            - Windows 首次运行可能出现 SmartScreen 提示，可选择“更多信息 > 仍要运行”。
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

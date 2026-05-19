@@ -48,7 +48,7 @@ pub fn run() {
             let reveal_in_finder = MenuItem::with_id(
                 app,
                 "reveal_in_finder",
-                "在 Finder 中显示",
+                "在文件管理器中显示",
                 true,
                 Some("CmdOrCtrl+Alt+KeyR"),
             )?;

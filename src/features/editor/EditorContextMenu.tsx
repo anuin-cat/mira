@@ -12,6 +12,7 @@ import {
   Underline,
 } from 'lucide-react'
 import { type ReactNode, type RefObject } from 'react'
+import { getPlatformShortcut, type PlatformShortcut } from '../../lib/platform'
 import { sanitizeMarkdownForMdxPaste } from './markdownPaste'
 
 const EDITOR_CONTEXT_MENU_WIDTH = 172
@@ -38,23 +39,23 @@ export type EditorContextMenuActionId =
 interface EditorContextMenuAction {
   id: EditorContextMenuActionId
   label: string
-  shortcut?: string
+  shortcut?: PlatformShortcut
   icon: ReactNode
 }
 
 const EDITOR_CONTEXT_MENU_ACTIONS: Array<EditorContextMenuAction | 'separator'> = [
-  { id: 'bold', label: '加粗', shortcut: '⌘B', icon: <Bold /> },
-  { id: 'italic', label: '斜体', shortcut: '⌘I', icon: <Italic /> },
-  { id: 'underline', label: '下划线', shortcut: '⌘U', icon: <Underline /> },
+  { id: 'bold', label: '加粗', shortcut: { mac: '⌘B', windows: 'Ctrl+B' }, icon: <Bold /> },
+  { id: 'italic', label: '斜体', shortcut: { mac: '⌘I', windows: 'Ctrl+I' }, icon: <Italic /> },
+  { id: 'underline', label: '下划线', shortcut: { mac: '⌘U', windows: 'Ctrl+U' }, icon: <Underline /> },
   { id: 'strikethrough', label: '删除线', icon: <Strikethrough /> },
-  { id: 'inline-code', label: '行内代码', shortcut: '⌘E', icon: <Code2 /> },
+  { id: 'inline-code', label: '行内代码', shortcut: { mac: '⌘E', windows: 'Ctrl+E' }, icon: <Code2 /> },
   'separator',
-  { id: 'link', label: '插入链接', shortcut: '⌘K', icon: <Link /> },
-  { id: 'add-to-ai', label: '添加到 AI 对话', shortcut: '⌘L', icon: <MessageSquarePlus /> },
+  { id: 'link', label: '插入链接', shortcut: { mac: '⌘K', windows: 'Ctrl+K' }, icon: <Link /> },
+  { id: 'add-to-ai', label: '添加到 AI 对话', shortcut: { mac: '⌘L', windows: 'Ctrl+L' }, icon: <MessageSquarePlus /> },
   'separator',
-  { id: 'cut', label: '剪切', shortcut: '⌘X', icon: <Scissors /> },
-  { id: 'copy', label: '复制', shortcut: '⌘C', icon: <Copy /> },
-  { id: 'paste', label: '粘贴', shortcut: '⌘V', icon: <ClipboardPaste /> },
+  { id: 'cut', label: '剪切', shortcut: { mac: '⌘X', windows: 'Ctrl+X' }, icon: <Scissors /> },
+  { id: 'copy', label: '复制', shortcut: { mac: '⌘C', windows: 'Ctrl+C' }, icon: <Copy /> },
+  { id: 'paste', label: '粘贴', shortcut: { mac: '⌘V', windows: 'Ctrl+V' }, icon: <ClipboardPaste /> },
 ]
 
 /** 安全判断 Range 是否与节点相交，兼容断开连接节点 */
@@ -147,6 +148,8 @@ export function EditorContextMenu({
           return <div key={`separator-${index}`} className="mira-editor-context-menu-separator" />
         }
 
+        const shortcut = getPlatformShortcut(action.shortcut)
+
         return (
           <button
             key={action.id}
@@ -159,7 +162,7 @@ export function EditorContextMenu({
               {action.icon}
             </span>
             <span className="mira-editor-context-menu-label">{action.label}</span>
-            {action.shortcut ? <span className="mira-editor-context-menu-shortcut">{action.shortcut}</span> : null}
+            {shortcut ? <span className="mira-editor-context-menu-shortcut">{shortcut}</span> : null}
           </button>
         )
       })}

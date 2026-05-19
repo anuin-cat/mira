@@ -11,11 +11,7 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from './features/app/AppLayout'
 import { useVaultWorkspace } from './features/app/useVaultWorkspace'
-
-/** 判断当前是否运行在 macOS，用于适配原生窗口按钮位置 */
-function isMacOSPlatform() {
-  return navigator.userAgent.toLowerCase().includes('mac')
-}
+import { isMacOSPlatform } from './lib/platform'
 
 /** 把面板宽度收敛为整数，避免拖拽结果在小数像素间抖动 */
 function toPanelPixels(width: number) {

@@ -416,7 +416,7 @@ export function useVaultWorkspace({
     if (!opened) await reloadTree()
   }
 
-  /** 菜单：在 Finder 中显示当前文件或 vault 根目录 */
+  /** 菜单：在系统文件管理器中显示当前文件或 vault 根目录 */
   async function handleRevealInFinder() {
     const path = vaultPathRef.current
     if (!path) return

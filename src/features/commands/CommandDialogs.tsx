@@ -2,7 +2,7 @@ import { FileText, Search, Settings2, TerminalSquare } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { CommandDefinition, CommandId } from './commandRegistry'
-import { filterCommands } from './commandRegistry'
+import { filterCommands, getCommandShortcut } from './commandRegistry'
 import {
   collectVaultFiles,
   filterVaultFiles,
@@ -146,25 +146,29 @@ export function CommandPalette({ isOpen, commands, onClose, onRunCommand }: Comm
       onKeyDown={handleKeyDown}
     >
       {results.length > 0 ? (
-        results.map((command, index) => (
-          <button
-            key={command.id}
-            type="button"
-            className={`command-result-row${index === selectedIndex ? ' active' : ''}`}
-            onMouseEnter={() => setSelectedIndex(index)}
-            onClick={() => {
-              onClose()
-              onRunCommand(command.id)
-            }}
-          >
-            <TerminalSquare className="command-result-icon" aria-hidden />
-            <span className="command-result-main">
-              <span className="command-result-title">{command.title}</span>
-              <span className="command-result-meta">{command.group}</span>
-            </span>
-            {command.shortcut ? <span className="command-shortcut">{command.shortcut}</span> : null}
-          </button>
-        ))
+        results.map((command, index) => {
+          const shortcut = getCommandShortcut(command)
+
+          return (
+            <button
+              key={command.id}
+              type="button"
+              className={`command-result-row${index === selectedIndex ? ' active' : ''}`}
+              onMouseEnter={() => setSelectedIndex(index)}
+              onClick={() => {
+                onClose()
+                onRunCommand(command.id)
+              }}
+            >
+              <TerminalSquare className="command-result-icon" aria-hidden />
+              <span className="command-result-main">
+                <span className="command-result-title">{command.title}</span>
+                <span className="command-result-meta">{command.group}</span>
+              </span>
+              {shortcut ? <span className="command-shortcut">{shortcut}</span> : null}
+            </button>
+          )
+        })
       ) : (
         <div className="command-empty">没有匹配的命令</div>
       )}
