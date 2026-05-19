@@ -11,6 +11,7 @@ const BLOCK_TYPE_SELECT_INTERACTION_SELECTOR = [
   '.mira-toolbar-primary [class*="_selectTrigger_"][data-toolbar-item="true"]',
   'body > .mdxeditor-popup-container.mira-mdx-editor .mdxeditor-select-content[class*="_selectContainer_"]',
 ].join(', ')
+const TASK_LIST_ITEM_SELECTOR = "li[class*='_listItemChecked_'], li[class*='_listItemUnchecked_']"
 const PASTE_MARKDOWN_IMPORT_IGNORED_TARGET_SELECTOR = [
   'input',
   'textarea',
@@ -20,6 +21,8 @@ const PASTE_MARKDOWN_IMPORT_IGNORED_TARGET_SELECTOR = [
 ].join(', ')
 const WINDOW_DRAG_IGNORE_SELECTOR =
   'button, input, textarea, select, a, [role="button"], [contenteditable="true"], [data-window-drag-ignore="true"]'
+const TASK_CHECKBOX_HITBOX_LEFT_PADDING = 4
+const TASK_CHECKBOX_HITBOX_RIGHT = 20
 
 export interface EditorScrollSnapshot {
   element: HTMLElement
@@ -94,6 +97,22 @@ export function captureEditorScrollSnapshot(shellElement: HTMLElement | null): E
 /** 判断事件是否来自段落格式下拉菜单 */
 export function isBlockTypeSelectInteractionTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest(BLOCK_TYPE_SELECT_INTERACTION_SELECTOR))
+}
+
+/** 判断指针是否点在 MDXEditor 待办项左侧 checkbox 热区 */
+export function isTaskCheckboxPointerTarget(event: PointerEvent | MouseEvent): boolean {
+  const targetElement = event.target instanceof Element ? event.target : null
+  const listItemElement = targetElement?.closest<HTMLLIElement>(TASK_LIST_ITEM_SELECTOR) ?? null
+  if (!listItemElement) return false
+
+  // 1. MDXEditor 的 checkbox 是 li::before 伪元素，只能用坐标反推点击热区
+  const rect = listItemElement.getBoundingClientRect()
+  const isInsideVerticalRange = event.clientY >= rect.top && event.clientY <= rect.bottom
+  const isInsideCheckboxRange =
+    event.clientX >= rect.left - TASK_CHECKBOX_HITBOX_LEFT_PADDING &&
+    event.clientX <= rect.left + TASK_CHECKBOX_HITBOX_RIGHT
+
+  return isInsideVerticalRange && isInsideCheckboxRange
 }
 
 /** 恢复编辑器滚动位置，断开连接的旧节点直接跳过 */

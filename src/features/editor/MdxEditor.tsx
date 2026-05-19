@@ -47,6 +47,7 @@ import {
   captureEditorScrollSnapshot,
   getEditorContentElement,
   isBlockTypeSelectInteractionTarget,
+  isTaskCheckboxPointerTarget,
   isWholeEditorContentSelected,
   isWindowDragIgnoredTarget,
   restoreEditorScrollSnapshot,
@@ -183,6 +184,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
   useEffect(() => {
     const restoreFrameIds = new Set<number>()
     const restoreTimerIds = new Set<number>()
+    let pendingTaskCheckboxScrollSnapshot: EditorScrollSnapshot | null = null
 
     /** 延迟多轮恢复，覆盖 MDXEditor 设置块类型后的异步 focus */
     const scheduleEditorScrollRestore = (snapshot: EditorScrollSnapshot | null) => {
@@ -223,6 +225,12 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       pendingScrollSnapshotRef.current = captureEditorScrollSnapshot(shellRef.current)
     }
 
+    /** 待办 checkbox 点击会触发 Lexical 聚焦旧光标，先记住当前阅读位置 */
+    const handleTaskCheckboxInteractionStart = (event: PointerEvent) => {
+      if (event.button !== 0 || !isTaskCheckboxPointerTarget(event)) return
+      pendingTaskCheckboxScrollSnapshot = captureEditorScrollSnapshot(shellRef.current)
+    }
+
     /** 段落格式变更会触发异步聚焦，结束交互后把滚动位置拉回原处 */
     const handleBlockTypeSelectInteractionEnd = (event: PointerEvent | MouseEvent | KeyboardEvent) => {
       if (!pendingScrollSnapshotRef.current) return
@@ -230,15 +238,30 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       scheduleEditorScrollRestore(pendingScrollSnapshotRef.current)
     }
 
+    /** 待办状态切换后，把窗口留在用户点击的位置 */
+    const handleTaskCheckboxInteractionEnd = () => {
+      if (!pendingTaskCheckboxScrollSnapshot) return
+
+      const snapshot = pendingTaskCheckboxScrollSnapshot
+      pendingTaskCheckboxScrollSnapshot = null
+      scheduleEditorScrollRestore(snapshot)
+    }
+
+    document.addEventListener('pointerdown', handleTaskCheckboxInteractionStart, true)
     document.addEventListener('pointerdown', handleBlockTypeSelectInteractionStart, true)
     document.addEventListener('keydown', handleBlockTypeSelectInteractionStart, true)
+    document.addEventListener('pointerup', handleTaskCheckboxInteractionEnd, true)
     document.addEventListener('pointerup', handleBlockTypeSelectInteractionEnd, true)
+    document.addEventListener('click', handleTaskCheckboxInteractionEnd)
     document.addEventListener('click', handleBlockTypeSelectInteractionEnd)
     document.addEventListener('keyup', handleBlockTypeSelectInteractionEnd, true)
     return () => {
+      document.removeEventListener('pointerdown', handleTaskCheckboxInteractionStart, true)
       document.removeEventListener('pointerdown', handleBlockTypeSelectInteractionStart, true)
       document.removeEventListener('keydown', handleBlockTypeSelectInteractionStart, true)
+      document.removeEventListener('pointerup', handleTaskCheckboxInteractionEnd, true)
       document.removeEventListener('pointerup', handleBlockTypeSelectInteractionEnd, true)
+      document.removeEventListener('click', handleTaskCheckboxInteractionEnd)
       document.removeEventListener('click', handleBlockTypeSelectInteractionEnd)
       document.removeEventListener('keyup', handleBlockTypeSelectInteractionEnd, true)
       restoreFrameIds.forEach((frameId) => window.cancelAnimationFrame(frameId))
