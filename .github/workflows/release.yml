@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
+      should_release: ${{ steps.tag.outputs.should_release }}
 
     steps:
       - name: Checkout
@@ -40,31 +41,30 @@ jobs:
           }
 
           const tag = `v${pkg.version}`
-          if (process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF_NAME !== tag) {
-            throw new Error(`Git tag ${process.env.GITHUB_REF_NAME} does not match app version ${tag}`)
-          }
-
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`)
           EOF
 
       - name: Create release tag
-        if: github.event_name == 'workflow_dispatch'
+        id: tag
         shell: bash
         run: |
           tag="${{ steps.meta.outputs.tag }}"
           if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
-            echo "Tag ${tag} already exists. Bump the app version before publishing a new release."
-            exit 1
+            echo "Tag ${tag} already exists. Skipping release build."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "${tag}"
           git push origin "${tag}"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
 
   release:
     name: Build ${{ matrix.name }}
     needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
