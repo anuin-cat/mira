@@ -121,6 +121,6 @@ jobs:
             当前是未签名的早期版本：
             - macOS 首次打开可能需要在“系统设置 > 隐私与安全性”中选择“仍要打开”。
             - Windows 首次运行可能出现 SmartScreen 提示，可选择“更多信息 > 仍要运行”。
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
