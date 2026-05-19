@@ -1,4 +1,4 @@
-import { ensureDir, pathExists, readFile, selectDirectory, writeFile } from '../tauri/fs'
+import { allowVaultPathAccess, ensureDir, pathExists, readFile, selectDirectory, writeFile } from '../tauri/fs'
 import type { FontSize, VaultState } from '../domain/note'
 import { MIRA_DIR } from './pathUtils'
 import { normalizeTreeOrder } from './treeOrderService'
@@ -31,6 +31,7 @@ export function setVaultPath(path: string): void {
 
 /** 初始化 vault 内部状态目录，用户内容目录不由 Mira 创建 */
 export async function ensureVaultSystem(vaultPath: string): Promise<void> {
+  await allowVaultPathAccess(vaultPath)
   await ensureDir(`${vaultPath}/${MIRA_DIR}`)
 }
 
@@ -67,7 +68,7 @@ export async function writeVaultState(vaultPath: string, state: VaultState): Pro
 export async function setupVault(): Promise<string | null> {
   const path = await selectDirectory('选择 Mira Vault 目录')
   if (!path) return null
-  setVaultPath(path)
   await ensureVaultSystem(path)
+  setVaultPath(path)
   return path
 }

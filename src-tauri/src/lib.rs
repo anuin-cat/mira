@@ -1,7 +1,28 @@
 mod web_fetch;
 
+use std::path::PathBuf;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
+use tauri_plugin_fs::FsExt;
+
+/** 允许前端访问用户选择的 vault 目录及其附件预览资源 */
+#[tauri::command]
+fn allow_vault_path_access(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let vault_path = PathBuf::from(path);
+    if !vault_path.is_absolute() {
+        return Err("Vault 路径必须是绝对路径".to_string());
+    }
+
+    app.fs_scope()
+        .allow_directory(&vault_path, true)
+        .map_err(|error| error.to_string())?;
+
+    app.asset_protocol_scope()
+        .allow_directory(&vault_path, true)
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -9,7 +30,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![web_fetch::web_fetch_url,])
+        .invoke_handler(tauri::generate_handler![
+            allow_vault_path_access,
+            web_fetch::web_fetch_url,
+        ])
         .setup(|app| {
             // 1. 构建 File 菜单
             let change_vault =

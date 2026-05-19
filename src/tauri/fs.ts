@@ -9,8 +9,14 @@ import {
   rename,
   stat,
 } from '@tauri-apps/plugin-fs'
+import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { DirEntry, FileInfo } from '@tauri-apps/plugin-fs'
+
+/** 让 Tauri 文件系统与 asset 协议放行当前 vault 根目录 */
+export async function allowVaultPathAccess(path: string): Promise<void> {
+  await invoke('allow_vault_path_access', { path })
+}
 
 /** 弹出系统目录选择框 */
 export async function selectDirectory(title: string): Promise<string | null> {
