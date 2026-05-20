@@ -10,6 +10,14 @@ import { isMacOSPlatform } from '../../lib/platform'
 const FONT_SIZE_ORDER: FontSize[] = ['small', 'medium', 'large', 'xlarge']
 const CURRENT_NOTE_PROMPT = '请总结当前笔记，并提出 3 个值得继续追问的问题。'
 const TEXT_INPUT_SELECTOR = 'input, textarea, select, [contenteditable="true"]'
+const PLAIN_TEXT_INPUT_TYPES = new Set([
+  'email',
+  'password',
+  'search',
+  'tel',
+  'text',
+  'url',
+])
 
 export type ActiveCommandDialog = 'command-palette' | 'quick-open' | 'vault-search' | null
 
@@ -74,6 +82,7 @@ function getCommandIdByKeyboardEvent(event: KeyboardEvent): CommandId | null {
   if (key === 'r' && matchesModifiers(event, { primary: true })) return 'refresh-vault'
   if (key === 'r' && matchesModifiers(event, { primary: true, alt: true })) return 'reveal-in-finder'
   if (key === 'backspace' && matchesModifiers(event, { primary: true })) return 'delete-entry'
+  if (key === 'v' && matchesModifiers(event, { primary: true, shift: true })) return 'paste-and-match-style'
   if (key === 'f' && matchesModifiers(event, { primary: true })) return 'find-in-file'
   if (key === 'f' && matchesModifiers(event, { primary: true, shift: true })) return 'search-vault'
   if (key === 'g' && matchesModifiers(event, { primary: true })) return 'find-next-in-file'
@@ -85,7 +94,8 @@ function getCommandIdByKeyboardEvent(event: KeyboardEvent): CommandId | null {
   if (key === '\\' && matchesModifiers(event, { primary: true })) return 'toggle-file-sidebar'
   if (key === 'l' && matchesModifiers(event, { primary: true })) return 'toggle-ai-sidebar'
   if (key === '-' && matchesModifiers(event, { primary: true })) return 'font-decrease'
-  if ((key === '=' || key === '+') && matchesModifiers(event, { primary: true })) return 'font-increase'
+  if (key === '=' && matchesModifiers(event, { primary: true })) return 'font-increase'
+  if (key === '+' && matchesModifiers(event, { primary: true, shift: true })) return 'font-increase'
   if (key === '0' && matchesModifiers(event, { primary: true })) return 'font-reset'
   if (key === ',' && matchesModifiers(event, { primary: true })) return 'app-settings'
   if (key === 'enter' && matchesModifiers(event, { primary: true, alt: true })) return 'ai-ask-current-note'
@@ -107,6 +117,48 @@ function handleFontSizeStep(context: AppCommandContext, step: -1 | 1) {
   const currentIndex = FONT_SIZE_ORDER.indexOf(currentSize ?? 'medium')
   const nextIndex = Math.min(Math.max(currentIndex + step, 0), FONT_SIZE_ORDER.length - 1)
   context.handleFontSizeChange(FONT_SIZE_ORDER[nextIndex])
+}
+
+/** 向当前聚焦的输入控件插入纯文本，供粘贴并匹配样式复用 */
+function insertPlainTextIntoFocusedTarget(text: string) {
+  const activeElement = document.activeElement
+
+  if (activeElement instanceof HTMLTextAreaElement) {
+    const selectionStart = activeElement.selectionStart ?? activeElement.value.length
+    const selectionEnd = activeElement.selectionEnd ?? selectionStart
+    activeElement.setRangeText(text, selectionStart, selectionEnd, 'end')
+    activeElement.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }))
+    return true
+  }
+
+  if (activeElement instanceof HTMLInputElement && PLAIN_TEXT_INPUT_TYPES.has(activeElement.type)) {
+    const selectionStart = activeElement.selectionStart ?? activeElement.value.length
+    const selectionEnd = activeElement.selectionEnd ?? selectionStart
+    activeElement.setRangeText(text, selectionStart, selectionEnd, 'end')
+    activeElement.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }))
+    return true
+  }
+
+  if (activeElement instanceof HTMLElement && activeElement.isContentEditable) {
+    return document.execCommand('insertText', false, text)
+  }
+
+  return false
+}
+
+/** 粘贴纯文本，避免把外部富文本样式或 Markdown 结构带入当前输入区 */
+async function handlePasteAndMatchStyle(context: AppCommandContext) {
+  try {
+    const clipboardText = await navigator.clipboard?.readText?.()
+    if (!clipboardText) return
+
+    if (insertPlainTextIntoFocusedTarget(clipboardText)) return
+
+    context.editorHandleRef.current?.focusEditor()
+    document.execCommand('insertText', false, clipboardText)
+  } catch {
+    document.execCommand('paste')
+  }
 }
 
 /** 执行集中注册的应用命令 */
@@ -140,6 +192,9 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       break
     case 'reveal-in-finder':
       await context.handleRevealInFinder()
+      break
+    case 'paste-and-match-style':
+      await handlePasteAndMatchStyle(context)
       break
     case 'find-in-file':
       context.editorHandleRef.current?.toggleSearch()

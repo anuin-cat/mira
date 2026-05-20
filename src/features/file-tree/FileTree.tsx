@@ -1,8 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Tree } from 'react-arborist'
 import type { NodeApi, RenameHandler, TreeApi } from 'react-arborist'
 import {
+  ChevronRight,
   Command as CommandIcon,
   FilePlus,
   FolderOpen,
@@ -24,16 +26,25 @@ import {
   getCommandShortcut,
   WORKSPACE_MENU_COMMAND_SECTIONS,
   type CommandId,
+  type WorkspaceMenuEntry,
+  type WorkspaceMenuSubmenuId,
 } from '../commands/commandRegistry'
 import { TREE_ROW_HEIGHT, TREE_VERTICAL_PADDING, useFileTreeDrag } from './useFileTreeDrag'
 import { VaultNode } from './VaultNode'
 
 const WINDOW_DRAG_IGNORE_SELECTOR = 'button, input, textarea, select, a, [role="button"]'
+const WORKSPACE_MENU_WIDTH = 224
+const WORKSPACE_MENU_VIEWPORT_MARGIN = 8
 
 interface ContextMenuState {
   x: number
   y: number
   target: VaultTreeNode | null
+}
+
+interface WorkspaceMenuPosition {
+  left: number
+  top: number
 }
 
 interface FileTreeProps {
@@ -130,6 +141,12 @@ function getWorkspaceMenuIcon(commandId: CommandId): ReactNode {
   }
 }
 
+/** 为工作区二级菜单选择图标 */
+function getWorkspaceSubmenuIcon(submenuId: WorkspaceMenuSubmenuId): ReactNode {
+  if (submenuId === 'font-size') return <Type />
+  return <Palette />
+}
+
 /** 左侧 Markdown 文件树 */
 export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileTree(
   {
@@ -157,6 +174,8 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   const [treeHeight, setTreeHeight] = useState(600)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false)
+  const [workspaceMenuPosition, setWorkspaceMenuPosition] = useState<WorkspaceMenuPosition | null>(null)
+  const [openWorkspaceSubmenuId, setOpenWorkspaceSubmenuId] = useState<WorkspaceMenuSubmenuId | null>(null)
   const [pendingEditId, setPendingEditId] = useState<string | null>(null)
   const [selectedEntry, setSelectedEntry] = useState<VaultTreeNode | null>(null)
 
@@ -188,6 +207,13 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   useEffect(() => {
     if (!contextMenu && !isWorkspaceMenuOpen) return
 
+    const closeFloatingMenus = () => {
+      setContextMenu(null)
+      setIsWorkspaceMenuOpen(false)
+      setWorkspaceMenuPosition(null)
+      setOpenWorkspaceSubmenuId(null)
+    }
+
     function isMenuInnerTarget(target: EventTarget | null): boolean {
       if (!(target instanceof Node)) return false
       return (
@@ -200,19 +226,21 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     function handleDocumentMouseDown(event: globalThis.MouseEvent) {
       if (event.button !== 0) return
       if (isMenuInnerTarget(event.target)) return
-      setContextMenu(null)
-      setIsWorkspaceMenuOpen(false)
+      closeFloatingMenus()
     }
 
     function handleWindowKeyDown() {
-      setContextMenu(null)
-      setIsWorkspaceMenuOpen(false)
+      closeFloatingMenus()
     }
 
     document.addEventListener('mousedown', handleDocumentMouseDown, true)
+    document.addEventListener('scroll', closeFloatingMenus, true)
+    window.addEventListener('resize', closeFloatingMenus)
     window.addEventListener('keydown', handleWindowKeyDown)
     return () => {
       document.removeEventListener('mousedown', handleDocumentMouseDown, true)
+      document.removeEventListener('scroll', closeFloatingMenus, true)
+      window.removeEventListener('resize', closeFloatingMenus)
       window.removeEventListener('keydown', handleWindowKeyDown)
     }
   }, [contextMenu, isWorkspaceMenuOpen])
@@ -276,6 +304,8 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     event.stopPropagation()
     bodyRef.current?.focus({ preventScroll: true })
     setIsWorkspaceMenuOpen(false)
+    setWorkspaceMenuPosition(null)
+    setOpenWorkspaceSubmenuId(null)
     setSelectedEntry(target)
     setContextMenu({ x: event.clientX, y: event.clientY, target })
   }
@@ -337,8 +367,35 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   /** 执行工作区菜单命令，保持入口收起后再交给统一命令系统 */
   function handleWorkspaceCommand(commandId: CommandId) {
     setIsWorkspaceMenuOpen(false)
+    setWorkspaceMenuPosition(null)
+    setOpenWorkspaceSubmenuId(null)
     setContextMenu(null)
     onRunCommand(commandId)
+  }
+
+  /** 根据触发按钮位置打开工作区菜单，避免被侧栏布局层级裁切 */
+  function handleWorkspaceMenuButtonClick() {
+    if (isWorkspaceMenuOpen) {
+      setIsWorkspaceMenuOpen(false)
+      setWorkspaceMenuPosition(null)
+      setOpenWorkspaceSubmenuId(null)
+      return
+    }
+
+    const buttonRect = workspaceMenuButtonRef.current?.getBoundingClientRect()
+    if (!buttonRect) return
+
+    const maxLeft = Math.max(
+      WORKSPACE_MENU_VIEWPORT_MARGIN,
+      window.innerWidth - WORKSPACE_MENU_WIDTH - WORKSPACE_MENU_VIEWPORT_MARGIN
+    )
+    setContextMenu(null)
+    setWorkspaceMenuPosition({
+      left: Math.max(WORKSPACE_MENU_VIEWPORT_MARGIN, Math.min(buttonRect.left, maxLeft)),
+      top: buttonRect.bottom + 8,
+    })
+    setOpenWorkspaceSubmenuId(null)
+    setIsWorkspaceMenuOpen(true)
   }
 
   /** 获取命令默认作用的文件树节点 */
@@ -387,6 +444,66 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   const menuTarget = contextMenu?.target ?? null
   const selectedPath = activePath ?? undefined
 
+  /** 渲染工作区菜单里的普通命令 */
+  function renderWorkspaceCommandItem(commandId: CommandId) {
+    const command = getCommandDefinition(commandId)
+    if (!command) return null
+    const shortcut = getCommandShortcut(command)
+
+    return (
+      <button
+        key={command.id}
+        type="button"
+        className="workspace-menu-item"
+        role="menuitem"
+        onClick={() => handleWorkspaceCommand(command.id)}
+      >
+        <span className="workspace-menu-item-icon" aria-hidden>
+          {getWorkspaceMenuIcon(command.id)}
+        </span>
+        <span className="workspace-menu-item-label">{command.title}</span>
+        {shortcut ? <span className="workspace-menu-item-shortcut">{shortcut}</span> : null}
+      </button>
+    )
+  }
+
+  /** 渲染工作区菜单条目，字体和主题使用二级菜单承载 */
+  function renderWorkspaceMenuEntry(entry: WorkspaceMenuEntry) {
+    if (entry.type === 'command') return renderWorkspaceCommandItem(entry.commandId)
+
+    const isOpen = openWorkspaceSubmenuId === entry.id
+
+    return (
+      <div
+        key={entry.id}
+        className="workspace-menu-submenu-wrapper"
+        onMouseEnter={() => setOpenWorkspaceSubmenuId(entry.id)}
+        onMouseLeave={() => setOpenWorkspaceSubmenuId(null)}
+      >
+        <button
+          type="button"
+          className={`workspace-menu-item workspace-menu-submenu-trigger${isOpen ? ' active' : ''}`}
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          onFocus={() => setOpenWorkspaceSubmenuId(entry.id)}
+          onClick={() => setOpenWorkspaceSubmenuId((current) => (current === entry.id ? null : entry.id))}
+        >
+          <span className="workspace-menu-item-icon" aria-hidden>
+            {getWorkspaceSubmenuIcon(entry.id)}
+          </span>
+          <span className="workspace-menu-item-label">{entry.title}</span>
+          <ChevronRight className="workspace-menu-item-chevron" aria-hidden />
+        </button>
+        {isOpen ? (
+          <div className="workspace-menu workspace-submenu" role="menu" aria-label={entry.title}>
+            {entry.commandIds.map((commandId) => renderWorkspaceCommandItem(commandId))}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <aside className="file-sidebar" style={style}>
       <div
@@ -401,10 +518,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
               ref={workspaceMenuButtonRef}
               className={`btn-sidebar-icon${isWorkspaceMenuOpen ? ' active' : ''}`}
               type="button"
-              onClick={() => {
-                setContextMenu(null)
-                setIsWorkspaceMenuOpen((value) => !value)
-              }}
+              onClick={handleWorkspaceMenuButtonClick}
               title="工作区菜单"
               aria-label="工作区菜单"
               aria-haspopup="menu"
@@ -412,35 +526,6 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
             >
               <MoreHorizontal aria-hidden />
             </button>
-            {isWorkspaceMenuOpen ? (
-              <div ref={workspaceMenuRef} className="workspace-menu" role="menu" aria-label="工作区菜单">
-                {WORKSPACE_MENU_COMMAND_SECTIONS.map((section, sectionIndex) => (
-                  <div key={`section-${sectionIndex}`} className="workspace-menu-section">
-                    {section.map((commandId) => {
-                      const command = getCommandDefinition(commandId)
-                      if (!command) return null
-                      const shortcut = getCommandShortcut(command)
-
-                      return (
-                        <button
-                          key={command.id}
-                          type="button"
-                          className="workspace-menu-item"
-                          role="menuitem"
-                          onClick={() => handleWorkspaceCommand(command.id)}
-                        >
-                          <span className="workspace-menu-item-icon" aria-hidden>
-                            {getWorkspaceMenuIcon(command.id)}
-                          </span>
-                          <span className="workspace-menu-item-label">{command.title}</span>
-                          {shortcut ? <span className="workspace-menu-item-shortcut">{shortcut}</span> : null}
-                        </button>
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </div>
           <button
             className="btn-new btn-sidebar-icon"
@@ -550,6 +635,24 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
           )}
         </div>
       )}
+      {isWorkspaceMenuOpen && workspaceMenuPosition
+        ? createPortal(
+            <div
+              ref={workspaceMenuRef}
+              className="workspace-menu"
+              style={{ left: workspaceMenuPosition.left, top: workspaceMenuPosition.top }}
+              role="menu"
+              aria-label="工作区菜单"
+            >
+              {WORKSPACE_MENU_COMMAND_SECTIONS.map((section, sectionIndex) => (
+                <div key={`section-${sectionIndex}`} className="workspace-menu-section">
+                  {section.map((entry) => renderWorkspaceMenuEntry(entry))}
+                </div>
+              ))}
+            </div>,
+            document.body
+          )
+        : null}
     </aside>
   )
 })

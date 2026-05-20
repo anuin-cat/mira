@@ -41,7 +41,31 @@ pub fn run() {
                 return Ok(());
             }
 
-            // 1. 构建 File 菜单
+            // 1. 构建 App 菜单，承接 macOS 系统级快捷键
+            let app_settings =
+                MenuItem::with_id(app, "app_settings", "设置", true, Some("CmdOrCtrl+Comma"))?;
+            let app_separator_1 = PredefinedMenuItem::separator(app)?;
+            let app_separator_2 = PredefinedMenuItem::separator(app)?;
+            let hide = PredefinedMenuItem::hide(app, None::<&str>)?;
+            let hide_others = PredefinedMenuItem::hide_others(app, None::<&str>)?;
+            let show_all = PredefinedMenuItem::show_all(app, None::<&str>)?;
+            let quit = PredefinedMenuItem::quit(app, None::<&str>)?;
+            let app_menu = Submenu::with_items(
+                app,
+                "Mira",
+                true,
+                &[
+                    &app_settings,
+                    &app_separator_1,
+                    &hide,
+                    &hide_others,
+                    &show_all,
+                    &app_separator_2,
+                    &quit,
+                ],
+            )?;
+
+            // 2. 构建 File 菜单
             let change_vault = MenuItem::with_id(
                 app,
                 "change_vault",
@@ -107,13 +131,21 @@ pub fn run() {
                 ],
             )?;
 
-            // 2. 构建 Edit 菜单，承接 macOS 原生文本编辑快捷键
+            // 3. 构建 Edit 菜单，承接 macOS 原生文本编辑快捷键
             let undo = PredefinedMenuItem::undo(app, None::<&str>)?;
             let redo = PredefinedMenuItem::redo(app, None::<&str>)?;
             let edit_separator = PredefinedMenuItem::separator(app)?;
+            let edit_separator_2 = PredefinedMenuItem::separator(app)?;
             let cut = PredefinedMenuItem::cut(app, None::<&str>)?;
             let copy = PredefinedMenuItem::copy(app, None::<&str>)?;
             let paste = PredefinedMenuItem::paste(app, None::<&str>)?;
+            let paste_and_match_style = MenuItem::with_id(
+                app,
+                "paste_and_match_style",
+                "粘贴并匹配样式",
+                true,
+                Some("CmdOrCtrl+Alt+Shift+KeyV"),
+            )?;
             let select_all = PredefinedMenuItem::select_all(app, None::<&str>)?;
             let edit_menu = Submenu::with_items(
                 app,
@@ -126,11 +158,13 @@ pub fn run() {
                     &cut,
                     &copy,
                     &paste,
+                    &paste_and_match_style,
+                    &edit_separator_2,
                     &select_all,
                 ],
             )?;
 
-            // 3. 构建 Search 菜单
+            // 4. 构建 Search 菜单
             let find_in_file = MenuItem::with_id(
                 app,
                 "find_in_file",
@@ -173,7 +207,7 @@ pub fn run() {
                 ],
             )?;
 
-            // 4. 构建 Navigate 菜单
+            // 5. 构建 Navigate 菜单
             let quick_open = MenuItem::with_id(
                 app,
                 "quick_open",
@@ -216,7 +250,7 @@ pub fn run() {
                 ],
             )?;
 
-            // 5. 构建 View 菜单
+            // 6. 构建 View 菜单
             let toggle_file_sidebar = MenuItem::with_id(
                 app,
                 "toggle_file_sidebar",
@@ -243,7 +277,7 @@ pub fn run() {
                 "font_increase",
                 "放大字体",
                 true,
-                Some("CmdOrCtrl+Equal"),
+                Some("CmdOrCtrl+Shift+Equal"),
             )?;
             let font_reset = MenuItem::with_id(
                 app,
@@ -301,7 +335,12 @@ pub fn run() {
                 ],
             )?;
 
-            // 6. 构建 AI 与 App 菜单
+            // 7. 构建 Window 菜单
+            let minimize = PredefinedMenuItem::minimize(app, None::<&str>)?;
+            let fullscreen = PredefinedMenuItem::fullscreen(app, None::<&str>)?;
+            let window_menu = Submenu::with_items(app, "Window", true, &[&minimize, &fullscreen])?;
+
+            // 8. 构建 AI 菜单
             let ai_new_chat = MenuItem::with_id(
                 app,
                 "ai_new_chat",
@@ -318,27 +357,25 @@ pub fn run() {
             )?;
             let ai_menu =
                 Submenu::with_items(app, "AI", true, &[&ai_new_chat, &ai_ask_current_note])?;
-            let app_settings =
-                MenuItem::with_id(app, "app_settings", "设置", true, Some("CmdOrCtrl+Comma"))?;
-            let app_menu = Submenu::with_items(app, "App", true, &[&app_settings])?;
 
             let menu = Menu::with_items(
                 app,
                 &[
+                    &app_menu,
                     &file_menu,
                     &edit_menu,
                     &search_menu,
                     &navigate_menu,
                     &view_menu,
+                    &window_menu,
                     &ai_menu,
-                    &app_menu,
                 ],
             )?;
             app.set_menu(menu)?;
             Ok(())
         })
         .on_menu_event(|app, event| {
-            // 7. 菜单点击时向前端发送事件
+            // 9. 菜单点击时向前端发送事件
             let event_name = match event.id().as_ref() {
                 "change_vault" => "menu:change-vault",
                 "new_file" => "menu:new-file",
@@ -348,6 +385,7 @@ pub fn run() {
                 "rename_entry" => "menu:rename-entry",
                 "delete_entry" => "menu:delete-entry",
                 "reveal_in_finder" => "menu:reveal-in-finder",
+                "paste_and_match_style" => "menu:paste-and-match-style",
                 "find_in_file" => "menu:find-in-file",
                 "find_next_in_file" => "menu:find-next-in-file",
                 "find_previous_in_file" => "menu:find-previous-in-file",

@@ -213,11 +213,9 @@ body {
 }
 
 .workspace-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 80;
-  width: 230px;
+  position: fixed;
+  z-index: 10000;
+  width: 224px;
   padding: 5px;
   border: 1px solid color-mix(in srgb, var(--theme-border-sidebar) 82%, transparent);
   border-radius: 17px;
@@ -227,6 +225,7 @@ body {
     0 1px 0 color-mix(in srgb, #ffffff 42%, transparent) inset;
   -webkit-backdrop-filter: blur(22px) saturate(1.28);
   backdrop-filter: blur(22px) saturate(1.28);
+  overflow: visible;
 }
 
 .workspace-menu-section + .workspace-menu-section {
@@ -254,10 +253,33 @@ body {
 }
 
 .workspace-menu-item:hover,
+.workspace-menu-item.active,
 .workspace-menu-item:focus-visible {
   background: #0a84ff;
   color: #fff;
   outline: none;
+}
+
+.workspace-menu-submenu-wrapper {
+  position: relative;
+}
+
+.workspace-menu-submenu-trigger {
+  grid-template-columns: 20px minmax(0, 1fr) 14px;
+}
+
+.workspace-menu-item-chevron {
+  width: 13px;
+  height: 13px;
+  color: var(--theme-text-tertiary);
+  stroke-width: 2.2;
+}
+
+.workspace-submenu {
+  position: absolute;
+  top: -5px;
+  left: calc(100% + 7px);
+  width: 188px;
 }
 
 .workspace-menu-item-icon {
@@ -286,8 +308,13 @@ body {
 
 .workspace-menu-item:hover .workspace-menu-item-icon,
 .workspace-menu-item:focus-visible .workspace-menu-item-icon,
+.workspace-menu-item.active .workspace-menu-item-icon,
 .workspace-menu-item:hover .workspace-menu-item-shortcut,
-.workspace-menu-item:focus-visible .workspace-menu-item-shortcut {
+.workspace-menu-item:focus-visible .workspace-menu-item-shortcut,
+.workspace-menu-item.active .workspace-menu-item-shortcut,
+.workspace-menu-item:hover .workspace-menu-item-chevron,
+.workspace-menu-item:focus-visible .workspace-menu-item-chevron,
+.workspace-menu-item.active .workspace-menu-item-chevron {
   color: rgba(255, 255, 255, 0.78);
 }
 

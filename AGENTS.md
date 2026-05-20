@@ -55,13 +55,16 @@
 - macOS 保留原生菜单栏；Windows/Linux 不注册 Tauri 原生菜单条，避免窗口内出现传统菜单栏
 - 非编辑类、低频全局操作放在左侧栏顶部 `…` 工作区菜单，并同步保留在命令面板；当前 macOS 也显示该入口用于调试，但不能替代 macOS 原生菜单
 - 工作区菜单适合放：更换/刷新 vault、在文件管理器中显示、快速打开、全局搜索、命令面板、字体大小、主题、AI 会话入口和设置
+- 工作区菜单一级只放常用入口；字体大小、主题等集合型操作应使用二级菜单承载，避免一级菜单过长
 - 工作区菜单不放编辑器常驻格式化动作（加粗、列表、链接、图片、表格、代码块等），这些应继续保留在编辑器工具栏、编辑器上下文菜单或 Markdown 快捷输入中
 - 新增快捷键时同步维护 `src/features/commands/commandRegistry.ts`、`src/features/commands/useAppCommands.ts`、macOS 原生菜单注册和本节菜单事件清单；Windows/Linux 的应用级快捷键由前端 `keydown` 统一承接
 - 菜单在 `src-tauri/src/lib.rs` 的 `.setup()` 中用 Tauri 2 `Menu` / `Submenu` / `MenuItem` API 注册
 - 菜单点击通过 `app.emit("menu:<event-id>", ())` 发送事件到前端
 - 前端在 `App.tsx` 的 `useEffect` 中用 `listen("menu:<event-id>", ...)` 监听并响应
 - macOS 必须保留原生 `Edit` 菜单，并优先用系统预定义菜单项承接 `Undo` / `Redo` / `Cut` / `Copy` / `Paste` / `Select All`，避免 WebView 内文本编辑快捷键失效
+- macOS 系统级菜单项优先使用 `PredefinedMenuItem` 承接，如 `Quit` / `Hide` / `Minimize` / `Toggle Full Screen`，这类原生行为不需要前端 `menu:*` 事件
 - 新增菜单项时，同步在此处登记：
+  - `App > 设置` → `app_settings` → `menu:app-settings`
   - `File > 新建文件` → `new_file` → `menu:new-file`
   - `File > 新建文件夹` → `new_folder` → `menu:new-folder`
   - `File > 保存当前文件` → `save_file` → `menu:save-file`
@@ -70,6 +73,7 @@
   - `File > 重命名` → `rename_entry` → `menu:rename-entry`
   - `File > 删除` → `delete_entry` → `menu:delete-entry`
   - `File > 在文件管理器中显示` → `reveal_in_finder` → `menu:reveal-in-finder`
+  - `Edit > 粘贴并匹配样式` → `paste_and_match_style` → `menu:paste-and-match-style`
   - `Search > 当前文件内搜索` → `find_in_file` → `menu:find-in-file`
   - `Search > 查找下一个` → `find_next_in_file` → `menu:find-next-in-file`
   - `Search > 查找上一个` → `find_previous_in_file` → `menu:find-previous-in-file`
@@ -94,7 +98,6 @@
   - `View > 主题 > 经典深色` → `theme_dark_classic` → `menu:theme-dark-classic`
   - `AI > 新建 AI 对话` → `ai_new_chat` → `menu:ai-new-chat`
   - `AI > 基于当前笔记提问` → `ai_ask_current_note` → `menu:ai-ask-current-note`
-  - `App > 设置` → `app_settings` → `menu:app-settings`
 
 ## 依赖选型原则
 

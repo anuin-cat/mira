@@ -1,6 +1,6 @@
 import { getPlatformShortcut, type PlatformShortcut } from '../../lib/platform'
 
-export type CommandGroup = 'file' | 'search' | 'navigate' | 'view' | 'ai' | 'app'
+export type CommandGroup = 'file' | 'edit' | 'search' | 'navigate' | 'view' | 'ai' | 'app'
 
 export type CommandId =
   | 'change-vault'
@@ -11,6 +11,7 @@ export type CommandId =
   | 'rename-entry'
   | 'delete-entry'
   | 'reveal-in-finder'
+  | 'paste-and-match-style'
   | 'find-in-file'
   | 'find-next-in-file'
   | 'find-previous-in-file'
@@ -46,6 +47,12 @@ export interface CommandDefinition {
   shortcut?: PlatformShortcut
 }
 
+export type WorkspaceMenuSubmenuId = 'font-size' | 'theme'
+
+export type WorkspaceMenuEntry =
+  | { type: 'command'; commandId: CommandId }
+  | { type: 'submenu'; id: WorkspaceMenuSubmenuId; title: string; commandIds: CommandId[] }
+
 export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'change-vault', title: '更换 Vault...', group: 'file', menuEvent: 'menu:change-vault', shortcut: { mac: '⌘O', windows: 'Ctrl+O' } },
   { id: 'new-file', title: '新建文件', group: 'file', menuEvent: 'menu:new-file', shortcut: { mac: '⌘N', windows: 'Ctrl+N' } },
@@ -55,6 +62,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'rename-entry', title: '重命名', group: 'file', menuEvent: 'menu:rename-entry', shortcut: { mac: 'F2', windows: 'F2' } },
   { id: 'delete-entry', title: '删除', group: 'file', menuEvent: 'menu:delete-entry', shortcut: { mac: '⌘⌫', windows: 'Ctrl+Backspace' } },
   { id: 'reveal-in-finder', title: '在文件管理器中显示', group: 'file', menuEvent: 'menu:reveal-in-finder', shortcut: { mac: '⌥⌘R', windows: 'Ctrl+Alt+R' } },
+  { id: 'paste-and-match-style', title: '粘贴并匹配样式', group: 'edit', menuEvent: 'menu:paste-and-match-style', shortcut: { mac: '⇧⌥⌘V', windows: 'Ctrl+Shift+V' } },
   { id: 'find-in-file', title: '当前文件内搜索', group: 'search', menuEvent: 'menu:find-in-file', shortcut: { mac: '⌘F', windows: 'Ctrl+F' } },
   { id: 'find-next-in-file', title: '查找下一个', group: 'search', menuEvent: 'menu:find-next-in-file', shortcut: { mac: '⌘G', windows: 'F3' } },
   { id: 'find-previous-in-file', title: '查找上一个', group: 'search', menuEvent: 'menu:find-previous-in-file', shortcut: { mac: '⇧⌘G', windows: 'Shift+F3' } },
@@ -66,7 +74,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'toggle-file-sidebar', title: '显示/隐藏文件侧栏', group: 'view', menuEvent: 'menu:toggle-file-sidebar', shortcut: { mac: '⌘\\', windows: 'Ctrl+\\' } },
   { id: 'toggle-ai-sidebar', title: '显示/隐藏 AI 对话栏', group: 'view', menuEvent: 'menu:toggle-ai-sidebar', shortcut: { mac: '⌘L', windows: 'Ctrl+L' } },
   { id: 'font-decrease', title: '缩小字体', group: 'view', menuEvent: 'menu:font-decrease', shortcut: { mac: '⌘-', windows: 'Ctrl+-' } },
-  { id: 'font-increase', title: '放大字体', group: 'view', menuEvent: 'menu:font-increase', shortcut: { mac: '⌘=', windows: 'Ctrl+=' } },
+  { id: 'font-increase', title: '放大字体', group: 'view', menuEvent: 'menu:font-increase', shortcut: { mac: '⌘+', windows: 'Ctrl++' } },
   { id: 'font-reset', title: '重置字体大小', group: 'view', menuEvent: 'menu:font-reset', shortcut: { mac: '⌘0', windows: 'Ctrl+0' } },
   { id: 'font-small', title: '字体：小', group: 'view', menuEvent: 'menu:font-size-small' },
   { id: 'font-medium', title: '字体：中', group: 'view', menuEvent: 'menu:font-size-medium' },
@@ -83,13 +91,23 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'app-settings', title: '设置', group: 'app', menuEvent: 'menu:app-settings', shortcut: { mac: '⌘,', windows: 'Ctrl+,' } },
 ]
 
-export const WORKSPACE_MENU_COMMAND_SECTIONS: CommandId[][] = [
-  ['new-file', 'new-folder'],
-  ['change-vault', 'refresh-vault', 'reveal-in-finder'],
-  ['quick-open', 'search-vault', 'command-palette'],
-  ['font-small', 'font-medium', 'font-large', 'font-xlarge'],
-  ['theme-default', 'theme-warm-paper', 'theme-twilight', 'theme-forest', 'theme-dark-classic'],
-  ['ai-new-chat', 'ai-ask-current-note', 'app-settings'],
+const workspaceCommand = (commandId: CommandId): WorkspaceMenuEntry => ({ type: 'command', commandId })
+
+export const WORKSPACE_MENU_COMMAND_SECTIONS: WorkspaceMenuEntry[][] = [
+  [workspaceCommand('new-file'), workspaceCommand('new-folder')],
+  [workspaceCommand('change-vault'), workspaceCommand('refresh-vault'), workspaceCommand('reveal-in-finder')],
+  [workspaceCommand('quick-open'), workspaceCommand('search-vault'), workspaceCommand('command-palette')],
+  [
+    { type: 'submenu', id: 'font-size', title: '字体大小', commandIds: ['font-small', 'font-medium', 'font-large', 'font-xlarge'] },
+    {
+      type: 'submenu',
+      id: 'theme',
+      title: '主题',
+      commandIds: ['theme-default', 'theme-warm-paper', 'theme-twilight', 'theme-forest', 'theme-dark-classic'],
+    },
+  ],
+  [workspaceCommand('ai-new-chat'), workspaceCommand('ai-ask-current-note')],
+  [workspaceCommand('app-settings')],
 ]
 
 export const COMMAND_MENU_EVENTS = COMMAND_DEFINITIONS.flatMap((command) =>
