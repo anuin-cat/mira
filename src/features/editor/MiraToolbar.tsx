@@ -13,6 +13,7 @@ import {
   UndoRedo,
 } from '@mdxeditor/editor'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
+import { getPlatformShortcut, type PlatformShortcut } from '../../lib/platform'
 import { EditorSearchControls, type EditorSearchControlsHandle } from './EditorSearchControls'
 import type { EditorSearchSelectionResult } from './currentFileSearch'
 
@@ -20,6 +21,7 @@ const TOOLBAR_ACTION_GAP = 6
 const TOOLBAR_LAYOUT_GAP = 6
 const TOOLBAR_OVERFLOW_TRIGGER_FALLBACK_WIDTH = 30
 const TOOLBAR_FIXED_CONTROLS_FALLBACK_WIDTH = 30
+const AI_SIDEBAR_SHORTCUT: PlatformShortcut = { mac: '⌘L', windows: 'Ctrl+L' }
 
 interface ToolbarOverflowItem {
   key: string
@@ -102,6 +104,12 @@ function OverflowMenuIcon() {
   )
 }
 
+/** 拼接自定义工具栏按钮悬浮提示与快捷键 */
+function formatToolbarButtonTitle(label: string, shortcut: PlatformShortcut | undefined) {
+  const shortcutLabel = getPlatformShortcut(shortcut)
+  return shortcutLabel ? `${label} · ${shortcutLabel}` : label
+}
+
 /** Mira 使用的 MDXEditor 顶部工具栏 */
 export function MiraToolbar({
   isAiSidebarOpen,
@@ -163,6 +171,8 @@ export function MiraToolbar({
     () => trimOverflowBoundarySeparators(overflowItems.slice(visibleItemCount)),
     [overflowItems, visibleItemCount]
   )
+  const aiSidebarLabel = isAiSidebarOpen ? '收起 AI 侧边栏' : '展开 AI 侧边栏'
+  const aiSidebarTitle = formatToolbarButtonTitle(aiSidebarLabel, AI_SIDEBAR_SHORTCUT)
 
   useLayoutEffect(() => {
     const layoutElement = layoutRef.current
@@ -278,6 +288,7 @@ export function MiraToolbar({
               type="button"
               className={`mira-toolbar-overflow-trigger${isOverflowMenuOpen ? ' active' : ''}`}
               aria-label="显示更多工具"
+              title="显示更多工具"
               aria-expanded={isOverflowMenuOpen}
               onClick={() => setIsOverflowMenuOpen((value) => !value)}
             >
@@ -288,7 +299,8 @@ export function MiraToolbar({
             ref={aiSidebarToggleRef}
             type="button"
             className={`mira-ai-sidebar-toggle${isAiSidebarOpen ? ' active' : ''}`}
-            aria-label={isAiSidebarOpen ? '收起 AI 侧边栏' : '展开 AI 侧边栏'}
+            aria-label={aiSidebarLabel}
+            title={aiSidebarTitle}
             aria-pressed={isAiSidebarOpen}
             onClick={() => {
               setIsOverflowMenuOpen(false)

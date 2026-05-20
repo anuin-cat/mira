@@ -17,6 +17,7 @@ import {
 } from '@mdxeditor/editor'
 import { Check, Copy } from 'lucide-react'
 import { useEffect, useState, type MouseEvent, type Ref } from 'react'
+import { getPlatformShortcut, type PlatformShortcut } from '../../lib/platform'
 import { EditorSearchControlsHandle } from './EditorSearchControls'
 import type { EditorSearchSelectionResult } from './currentFileSearch'
 import { MiraLinkDialog } from './MiraLinkDialog'
@@ -95,6 +96,16 @@ const TOOLBAR_TRANSLATIONS: Record<string, string> = {
   'uploadImage.alt': '替代文本',
   'uploadImage.title': '标题',
 }
+const TOOLBAR_SHORTCUTS: Record<string, PlatformShortcut> = {
+  'toolbar.bold': { mac: '⌘B', windows: 'Ctrl+B' },
+  'toolbar.removeBold': { mac: '⌘B', windows: 'Ctrl+B' },
+  'toolbar.italic': { mac: '⌘I', windows: 'Ctrl+I' },
+  'toolbar.removeItalic': { mac: '⌘I', windows: 'Ctrl+I' },
+  'toolbar.underline': { mac: '⌘U', windows: 'Ctrl+U' },
+  'toolbar.removeUnderline': { mac: '⌘U', windows: 'Ctrl+U' },
+  'toolbar.link': { mac: '⌘K', windows: 'Ctrl+K' },
+  'toolbar.blockTypeSelect.selectBlockTypeTooltip': { mac: '⌥⌘0-6', windows: 'Ctrl+Alt+0-6' },
+}
 
 export interface CreateEditorPluginsOptions {
   isAiSidebarOpen: boolean
@@ -145,6 +156,17 @@ function detectCodeBlockLanguage(code: string) {
 /** 判断当前语言是否允许由内容检测接管 */
 function canAutoManageCodeLanguage(language: string) {
   return AUTO_MANAGED_CODE_LANGUAGES.has(language.toLowerCase())
+}
+
+/** 拼接工具栏悬浮提示与快捷键，保持没有快捷键的按钮只展示原文案 */
+function formatToolbarTooltip(label: string, shortcut: string | undefined) {
+  if (!shortcut) return label
+  return `${label} · ${shortcut}`
+}
+
+/** 按当前平台获取指定工具栏文案对应的快捷键 */
+function getToolbarShortcutLabel(key: string) {
+  return getPlatformShortcut(TOOLBAR_SHORTCUTS[key])
 }
 
 /** Mira 代码块编辑器：保留 CodeMirror 本体，外层只做自动语言和悬浮复制 */
@@ -209,17 +231,18 @@ export function translateMdxToolbar(
 ) {
   if (key === 'toolbar.undo') {
     const shortcut = String(interpolations?.shortcut ?? '')
-    return `撤销 ${shortcut}`.trim()
+    return formatToolbarTooltip('撤销', shortcut)
   }
   if (key === 'toolbar.redo') {
     const shortcut = String(interpolations?.shortcut ?? '')
-    return `重做 ${shortcut}`.trim()
+    return formatToolbarTooltip('重做', shortcut)
   }
   if (key === 'toolbar.blockTypes.heading') {
     const level = String(interpolations?.level ?? '')
     return `标题 ${level}`.trim()
   }
-  return TOOLBAR_TRANSLATIONS[key] ?? defaultValue
+  const label = TOOLBAR_TRANSLATIONS[key] ?? defaultValue
+  return formatToolbarTooltip(label, getToolbarShortcutLabel(key))
 }
 
 /** 创建 MDXEditor 插件集合，只保留 Mira 当前要评估的 Markdown 能力 */

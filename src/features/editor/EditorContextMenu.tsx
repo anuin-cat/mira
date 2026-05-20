@@ -81,6 +81,12 @@ export function hasEditorTextSelection(contentElement: HTMLElement | null) {
   return false
 }
 
+/** 匹配工具栏按钮可访问名称，兼容 tooltip 里追加快捷键后的文案 */
+function isToolbarButtonLabelMatch(accessibleName: string, label: string) {
+  const normalizedName = accessibleName.trim()
+  return normalizedName === label || normalizedName.startsWith(`${label} `) || normalizedName.startsWith(`${label} ·`)
+}
+
 /** 把右键菜单约束在当前窗口可见区域内 */
 export function getClampedContextMenuPosition(clientX: number, clientY: number): EditorContextMenuState {
   const maxX = Math.max(window.innerWidth - EDITOR_CONTEXT_MENU_WIDTH - EDITOR_CONTEXT_MENU_VIEWPORT_MARGIN, 0)
@@ -103,7 +109,9 @@ export function clickToolbarButtonByLabel(shellElement: HTMLElement | null, labe
     const accessibleNames = [element.getAttribute('aria-label'), element.getAttribute('title')]
       .filter(Boolean)
       .map((value) => value?.trim())
-    return accessibleNames.some((name) => name && labels.includes(name))
+    return accessibleNames.some((name) =>
+      Boolean(name && labels.some((label) => isToolbarButtonLabelMatch(name, label)))
+    )
   })
   if (!button) return false
 
