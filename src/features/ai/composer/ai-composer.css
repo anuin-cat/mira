@@ -102,3 +102,46 @@
 .ai-composer-new-session-btn:active {
   transform: translateY(0);
 }
+
+.ai-composer-primary-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-text-primary) 18%, transparent 82%);
+  transition:
+    background 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-composer-primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--theme-text-primary) 22%, transparent 78%);
+}
+
+.ai-composer-primary-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--theme-text-primary) 14%, transparent 86%);
+}
+
+.ai-composer-primary-btn:disabled {
+  opacity: 0.36;
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+.ai-composer-primary-btn.is-stopping {
+  background: color-mix(in srgb, var(--theme-accent) 16%, var(--theme-editor-control-bg) 84%);
+  color: var(--theme-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--theme-accent) 28%, transparent 72%) inset,
+    0 6px 16px color-mix(in srgb, var(--theme-accent) 16%, transparent 84%);
+}
+
+.ai-composer-primary-btn.is-stopping:hover {
+  background: color-mix(in srgb, var(--theme-accent) 22%, var(--theme-editor-control-bg) 78%);
+  color: color-mix(in srgb, var(--theme-accent) 82%, var(--theme-text-primary) 18%);
+}

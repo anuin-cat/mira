@@ -1,11 +1,30 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, MouseEvent } from 'react'
+import type { CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from 'react'
 import { Tree } from 'react-arborist'
 import type { NodeApi, RenameHandler, TreeApi } from 'react-arborist'
-import { Plus } from 'lucide-react'
+import {
+  Command as CommandIcon,
+  FilePlus,
+  FolderOpen,
+  FolderPlus,
+  MessageSquarePlus,
+  MoreHorizontal,
+  Palette,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings,
+  Type,
+} from 'lucide-react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
 import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
+import {
+  getCommandDefinition,
+  getCommandShortcut,
+  WORKSPACE_MENU_COMMAND_SECTIONS,
+  type CommandId,
+} from '../commands/commandRegistry'
 import { TREE_ROW_HEIGHT, TREE_VERTICAL_PADDING, useFileTreeDrag } from './useFileTreeDrag'
 import { VaultNode } from './VaultNode'
 
@@ -34,6 +53,7 @@ interface FileTreeProps {
   ) => Promise<void>
   onDeleteEntry: (path: string, kind: VaultEntryKind) => Promise<void>
   onExpandedDirsChange: (paths: string[]) => void
+  onRunCommand: (commandId: CommandId) => void
   style?: CSSProperties
 }
 
@@ -73,6 +93,43 @@ function isWindowDragIgnoredTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest(WINDOW_DRAG_IGNORE_SELECTOR))
 }
 
+/** 为工作区菜单命令选择轻量图标 */
+function getWorkspaceMenuIcon(commandId: CommandId): ReactNode {
+  switch (commandId) {
+    case 'new-file':
+      return <FilePlus />
+    case 'new-folder':
+      return <FolderPlus />
+    case 'change-vault':
+      return <FolderOpen />
+    case 'refresh-vault':
+      return <RefreshCw />
+    case 'quick-open':
+    case 'search-vault':
+      return <Search />
+    case 'command-palette':
+      return <CommandIcon />
+    case 'font-small':
+    case 'font-medium':
+    case 'font-large':
+    case 'font-xlarge':
+      return <Type />
+    case 'theme-default':
+    case 'theme-warm-paper':
+    case 'theme-twilight':
+    case 'theme-forest':
+    case 'theme-dark-classic':
+      return <Palette />
+    case 'ai-new-chat':
+    case 'ai-ask-current-note':
+      return <MessageSquarePlus />
+    case 'app-settings':
+      return <Settings />
+    default:
+      return <CommandIcon />
+  }
+}
+
 /** 左侧 Markdown 文件树 */
 export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileTree(
   {
@@ -87,6 +144,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     onReorderEntry,
     onDeleteEntry,
     onExpandedDirsChange,
+    onRunCommand,
     style,
   },
   ref
@@ -94,8 +152,11 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   const treeRef = useRef<TreeApi<VaultTreeNode> | undefined>(undefined)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
+  const workspaceMenuRef = useRef<HTMLDivElement | null>(null)
+  const workspaceMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   const [treeHeight, setTreeHeight] = useState(600)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false)
   const [pendingEditId, setPendingEditId] = useState<string | null>(null)
   const [selectedEntry, setSelectedEntry] = useState<VaultTreeNode | null>(null)
 
@@ -123,22 +184,29 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     return () => window.removeEventListener('resize', updateHeight)
   }, [])
 
-  // 2. 右键菜单自动关闭
+  // 2. 右键菜单和工作区菜单自动关闭
   useEffect(() => {
-    if (!contextMenu) return
+    if (!contextMenu && !isWorkspaceMenuOpen) return
 
     function isMenuInnerTarget(target: EventTarget | null): boolean {
-      return target instanceof Node && contextMenuRef.current?.contains(target) === true
+      if (!(target instanceof Node)) return false
+      return (
+        contextMenuRef.current?.contains(target) === true ||
+        workspaceMenuRef.current?.contains(target) === true ||
+        workspaceMenuButtonRef.current?.contains(target) === true
+      )
     }
 
     function handleDocumentMouseDown(event: globalThis.MouseEvent) {
       if (event.button !== 0) return
       if (isMenuInnerTarget(event.target)) return
       setContextMenu(null)
+      setIsWorkspaceMenuOpen(false)
     }
 
     function handleWindowKeyDown() {
       setContextMenu(null)
+      setIsWorkspaceMenuOpen(false)
     }
 
     document.addEventListener('mousedown', handleDocumentMouseDown, true)
@@ -147,7 +215,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       document.removeEventListener('mousedown', handleDocumentMouseDown, true)
       window.removeEventListener('keydown', handleWindowKeyDown)
     }
-  }, [contextMenu])
+  }, [contextMenu, isWorkspaceMenuOpen])
 
   // 3. 新建后触发内联编辑
   useEffect(() => {
@@ -206,8 +274,36 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   function openContextMenu(event: MouseEvent, target: VaultTreeNode | null) {
     event.preventDefault()
     event.stopPropagation()
+    bodyRef.current?.focus({ preventScroll: true })
+    setIsWorkspaceMenuOpen(false)
     setSelectedEntry(target)
     setContextMenu({ x: event.clientX, y: event.clientY, target })
+  }
+
+  /** 文件树区域获得焦点后承接局部快捷键 */
+  function handleBodyMouseDown(event: MouseEvent<HTMLDivElement>) {
+    bodyRef.current?.focus({ preventScroll: true })
+    handleTreeMouseDown(event)
+  }
+
+  /** 文件树局部快捷键：只在用户明确聚焦文件树时生效 */
+  function handleBodyKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.target instanceof HTMLInputElement) return
+
+    if (event.key === 'F2') {
+      const target = getCommandTarget()
+      if (!target) return
+      event.preventDefault()
+      treeRef.current?.edit(target.id)
+      return
+    }
+
+    if (event.key === 'Delete') {
+      const target = getCommandTarget()
+      if (!target) return
+      event.preventDefault()
+      confirmAndDeleteEntry(target)
+    }
   }
 
   /** 顶部空白区域按下鼠标时触发原生窗口拖动 */
@@ -236,6 +332,13 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     return contextMenu.target.kind === 'directory'
       ? contextMenu.target.path
       : getParentPath(contextMenu.target.path)
+  }
+
+  /** 执行工作区菜单命令，保持入口收起后再交给统一命令系统 */
+  function handleWorkspaceCommand(commandId: CommandId) {
+    setIsWorkspaceMenuOpen(false)
+    setContextMenu(null)
+    onRunCommand(commandId)
   }
 
   /** 获取命令默认作用的文件树节点 */
@@ -293,6 +396,52 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       >
         <div className="file-sidebar-header-title" />
         <div className="file-sidebar-header-actions">
+          <div className="workspace-menu-anchor">
+            <button
+              ref={workspaceMenuButtonRef}
+              className={`btn-sidebar-icon${isWorkspaceMenuOpen ? ' active' : ''}`}
+              type="button"
+              onClick={() => {
+                setContextMenu(null)
+                setIsWorkspaceMenuOpen((value) => !value)
+              }}
+              title="工作区菜单"
+              aria-label="工作区菜单"
+              aria-haspopup="menu"
+              aria-expanded={isWorkspaceMenuOpen}
+            >
+              <MoreHorizontal aria-hidden />
+            </button>
+            {isWorkspaceMenuOpen ? (
+              <div ref={workspaceMenuRef} className="workspace-menu" role="menu" aria-label="工作区菜单">
+                {WORKSPACE_MENU_COMMAND_SECTIONS.map((section, sectionIndex) => (
+                  <div key={`section-${sectionIndex}`} className="workspace-menu-section">
+                    {section.map((commandId) => {
+                      const command = getCommandDefinition(commandId)
+                      if (!command) return null
+                      const shortcut = getCommandShortcut(command)
+
+                      return (
+                        <button
+                          key={command.id}
+                          type="button"
+                          className="workspace-menu-item"
+                          role="menuitem"
+                          onClick={() => handleWorkspaceCommand(command.id)}
+                        >
+                          <span className="workspace-menu-item-icon" aria-hidden>
+                            {getWorkspaceMenuIcon(command.id)}
+                          </span>
+                          <span className="workspace-menu-item-label">{command.title}</span>
+                          {shortcut ? <span className="workspace-menu-item-shortcut">{shortcut}</span> : null}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <button
             className="btn-new btn-sidebar-icon"
             onClick={() => handleCreateFile(defaultCreateParent)}
@@ -307,7 +456,9 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       <div
         ref={bodyRef}
         className="file-tree-body"
-        onMouseDown={handleTreeMouseDown}
+        tabIndex={-1}
+        onMouseDown={handleBodyMouseDown}
+        onKeyDown={handleBodyKeyDown}
         onContextMenu={(event) => openContextMenu(event, null)}
       >
         {treeData.length === 0 ? (

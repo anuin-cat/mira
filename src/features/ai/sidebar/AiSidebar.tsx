@@ -119,6 +119,15 @@ export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function Ai
     activeAbortControllerRef.current = null
   }
 
+  /** 停止当前 AI 生成，保留已经流式返回的内容 */
+  function stopActiveGeneration() {
+    if (!isSending) return
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = null
+    setIsSending(false)
+    setStreamingMessageId(null)
+  }
+
   /** 创建并选中一个新会话 */
   function createAndSelectSession(): AiChatSession {
     // 1. 基于当前笔记创建一条空会话，方便用户在同一篇笔记下连续追问
@@ -215,6 +224,9 @@ export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function Ai
     },
     isComposerFocused() {
       return composerRef.current?.isFocused() ?? false
+    },
+    stopGenerating() {
+      stopActiveGeneration()
     },
   }))
 
@@ -532,7 +544,14 @@ export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function Ai
   }
 
   return (
-    <aside className="ai-sidebar">
+    <aside
+      className="ai-sidebar"
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !isSending) return
+        event.preventDefault()
+        stopActiveGeneration()
+      }}
+    >
       <AiSidebarHeader
         currentSession={currentSession}
         onToggleHistory={() => setIsHistoryOpen((value) => !value)}
@@ -576,6 +595,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function Ai
         onModelChange={handleComposerModelChange}
         onCreateSession={handleCreateSession}
         onSend={(parts) => void handleSendMessage(parts)}
+        onStopGenerating={stopActiveGeneration}
       />
 
       {isSettingsOpen ? (

@@ -37,9 +37,18 @@ pub fn run() {
             web_fetch::web_fetch_url,
         ])
         .setup(|app| {
+            if !cfg!(target_os = "macos") {
+                return Ok(());
+            }
+
             // 1. 构建 File 菜单
-            let change_vault =
-                MenuItem::with_id(app, "change_vault", "更换 Vault...", true, None::<&str>)?;
+            let change_vault = MenuItem::with_id(
+                app,
+                "change_vault",
+                "更换 Vault...",
+                true,
+                Some("CmdOrCtrl+KeyO"),
+            )?;
             let new_file =
                 MenuItem::with_id(app, "new_file", "新建文件", true, Some("CmdOrCtrl+KeyN"))?;
             let new_folder = MenuItem::with_id(
@@ -129,6 +138,20 @@ pub fn run() {
                 true,
                 Some("CmdOrCtrl+KeyF"),
             )?;
+            let find_next_in_file = MenuItem::with_id(
+                app,
+                "find_next_in_file",
+                "查找下一个",
+                true,
+                Some("CmdOrCtrl+KeyG"),
+            )?;
+            let find_previous_in_file = MenuItem::with_id(
+                app,
+                "find_previous_in_file",
+                "查找上一个",
+                true,
+                Some("CmdOrCtrl+Shift+KeyG"),
+            )?;
             let search_vault = MenuItem::with_id(
                 app,
                 "search_vault",
@@ -136,8 +159,19 @@ pub fn run() {
                 true,
                 Some("CmdOrCtrl+Shift+KeyF"),
             )?;
-            let search_menu =
-                Submenu::with_items(app, "Search", true, &[&find_in_file, &search_vault])?;
+            let search_separator = PredefinedMenuItem::separator(app)?;
+            let search_menu = Submenu::with_items(
+                app,
+                "Search",
+                true,
+                &[
+                    &find_in_file,
+                    &find_next_in_file,
+                    &find_previous_in_file,
+                    &search_separator,
+                    &search_vault,
+                ],
+            )?;
 
             // 4. 构建 Navigate 菜单
             let quick_open = MenuItem::with_id(
@@ -315,6 +349,8 @@ pub fn run() {
                 "delete_entry" => "menu:delete-entry",
                 "reveal_in_finder" => "menu:reveal-in-finder",
                 "find_in_file" => "menu:find-in-file",
+                "find_next_in_file" => "menu:find-next-in-file",
+                "find_previous_in_file" => "menu:find-previous-in-file",
                 "search_vault" => "menu:search-vault",
                 "quick_open" => "menu:quick-open",
                 "command_palette" => "menu:command-palette",

@@ -5,9 +5,11 @@ import type { AiSidebarHandle } from '../ai/sidebar'
 import type { MdxEditorHandle } from '../editor/MdxEditor'
 import type { FileTreeHandle } from '../file-tree/FileTree'
 import { COMMAND_MENU_EVENTS, getCommandIdByMenuEvent, type CommandId } from './commandRegistry'
+import { isMacOSPlatform } from '../../lib/platform'
 
 const FONT_SIZE_ORDER: FontSize[] = ['small', 'medium', 'large', 'xlarge']
 const CURRENT_NOTE_PROMPT = '请总结当前笔记，并提出 3 个值得继续追问的问题。'
+const TEXT_INPUT_SELECTOR = 'input, textarea, select, [contenteditable="true"]'
 
 export type ActiveCommandDialog = 'command-palette' | 'quick-open' | 'vault-search' | null
 
@@ -30,6 +32,73 @@ interface AppCommandContext {
   handleFontSizeChange: (size: FontSize) => void
   handleThemeChange: (theme: Theme) => void
   flushActiveSave: () => Promise<void>
+}
+
+/** 判断快捷键事件是否使用当前平台的主修饰键 */
+function hasPrimaryModifier(event: KeyboardEvent) {
+  return isMacOSPlatform() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey
+}
+
+/** 判断当前事件修饰键是否只包含指定组合 */
+function matchesModifiers(event: KeyboardEvent, options: { shift?: boolean; alt?: boolean; primary?: boolean }) {
+  const wantsPrimary = options.primary ?? false
+  const wantsShift = options.shift ?? false
+  const wantsAlt = options.alt ?? false
+
+  return (
+    event.shiftKey === wantsShift &&
+    event.altKey === wantsAlt &&
+    hasPrimaryModifier(event) === wantsPrimary
+  )
+}
+
+/** 判断事件目标是否处在文本输入区域内 */
+function isTextInputTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest(TEXT_INPUT_SELECTOR))
+}
+
+/** Windows/Linux 无原生菜单栏时，用前端快捷键补齐应用命令 */
+function getCommandIdByKeyboardEvent(event: KeyboardEvent): CommandId | null {
+  const key = event.key.toLowerCase()
+
+  if (key === 'f3' && matchesModifiers(event, { shift: event.shiftKey })) {
+    return event.shiftKey ? 'find-previous-in-file' : 'find-next-in-file'
+  }
+  if (!hasPrimaryModifier(event)) return null
+
+  if (key === 'o' && matchesModifiers(event, { primary: true })) return 'change-vault'
+  if (key === 'n' && matchesModifiers(event, { primary: true })) return 'new-file'
+  if (key === 'n' && matchesModifiers(event, { primary: true, shift: true })) return 'new-folder'
+  if (key === 'n' && matchesModifiers(event, { primary: true, alt: true })) return 'ai-new-chat'
+  if (key === 's' && matchesModifiers(event, { primary: true })) return 'save-file'
+  if (key === 'r' && matchesModifiers(event, { primary: true })) return 'refresh-vault'
+  if (key === 'r' && matchesModifiers(event, { primary: true, alt: true })) return 'reveal-in-finder'
+  if (key === 'backspace' && matchesModifiers(event, { primary: true })) return 'delete-entry'
+  if (key === 'f' && matchesModifiers(event, { primary: true })) return 'find-in-file'
+  if (key === 'f' && matchesModifiers(event, { primary: true, shift: true })) return 'search-vault'
+  if (key === 'g' && matchesModifiers(event, { primary: true })) return 'find-next-in-file'
+  if (key === 'g' && matchesModifiers(event, { primary: true, shift: true })) return 'find-previous-in-file'
+  if (key === 'p' && matchesModifiers(event, { primary: true })) return 'quick-open'
+  if (key === 'p' && matchesModifiers(event, { primary: true, shift: true })) return 'command-palette'
+  if (key === '[' && matchesModifiers(event, { primary: true })) return 'history-back'
+  if (key === ']' && matchesModifiers(event, { primary: true })) return 'history-forward'
+  if (key === '\\' && matchesModifiers(event, { primary: true })) return 'toggle-file-sidebar'
+  if (key === 'l' && matchesModifiers(event, { primary: true })) return 'toggle-ai-sidebar'
+  if (key === '-' && matchesModifiers(event, { primary: true })) return 'font-decrease'
+  if ((key === '=' || key === '+') && matchesModifiers(event, { primary: true })) return 'font-increase'
+  if (key === '0' && matchesModifiers(event, { primary: true })) return 'font-reset'
+  if (key === ',' && matchesModifiers(event, { primary: true })) return 'app-settings'
+  if (key === 'enter' && matchesModifiers(event, { primary: true, alt: true })) return 'ai-ask-current-note'
+
+  return null
+}
+
+/** 判断某些命令是否应避开正在编辑文本的目标 */
+function canRunKeyboardCommand(commandId: CommandId, target: EventTarget | null) {
+  if (commandId === 'delete-entry' || commandId === 'rename-entry') {
+    return !isTextInputTarget(target)
+  }
+  return true
 }
 
 /** 菜单：按顺序调整字体大小 */
@@ -74,6 +143,12 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       break
     case 'find-in-file':
       context.editorHandleRef.current?.toggleSearch()
+      break
+    case 'find-next-in-file':
+      context.editorHandleRef.current?.findNext()
+      break
+    case 'find-previous-in-file':
+      context.editorHandleRef.current?.findPrevious()
       break
     case 'search-vault':
       await context.flushActiveSave()
@@ -148,6 +223,9 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       context.openAiSidebar()
       window.requestAnimationFrame(() => context.aiSidebarRef.current?.fillCurrentNotePrompt(CURRENT_NOTE_PROMPT))
       break
+    case 'ai-stop-generating':
+      context.aiSidebarRef.current?.stopGenerating()
+      break
     case 'app-settings':
       context.openAiSidebar()
       window.requestAnimationFrame(() => context.aiSidebarRef.current?.openSettings())
@@ -195,6 +273,24 @@ export function useAppCommands(context: AppCommandContext) {
         })
       })
     }
+  }, [runCommand])
+
+  useEffect(() => {
+    if (isMacOSPlatform()) return
+
+    /** Windows/Linux 没有原生菜单栏后，由前端统一接管应用级快捷键 */
+    function handleWindowKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
+
+      const commandId = getCommandIdByKeyboardEvent(event)
+      if (!commandId || !canRunKeyboardCommand(commandId, event.target)) return
+
+      event.preventDefault()
+      runCommand(commandId)
+    }
+
+    window.addEventListener('keydown', handleWindowKeyDown, true)
+    return () => window.removeEventListener('keydown', handleWindowKeyDown, true)
   }, [runCommand])
 
   return runCommand

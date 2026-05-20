@@ -20,6 +20,7 @@ export interface AiSidebarHandle {
   addReference: (reference: AiTextReference) => void
   openSettings: () => void
   isComposerFocused: () => boolean
+  stopGenerating: () => void
 }
 
 /** 统一生成聊天消息 id */

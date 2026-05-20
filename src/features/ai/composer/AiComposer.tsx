@@ -1,4 +1,4 @@
-import { ArrowUp, BrushCleaning } from 'lucide-react'
+import { ArrowUp, BrushCleaning, Square } from 'lucide-react'
 import {
   forwardRef,
   useEffect,
@@ -70,6 +70,7 @@ interface AiComposerProps {
   onModelChange: (value: string) => void
   onCreateSession: () => void
   onSend: (parts: AiComposerPart[]) => void
+  onStopGenerating: () => void
 }
 
 export interface AiComposerHandle {
@@ -85,7 +86,7 @@ export interface AiComposerHandle {
 
 /** 支持引用胶囊和文本混排的 AI 输入区 */
 export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function AiComposer(
-  { modelGroups, modelValue, isSending, onModelChange, onCreateSession, onSend },
+  { modelGroups, modelValue, isSending, onModelChange, onCreateSession, onSend, onStopGenerating },
   ref
 ) {
   const editorRef = useRef<HTMLDivElement | null>(null)
@@ -390,6 +391,16 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     onSend(parts)
   }
 
+  /** 根据当前生成状态执行发送或停止 */
+  function handlePrimaryAction() {
+    if (isSending) {
+      onStopGenerating()
+      return
+    }
+
+    handleSend()
+  }
+
   return (
     <div className="ai-composer">
       <div className="ai-composer-box">
@@ -450,12 +461,17 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
               type="button"
               variant="default"
               size="icon"
-              className="size-8 shrink-0 rounded-full shadow-[0_4px_12px_color-mix(in_srgb,var(--theme-text-primary)_18%,transparent_82%)] transition-[transform,box-shadow,opacity] hover:-translate-y-px hover:shadow-[0_8px_18px_color-mix(in_srgb,var(--theme-text-primary)_22%,transparent_78%)] active:translate-y-0 active:shadow-[0_3px_10px_color-mix(in_srgb,var(--theme-text-primary)_14%,transparent_86%)] disabled:opacity-[0.36] disabled:shadow-none disabled:hover:translate-y-0"
-              onClick={handleSend}
-              disabled={!hasContent || isSending}
-              aria-label="发送消息"
+              className={`ai-composer-primary-btn${isSending ? ' is-stopping' : ''}`}
+              onClick={handlePrimaryAction}
+              disabled={!hasContent && !isSending}
+              aria-label={isSending ? '停止生成' : '发送消息'}
+              title={isSending ? '停止生成 · Esc' : '发送消息'}
             >
-              <ArrowUp className="size-[18px] stroke-[2.2]" aria-hidden />
+              {isSending ? (
+                <Square className="size-[13px] fill-current stroke-[2.4]" aria-hidden />
+              ) : (
+                <ArrowUp className="size-[18px] stroke-[2.2]" aria-hidden />
+              )}
             </Button>
           </div>
         </div>

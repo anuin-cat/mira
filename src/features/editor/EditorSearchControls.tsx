@@ -8,6 +8,8 @@ const SEARCH_SYNC_DELAY_MS = 160
 export interface EditorSearchControlsHandle {
   openSearch: () => void
   closeSearch: () => void
+  findNext: () => void
+  findPrevious: () => void
 }
 
 interface EditorSearchControlsProps {
@@ -102,6 +104,20 @@ export const EditorSearchControls = forwardRef<EditorSearchControlsHandle, Edito
     },
     closeSearch() {
       handleCloseSearch()
+    },
+    findNext() {
+      onOpen()
+      window.requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        if (draftSearchRef.current) handleNavigate('next')
+      })
+    },
+    findPrevious() {
+      onOpen()
+      window.requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        if (draftSearchRef.current) handleNavigate('prev')
+      })
     },
   }))
 

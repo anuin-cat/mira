@@ -73,6 +73,8 @@ interface Props {
 export interface MdxEditorHandle {
   openSearch: () => void
   toggleSearch: () => void
+  findNext: () => void
+  findPrevious: () => void
   focusEditor: () => void
   selectSearchMatch: (query: string, matchOrdinal: number) => boolean
   getSelectionReference: () => AiTextReference | null
@@ -137,6 +139,12 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
       } else {
         searchControlsRef.current?.openSearch()
       }
+    },
+    findNext() {
+      searchControlsRef.current?.findNext()
+    },
+    findPrevious() {
+      searchControlsRef.current?.findPrevious()
     },
     focusEditor() {
       editorRef.current?.focus()

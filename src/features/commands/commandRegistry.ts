@@ -12,6 +12,8 @@ export type CommandId =
   | 'delete-entry'
   | 'reveal-in-finder'
   | 'find-in-file'
+  | 'find-next-in-file'
+  | 'find-previous-in-file'
   | 'search-vault'
   | 'quick-open'
   | 'command-palette'
@@ -33,6 +35,7 @@ export type CommandId =
   | 'theme-dark-classic'
   | 'ai-new-chat'
   | 'ai-ask-current-note'
+  | 'ai-stop-generating'
   | 'app-settings'
 
 export interface CommandDefinition {
@@ -44,7 +47,7 @@ export interface CommandDefinition {
 }
 
 export const COMMAND_DEFINITIONS: CommandDefinition[] = [
-  { id: 'change-vault', title: '更换 Vault...', group: 'file', menuEvent: 'menu:change-vault' },
+  { id: 'change-vault', title: '更换 Vault...', group: 'file', menuEvent: 'menu:change-vault', shortcut: { mac: '⌘O', windows: 'Ctrl+O' } },
   { id: 'new-file', title: '新建文件', group: 'file', menuEvent: 'menu:new-file', shortcut: { mac: '⌘N', windows: 'Ctrl+N' } },
   { id: 'new-folder', title: '新建文件夹', group: 'file', menuEvent: 'menu:new-folder', shortcut: { mac: '⇧⌘N', windows: 'Ctrl+Shift+N' } },
   { id: 'save-file', title: '保存当前文件', group: 'file', menuEvent: 'menu:save-file', shortcut: { mac: '⌘S', windows: 'Ctrl+S' } },
@@ -53,6 +56,8 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'delete-entry', title: '删除', group: 'file', menuEvent: 'menu:delete-entry', shortcut: { mac: '⌘⌫', windows: 'Ctrl+Backspace' } },
   { id: 'reveal-in-finder', title: '在文件管理器中显示', group: 'file', menuEvent: 'menu:reveal-in-finder', shortcut: { mac: '⌥⌘R', windows: 'Ctrl+Alt+R' } },
   { id: 'find-in-file', title: '当前文件内搜索', group: 'search', menuEvent: 'menu:find-in-file', shortcut: { mac: '⌘F', windows: 'Ctrl+F' } },
+  { id: 'find-next-in-file', title: '查找下一个', group: 'search', menuEvent: 'menu:find-next-in-file', shortcut: { mac: '⌘G', windows: 'F3' } },
+  { id: 'find-previous-in-file', title: '查找上一个', group: 'search', menuEvent: 'menu:find-previous-in-file', shortcut: { mac: '⇧⌘G', windows: 'Shift+F3' } },
   { id: 'search-vault', title: '全 Vault 搜索', group: 'search', menuEvent: 'menu:search-vault', shortcut: { mac: '⇧⌘F', windows: 'Ctrl+Shift+F' } },
   { id: 'quick-open', title: '快速打开文件', group: 'navigate', menuEvent: 'menu:quick-open', shortcut: { mac: '⌘P', windows: 'Ctrl+P' } },
   { id: 'command-palette', title: '命令面板', group: 'navigate', menuEvent: 'menu:command-palette', shortcut: { mac: '⇧⌘P', windows: 'Ctrl+Shift+P' } },
@@ -74,7 +79,17 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'theme-dark-classic', title: '主题：经典深色', group: 'view', menuEvent: 'menu:theme-dark-classic' },
   { id: 'ai-new-chat', title: '新建 AI 对话', group: 'ai', menuEvent: 'menu:ai-new-chat', shortcut: { mac: '⌥⌘N', windows: 'Ctrl+Alt+N' } },
   { id: 'ai-ask-current-note', title: '基于当前笔记提问', group: 'ai', menuEvent: 'menu:ai-ask-current-note', shortcut: { mac: '⌥⌘↩', windows: 'Ctrl+Alt+Enter' } },
+  { id: 'ai-stop-generating', title: '停止 AI 生成', group: 'ai', shortcut: { mac: 'Esc', windows: 'Esc' } },
   { id: 'app-settings', title: '设置', group: 'app', menuEvent: 'menu:app-settings', shortcut: { mac: '⌘,', windows: 'Ctrl+,' } },
+]
+
+export const WORKSPACE_MENU_COMMAND_SECTIONS: CommandId[][] = [
+  ['new-file', 'new-folder'],
+  ['change-vault', 'refresh-vault', 'reveal-in-finder'],
+  ['quick-open', 'search-vault', 'command-palette'],
+  ['font-small', 'font-medium', 'font-large', 'font-xlarge'],
+  ['theme-default', 'theme-warm-paper', 'theme-twilight', 'theme-forest', 'theme-dark-classic'],
+  ['ai-new-chat', 'ai-ask-current-note', 'app-settings'],
 ]
 
 export const COMMAND_MENU_EVENTS = COMMAND_DEFINITIONS.flatMap((command) =>
@@ -84,6 +99,11 @@ export const COMMAND_MENU_EVENTS = COMMAND_DEFINITIONS.flatMap((command) =>
 /** 按菜单事件查找命令 id */
 export function getCommandIdByMenuEvent(menuEvent: string): CommandId | null {
   return COMMAND_DEFINITIONS.find((command) => command.menuEvent === menuEvent)?.id ?? null
+}
+
+/** 按命令 id 查找命令定义，供工作区菜单等非搜索入口复用 */
+export function getCommandDefinition(commandId: CommandId) {
+  return COMMAND_DEFINITIONS.find((command) => command.id === commandId) ?? null
 }
 
 /** 按当前平台返回命令面板中展示的快捷键 */

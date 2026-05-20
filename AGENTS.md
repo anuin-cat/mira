@@ -30,6 +30,7 @@
 - **其次**用 Tailwind 工具类在 JSX 上微调布局、间距、排版、颜色等；需要可复用样式时，优先 Tailwind 的 `@apply` 或组件级 class 组合，避免散落魔法字符串
 - **仅在必要时**再写独立 CSS（如第三方库深度定制、无法用工具类表达的复杂动画或全局主题变量）；新样式文件应有明确理由，并尽量收窄作用域（避免全局污染）
 - 自定义右键菜单 / 上下文菜单应统一参考 macOS 原生小浮层风格：半透明磨砂背景、约 17px 圆角、轻阴影、紧凑尺寸（宽度约 170px，单项高度约 28px）、图标 + 文本 + 快捷键三列布局；悬停 / 聚焦使用系统蓝高亮并同步切换文字、图标、快捷键为白色系；分隔线应细且从文本区域缩进，避免做成普通 Web 下拉菜单或过大的卡片式菜单
+- 更完整的编辑器界面视觉 token 与组合规则见 `doc/frontend-style-guide.md`；新增或调整按钮、输入框、菜单项、弹层、工具栏、多栏布局、分隔条、侧栏边界、编辑区留白或主题 token 前，应先阅读并尽量复用其中的规则
 
 ## 基本原则
 
@@ -49,9 +50,13 @@
 - 索引、缓存、最近打开、展开状态等只能作为 `.mira/` 内部可重建数据，不应成为理解或恢复 vault 的必要条件
 - vault 的目录结构应可直接从用户可见的文件夹与 Markdown 文件恢复，不依赖额外语义目录文件
 
-## macOS 菜单规范
+## 应用菜单与快捷键规范
 
-- 所有全局操作（换 vault、设置、导出等）一律加到原生菜单栏，不在 UI 内另加按钮或工具栏
+- macOS 保留原生菜单栏；Windows/Linux 不注册 Tauri 原生菜单条，避免窗口内出现传统菜单栏
+- 非编辑类、低频全局操作放在左侧栏顶部 `…` 工作区菜单，并同步保留在命令面板；当前 macOS 也显示该入口用于调试，但不能替代 macOS 原生菜单
+- 工作区菜单适合放：更换/刷新 vault、在文件管理器中显示、快速打开、全局搜索、命令面板、字体大小、主题、AI 会话入口和设置
+- 工作区菜单不放编辑器常驻格式化动作（加粗、列表、链接、图片、表格、代码块等），这些应继续保留在编辑器工具栏、编辑器上下文菜单或 Markdown 快捷输入中
+- 新增快捷键时同步维护 `src/features/commands/commandRegistry.ts`、`src/features/commands/useAppCommands.ts`、macOS 原生菜单注册和本节菜单事件清单；Windows/Linux 的应用级快捷键由前端 `keydown` 统一承接
 - 菜单在 `src-tauri/src/lib.rs` 的 `.setup()` 中用 Tauri 2 `Menu` / `Submenu` / `MenuItem` API 注册
 - 菜单点击通过 `app.emit("menu:<event-id>", ())` 发送事件到前端
 - 前端在 `App.tsx` 的 `useEffect` 中用 `listen("menu:<event-id>", ...)` 监听并响应
@@ -66,6 +71,8 @@
   - `File > 删除` → `delete_entry` → `menu:delete-entry`
   - `File > 在文件管理器中显示` → `reveal_in_finder` → `menu:reveal-in-finder`
   - `Search > 当前文件内搜索` → `find_in_file` → `menu:find-in-file`
+  - `Search > 查找下一个` → `find_next_in_file` → `menu:find-next-in-file`
+  - `Search > 查找上一个` → `find_previous_in_file` → `menu:find-previous-in-file`
   - `Search > 全 Vault 搜索` → `search_vault` → `menu:search-vault`
   - `Navigate > 快速打开文件` → `quick_open` → `menu:quick-open`
   - `Navigate > 命令面板` → `command_palette` → `menu:command-palette`
@@ -124,6 +131,7 @@
 - `src-tauri/src/search_api.rs` 与 `src/tauri/search.ts`：受限搜索 API 代理，只允许调用内置搜索 provider 的固定 endpoint；需要自定义鉴权头或会被 WebView CORS 拦截的搜索 API 应优先走此代理，禁止扩展成通用任意 URL 代理
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装
+- `doc/frontend-style-guide.md`：编辑器界面的视觉 token、组合规则与少量组件级例外说明；修改相关前端界面时优先阅读
 
 ## 数据约定
 

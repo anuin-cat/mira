@@ -97,6 +97,7 @@ export function AppLayout({ panels, workspace }: AppLayoutProps) {
               onReorderEntry={workspace.handleReorderEntry}
               onDeleteEntry={workspace.handleDeleteEntry}
               onExpandedDirsChange={workspace.handleExpandedDirsChange}
+              onRunCommand={workspace.runCommand}
             />
           </Panel>
           <PanelResizeHandle
