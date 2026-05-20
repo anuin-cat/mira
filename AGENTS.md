@@ -121,6 +121,7 @@
 - `src/services/agent`：AI agent 内核；`tools` 放可控工具，`utils` 放工具共享辅助逻辑
 - `src/services/aiCompatibility`：AI provider 兼容层；DeepSeek、KIMI、硅基流动等平台差异必须分文件维护，主流程只调用统一 adapter
 - `src/services/search`：联网搜索服务配置、provider API 调用与搜索结果归一化
+- `src-tauri/src/search_api.rs` 与 `src/tauri/search.ts`：受限搜索 API 代理，只允许调用内置搜索 provider 的固定 endpoint；需要自定义鉴权头或会被 WebView CORS 拦截的搜索 API 应优先走此代理，禁止扩展成通用任意 URL 代理
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装
 

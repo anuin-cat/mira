@@ -1,4 +1,5 @@
 import type { AiSearchFreshnessPreset } from '../../domain/ai'
+import { canUseSearchApiProxy, postSearchApiJson } from '../../tauri/search'
 
 const BOCHA_WEB_SEARCH_ENDPOINT = 'https://api.bocha.cn/v1/web-search'
 const DEFAULT_SEARCH_COUNT = 10
@@ -127,6 +128,11 @@ function readBochaErrorMessage(payload: unknown): string | null {
   return readString(record, 'message') ?? readString(record, 'msg')
 }
 
+/** 判断 HTTP 状态码是否为成功响应 */
+function isSuccessfulHttpStatus(status: number): boolean {
+  return status >= 200 && status < 300
+}
+
 /** 解析博查 Web Search API 返回的网页结果 */
 function parseWebPageResults(webPages: Record<string, unknown> | null): BochaWebPageResult[] {
   const rawItems = webPages?.value
@@ -195,28 +201,43 @@ export async function searchBochaWeb(options: BochaWebSearchOptions): Promise<Bo
     throw new Error('搜索时间范围格式不正确')
   }
 
-  const response = await fetch(BOCHA_WEB_SEARCH_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query,
-      freshness,
-      summary: options.summary === true,
-      count,
-      ...(include ? { include } : {}),
-      ...(exclude ? { exclude } : {}),
-    }),
-    signal: options.signal,
-  })
-  const payload = (await response.json().catch(() => null)) as unknown
+  const requestBody = {
+    query,
+    freshness,
+    summary: options.summary === true,
+    count,
+    ...(include ? { include } : {}),
+    ...(exclude ? { exclude } : {}),
+  }
+  let responseStatus: number
+  let payload: unknown
+
+  if (canUseSearchApiProxy()) {
+    const result = await postSearchApiJson({
+      providerId: 'bocha',
+      apiKey,
+      body: requestBody,
+    })
+    responseStatus = result.status
+    payload = result.body
+  } else {
+    const response = await fetch(BOCHA_WEB_SEARCH_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal: options.signal,
+    })
+    responseStatus = response.status
+    payload = (await response.json().catch(() => null)) as unknown
+  }
   const payloadRecord = toRecord(payload)
   const bodyCode = payloadRecord?.code
 
-  if (!response.ok || (bodyCode !== undefined && bodyCode !== 200 && bodyCode !== '200')) {
-    const message = readBochaErrorMessage(payload) ?? `博查搜索请求失败（HTTP ${response.status}）`
+  if (!isSuccessfulHttpStatus(responseStatus) || (bodyCode !== undefined && bodyCode !== 200 && bodyCode !== '200')) {
+    const message = readBochaErrorMessage(payload) ?? `博查搜索请求失败（HTTP ${responseStatus}）`
     throw new Error(message)
   }
 

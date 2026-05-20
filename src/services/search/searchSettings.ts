@@ -3,19 +3,30 @@ import type {
   AiSearchProviderConfig,
   AiSearchProviderId,
   AiSearchProviderPreset,
+  AiSearchRequestProviderSettings,
   AiSearchRequestSettings,
   AiSearchSettings,
 } from '../../domain/ai'
 
-const DEFAULT_BOCHA_SEARCH_COUNT = 10
-const MIN_BOCHA_SEARCH_COUNT = 1
+const DEFAULT_SEARCH_COUNT = 10
+const MIN_SEARCH_COUNT = 1
 const MAX_BOCHA_SEARCH_COUNT = 50
+const MAX_EXA_SEARCH_COUNT = 100
 
 export const AI_SEARCH_PROVIDER_PRESETS: AiSearchProviderPreset[] = [
   {
     id: 'bocha',
     label: '博查',
     apiKeyPlaceholder: 'sk-...',
+    apiEndpoint: 'https://api.bocha.cn/v1/web-search',
+    scopeDescription: '中文与中国国内网页搜索服务，适合国内新闻、平台内容与中文资料。',
+  },
+  {
+    id: 'exa',
+    label: 'Exa',
+    apiKeyPlaceholder: 'exa_...',
+    apiEndpoint: 'https://api.exa.ai/search',
+    scopeDescription: '全球搜索工具，适合外网资料、GitHub、技术文档与论文内容。',
   },
 ]
 
@@ -32,10 +43,23 @@ function isSearchFreshnessPreset(value: unknown): value is AiSearchFreshnessPres
   return typeof value === 'string' && SEARCH_FRESHNESS_PRESETS.includes(value as AiSearchFreshnessPreset)
 }
 
+/** 获取不同搜索 provider 支持的返回条数范围 */
+export function getAiSearchProviderResultCountRange(providerId: AiSearchProviderId): { min: number; max: number } {
+  return {
+    min: MIN_SEARCH_COUNT,
+    max: providerId === 'exa' ? MAX_EXA_SEARCH_COUNT : MAX_BOCHA_SEARCH_COUNT,
+  }
+}
+
 /** 归一化搜索结果条数，避免异常值打到外部 API */
-export function normalizeSearchResultCount(value: unknown): number {
-  if (typeof value !== 'number' || Number.isNaN(value)) return DEFAULT_BOCHA_SEARCH_COUNT
-  return Math.min(MAX_BOCHA_SEARCH_COUNT, Math.max(MIN_BOCHA_SEARCH_COUNT, Math.round(value)))
+export function normalizeSearchResultCount(
+  value: unknown,
+  providerId: AiSearchProviderId = 'bocha',
+  fallback = DEFAULT_SEARCH_COUNT
+): number {
+  const range = getAiSearchProviderResultCountRange(providerId)
+  if (typeof value !== 'number' || Number.isNaN(value)) return fallback
+  return Math.min(range.max, Math.max(range.min, Math.round(value)))
 }
 
 /** 根据 provider id 读取搜索服务预设 */
@@ -55,7 +79,7 @@ function normalizeSearchProvider(
     apiKey: typeof input?.apiKey === 'string' ? input.apiKey.trim() : '',
     isEnabled: typeof input?.isEnabled === 'boolean' ? input.isEnabled : false,
     defaultFreshness: isSearchFreshnessPreset(input?.defaultFreshness) ? input.defaultFreshness : 'noLimit',
-    defaultCount: normalizeSearchResultCount(input?.defaultCount),
+    defaultCount: normalizeSearchResultCount(input?.defaultCount, preset.id),
   }
 }
 
@@ -114,6 +138,18 @@ export function patchAiSearchProvider(
   })
 }
 
+/** 设置 agent 默认优先使用的搜索 provider */
+export function setActiveAiSearchProvider(
+  searchSettings: AiSearchSettings,
+  providerId: AiSearchProviderId
+): AiSearchSettings {
+  if (!searchSettings.providers.some((provider) => provider.id === providerId)) return searchSettings
+  return normalizeSearchSettings({
+    ...searchSettings,
+    activeProviderId: providerId,
+  })
+}
+
 /** 切换搜索 provider 是否启用 */
 export function setAiSearchProviderEnabled(
   searchSettings: AiSearchSettings,
@@ -123,17 +159,31 @@ export function setAiSearchProviderEnabled(
   return patchAiSearchProvider(searchSettings, providerId, { isEnabled })
 }
 
+/** 将保存态 provider 转成 agent 请求态 provider */
+function createSearchRequestProviderSettings(provider: AiSearchProviderConfig): AiSearchRequestProviderSettings {
+  return {
+    providerId: provider.id,
+    providerLabel: provider.label,
+    apiKey: provider.apiKey,
+    defaultFreshness: provider.defaultFreshness,
+    defaultCount: provider.defaultCount,
+  }
+}
+
 /** 解析出当前真正可用于 agent 的搜索服务配置 */
 export function resolveActiveSearchRequestSettings(searchSettings: AiSearchSettings): AiSearchRequestSettings | null {
+  const availableProviders = searchSettings.providers
+    .filter((provider) => provider.isEnabled && provider.apiKey.trim())
+    .map(createSearchRequestProviderSettings)
+  if (availableProviders.length === 0) return null
+
   const activeProvider =
-    getAiSearchProviderById(searchSettings, searchSettings.activeProviderId) ?? searchSettings.providers[0] ?? null
-  if (!activeProvider || !activeProvider.isEnabled || !activeProvider.apiKey.trim()) return null
+    availableProviders.find((provider) => provider.providerId === searchSettings.activeProviderId) ??
+    availableProviders[0]
 
   return {
-    providerId: activeProvider.id,
-    providerLabel: activeProvider.label,
-    apiKey: activeProvider.apiKey,
-    defaultFreshness: activeProvider.defaultFreshness,
-    defaultCount: activeProvider.defaultCount,
+    ...activeProvider,
+    activeProviderId: activeProvider.providerId,
+    providers: availableProviders,
   }
 }

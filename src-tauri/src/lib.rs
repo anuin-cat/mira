@@ -1,3 +1,4 @@
+mod search_api;
 mod web_fetch;
 
 use std::path::PathBuf;
@@ -32,6 +33,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             allow_vault_path_access,
+            search_api::search_api_post_json,
             web_fetch::web_fetch_url,
         ])
         .setup(|app| {

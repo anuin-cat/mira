@@ -1,7 +1,7 @@
 export type AiBuiltinProviderId = 'deepseek' | 'siliconflow' | 'kimi'
 export type AiProviderSource = 'builtin' | 'custom'
 export type AiCompatibilityMode = 'openai' | 'deepseek' | 'siliconflow' | 'kimi'
-export type AiSearchProviderId = 'bocha'
+export type AiSearchProviderId = 'bocha' | 'exa'
 export type AiSearchFreshnessPreset = 'noLimit' | 'oneDay' | 'oneWeek' | 'oneMonth' | 'oneYear'
 
 /** OpenAI 兼容提供商预设 */
@@ -38,6 +38,8 @@ export interface AiSearchProviderPreset {
   id: AiSearchProviderId
   label: string
   apiKeyPlaceholder: string
+  apiEndpoint: string
+  scopeDescription: string
 }
 
 /** 单个搜索服务配置 */
@@ -65,13 +67,19 @@ export interface AiSettingsState {
   temperature: number
 }
 
-/** 发请求前解析出的当前可用搜索服务 */
-export interface AiSearchRequestSettings {
+/** 发请求前解析出的单个可用搜索服务 */
+export interface AiSearchRequestProviderSettings {
   providerId: AiSearchProviderId
   providerLabel: string
   apiKey: string
   defaultFreshness: AiSearchFreshnessPreset
   defaultCount: number
+}
+
+/** 发请求前解析出的搜索服务集合，providerId 表示默认搜索服务 */
+export interface AiSearchRequestSettings extends AiSearchRequestProviderSettings {
+  activeProviderId: AiSearchProviderId
+  providers: AiSearchRequestProviderSettings[]
 }
 
 /** 发请求前解析出的当前有效 AI 配置 */
