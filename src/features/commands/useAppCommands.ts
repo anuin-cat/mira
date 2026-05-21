@@ -19,6 +19,13 @@ const PLAIN_TEXT_INPUT_TYPES = new Set([
   'url',
 ])
 
+/** 释放 Tauri 菜单监听；HMR 或窗口销毁时底层监听可能已不存在，清理失败可忽略 */
+function disposeMenuListener(unlisten: () => void | Promise<void>) {
+  void Promise.resolve()
+    .then(() => unlisten())
+    .catch(() => {})
+}
+
 export type ActiveCommandDialog = 'command-palette' | 'quick-open' | 'vault-search' | 'trash' | null
 
 interface AppCommandContext {
@@ -311,9 +318,7 @@ export function useAppCommands(context: AppCommandContext) {
       })
         .then((unlisten) => {
           if (isDisposed) {
-            void Promise.resolve(unlisten()).catch((error) => {
-              console.warn('菜单事件监听清理失败', error)
-            })
+            disposeMenuListener(unlisten)
           } else {
             unlisteners.push(unlisten)
           }
@@ -325,11 +330,7 @@ export function useAppCommands(context: AppCommandContext) {
 
     return () => {
       isDisposed = true
-      unlisteners.splice(0).forEach((unlisten) => {
-        void Promise.resolve(unlisten()).catch((error) => {
-          console.warn('菜单事件监听清理失败', error)
-        })
-      })
+      unlisteners.splice(0).forEach(disposeMenuListener)
     }
   }, [runCommand])
 

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { TrashItem } from '../../domain/note'
 import { cleanupExpiredTrash, listTrashItems } from '../../services/trashService'
+import { confirmSystemAction, showSystemMessage } from '../../tauri/system'
 import './commands.css'
 
 interface TrashDialogProps {
@@ -115,7 +116,7 @@ export function TrashDialog({
       await onRestoreItem(item.id)
       await loadItems()
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : '恢复失败')
+      await showSystemMessage(error instanceof Error ? error.message : '恢复失败', { kind: 'error' })
     } finally {
       setBusyItemId(null)
     }
@@ -123,14 +124,19 @@ export function TrashDialog({
 
   /** 永久删除回收站条目，并刷新当前弹层列表 */
   async function handleDeleteItem(item: TrashItem) {
-    if (!window.confirm(`永久删除「${item.originalPath}」？此操作不可撤销。`)) return
+    const isConfirmed = await confirmSystemAction(`永久删除「${item.originalPath}」？此操作不可撤销。`, {
+      confirmLabel: '永久删除',
+      cancelLabel: '取消',
+      kind: 'warning',
+    })
+    if (!isConfirmed) return
 
     setBusyItemId(item.id)
     try {
       await onDeleteItem(item.id)
       await loadItems()
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : '永久删除失败')
+      await showSystemMessage(error instanceof Error ? error.message : '永久删除失败', { kind: 'error' })
     } finally {
       setBusyItemId(null)
     }

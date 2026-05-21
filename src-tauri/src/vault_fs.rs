@@ -72,9 +72,24 @@ fn assert_path_inside_root(root: &Path, path: &Path) -> Result<(), String> {
     }
 }
 
-fn canonicalize_existing_parent(root: &Path, path: &Path) -> Result<(), String> {
-    let parent = path.parent().ok_or_else(|| "路径无效".to_string())?;
-    let canonical_parent = fs::canonicalize(parent).map_err(|error| error.to_string())?;
+fn assert_existing_ancestor_is_safe(root: &Path, path: &Path) -> Result<(), String> {
+    let mut current_path = path.parent().ok_or_else(|| "路径无效".to_string())?;
+
+    while !current_path.exists() {
+        current_path = current_path
+            .parent()
+            .ok_or_else(|| "路径父目录不存在".to_string())?;
+    }
+
+    let metadata = fs::symlink_metadata(current_path).map_err(|error| error.to_string())?;
+    if metadata.file_type().is_symlink() {
+        return Err("不支持操作符号链接".to_string());
+    }
+    if !metadata.is_dir() {
+        return Err("父路径中存在同名文件".to_string());
+    }
+
+    let canonical_parent = fs::canonicalize(current_path).map_err(|error| error.to_string())?;
     assert_path_inside_root(root, &canonical_parent)
 }
 
@@ -108,7 +123,7 @@ fn resolve_vault_path_with_root(
             return Err("路径不存在".to_string());
         }
         if check_existing_parent {
-            canonicalize_existing_parent(root, &target_path)?;
+            assert_existing_ancestor_is_safe(root, &target_path)?;
         }
         Ok(target_path)
     }
@@ -350,7 +365,7 @@ mod tests {
             std::env::temp_dir().join(format!("mira-vault-fs-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("create test vault root");
-        root
+        fs::canonicalize(root).expect("canonicalize test vault root")
     }
 
     #[test]
@@ -375,12 +390,42 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_parent_when_parent_check_is_required() {
+    fn allows_missing_parent_when_parent_check_is_required() {
         let root = create_test_root("parent");
         let result =
-            resolve_vault_path_with_root(&root, Some("missing/child.md".to_string()), false, true);
+            resolve_vault_path_with_root(&root, Some("missing/child.md".to_string()), false, true)
+                .expect("resolve path with missing parent");
+
+        assert_eq!(result, root.join("missing").join("child.md"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rejects_existing_file_as_parent() {
+        let root = create_test_root("file-parent");
+        fs::write(root.join("file-parent"), "").expect("create file parent");
+        let result = resolve_vault_path_with_root(
+            &root,
+            Some("file-parent/child.md".to_string()),
+            false,
+            true,
+        );
 
         assert!(result.is_err());
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_existing_symlink_as_parent() {
+        let root = create_test_root("symlink-parent");
+        let outside = create_test_root("symlink-outside");
+        std::os::unix::fs::symlink(&outside, root.join("linked")).expect("create symlink");
+        let result =
+            resolve_vault_path_with_root(&root, Some("linked/child.md".to_string()), false, true);
+
+        assert!(result.is_err());
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(outside);
     }
 }

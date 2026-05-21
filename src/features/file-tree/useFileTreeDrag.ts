@@ -3,6 +3,7 @@ import type { MouseEvent, RefObject } from 'react'
 import type { NodeApi, TreeApi } from 'react-arborist'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
 import { getParentPath } from '../../services/pathUtils'
+import { showSystemMessage } from '../../tauri/system'
 
 export const TREE_ROW_HEIGHT = 32
 export const TREE_VERTICAL_PADDING = 6
@@ -382,7 +383,7 @@ export function useFileTreeDrag({
     const dropIntent = drag.dropIntent ?? resolveDropIntent(drag, event.clientY)
     if (dropIntent?.type === 'move-into') {
       onMoveEntryRef.current(drag.sourcePath, dropIntent.targetDir, drag.sourceKind).catch((error) => {
-        window.alert(getErrorMessage(error))
+        void showSystemMessage(getErrorMessage(error), { kind: 'error' }).catch(() => {})
       })
     }
     if (dropIntent?.type === 'reorder') {
@@ -392,7 +393,7 @@ export function useFileTreeDrag({
         dropIntent.beforePath,
         drag.sourceKind
       ).catch((error) => {
-        window.alert(getErrorMessage(error))
+        void showSystemMessage(getErrorMessage(error), { kind: 'error' }).catch(() => {})
       })
     }
 

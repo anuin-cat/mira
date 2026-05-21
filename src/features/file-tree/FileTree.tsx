@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
 import { getParentPath, MARKDOWN_EXTENSION } from '../../services/pathUtils'
+import { confirmSystemAction, showSystemMessage } from '../../tauri/system'
 import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
 import {
   getCommandDefinition,
@@ -280,7 +281,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       const createdPath = await onCreateFile(parentPath)
       if (createdPath) setPendingEditId(createdPath)
     } catch (error) {
-      window.alert(getErrorMessage(error))
+      await showSystemMessage(getErrorMessage(error), { kind: 'error' })
     }
   }
 
@@ -290,7 +291,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       const createdPath = await onCreateFolder(parentPath)
       if (createdPath) setPendingEditId(createdPath)
     } catch (error) {
-      window.alert(getErrorMessage(error))
+      await showSystemMessage(getErrorMessage(error), { kind: 'error' })
     }
   }
 
@@ -298,7 +299,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     try {
       await onRenameEntry(node.data.path, name, node.data.kind)
     } catch (error) {
-      window.alert(getErrorMessage(error))
+      await showSystemMessage(getErrorMessage(error), { kind: 'error' })
     }
   }
 
@@ -335,7 +336,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
       const target = getCommandTarget()
       if (!target) return
       event.preventDefault()
-      confirmAndDeleteEntry(target)
+      void confirmAndDeleteEntry(target)
     }
   }
 
@@ -409,15 +410,22 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
   }
 
   /** 确认后删除指定文件树节点 */
-  function confirmAndDeleteEntry(target: VaultTreeNode) {
+  async function confirmAndDeleteEntry(target: VaultTreeNode) {
     const label = target.kind === 'file'
       ? `${target.name}${MARKDOWN_EXTENSION}`
       : target.name
-    if (!window.confirm(`确认将「${label}」移到回收站？`)) return
-
-    onDeleteEntry(target.path, target.kind).catch((error) => {
-      window.alert(getErrorMessage(error))
+    const isConfirmed = await confirmSystemAction(`确认将「${label}」移到回收站？`, {
+      confirmLabel: '移到回收站',
+      cancelLabel: '取消',
+      kind: 'warning',
     })
+    if (!isConfirmed) return
+
+    try {
+      await onDeleteEntry(target.path, target.kind)
+    } catch (error) {
+      await showSystemMessage(getErrorMessage(error), { kind: 'error' })
+    }
   }
 
   useImperativeHandle(ref, () => ({
@@ -433,7 +441,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     },
     deleteActive() {
       const target = getCommandTarget()
-      if (target) confirmAndDeleteEntry(target)
+      if (target) void confirmAndDeleteEntry(target)
     },
   }))
 
@@ -629,7 +637,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
                 className="danger"
                 onClick={() => {
                   setContextMenu(null)
-                  confirmAndDeleteEntry(menuTarget)
+                  void confirmAndDeleteEntry(menuTarget)
                 }}
               >
                 删除

@@ -6,6 +6,7 @@ import {
   setupVault,
   writeVaultState,
 } from '../../services/vaultService'
+import { showSystemMessage } from '../../tauri/system'
 import { revealInFinder } from '../../tauri/vaultFs'
 import {
   readNote,
@@ -431,7 +432,7 @@ export function useVaultWorkspace({
     try {
       await revealInFinder(activePathRef.current)
     } catch (error) {
-      window.alert(getErrorMessage(error))
+      await showSystemMessage(getErrorMessage(error), { kind: 'error' })
     }
   }
 
@@ -493,7 +494,7 @@ export function useVaultWorkspace({
           if (activePathRef.current === filePath) void reloadTree(filePath)
         })
         .catch((error) => {
-          window.alert(getErrorMessage(error))
+          void showSystemMessage(getErrorMessage(error), { kind: 'error' }).catch(() => {})
         })
       }, 1000)
   }, [])

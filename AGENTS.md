@@ -98,7 +98,7 @@
 - `src/services/search`：联网搜索服务配置、provider API 调用与搜索结果归一化
 - `src/features/commands/appCommandManifest.json`：应用命令、快捷键、工作区菜单与 macOS 原生菜单的唯一清单，避免多处同步
 - `src-tauri/src/vault_fs.rs` 与 `src/tauri/vaultFs.ts`：vault 文件系统唯一访问入口；前端只能传 vault 相对路径，绝对路径、越界检查、symlink 拒绝、asset 预览放行与 Finder reveal 均由 Rust 统一处理
-- `src-tauri/src/system.rs` 与 `src/tauri/system.ts`：系统目录选择、外部链接打开等桌面系统能力入口；前端不得直接调用 dialog/opener 插件
+- `src-tauri/src/system.rs` 与 `src/tauri/system.ts`：系统目录选择、系统消息/确认、外部链接打开等桌面系统能力入口；前端不得直接调用 dialog/opener 插件或浏览器原生弹窗
 - `src-tauri/src/app_menu.rs`：从命令清单构建 macOS 原生菜单，并按清单派发菜单事件
 - `src-tauri/src/search_api.rs` 与 `src/tauri/search.ts`：受限搜索 API 代理，只允许调用内置搜索 provider 的固定 endpoint；需要自定义鉴权头或会被 WebView CORS 拦截的搜索 API 应优先走此代理，禁止扩展成通用任意 URL 代理
 - `src/domain`：类型与规则

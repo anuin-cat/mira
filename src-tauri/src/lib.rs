@@ -11,8 +11,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            system::system_confirm,
             system::system_open_external_url,
             system::system_pick_directory,
+            system::system_show_message,
             vault_fs::vault_create_dir,
             vault_fs::vault_exists,
             vault_fs::vault_get_asset_file_path,
