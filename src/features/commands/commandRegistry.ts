@@ -8,6 +8,7 @@ export type CommandId =
   | 'new-folder'
   | 'save-file'
   | 'refresh-vault'
+  | 'open-trash'
   | 'rename-entry'
   | 'delete-entry'
   | 'reveal-in-finder'
@@ -59,6 +60,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   { id: 'new-folder', title: '新建文件夹', group: 'file', menuEvent: 'menu:new-folder', shortcut: { mac: '⇧⌘N', windows: 'Ctrl+Shift+N' } },
   { id: 'save-file', title: '保存当前文件', group: 'file', menuEvent: 'menu:save-file', shortcut: { mac: '⌘S', windows: 'Ctrl+S' } },
   { id: 'refresh-vault', title: '刷新 Vault', group: 'file', menuEvent: 'menu:refresh-vault', shortcut: { mac: '⌘R', windows: 'Ctrl+R' } },
+  { id: 'open-trash', title: '回收站', group: 'file', menuEvent: 'menu:open-trash' },
   { id: 'rename-entry', title: '重命名', group: 'file', menuEvent: 'menu:rename-entry', shortcut: { mac: 'F2', windows: 'F2' } },
   { id: 'delete-entry', title: '删除', group: 'file', menuEvent: 'menu:delete-entry', shortcut: { mac: '⌘⌫', windows: 'Ctrl+Backspace' } },
   { id: 'reveal-in-finder', title: '在文件管理器中显示', group: 'file', menuEvent: 'menu:reveal-in-finder', shortcut: { mac: '⌥⌘R', windows: 'Ctrl+Alt+R' } },
@@ -95,7 +97,12 @@ const workspaceCommand = (commandId: CommandId): WorkspaceMenuEntry => ({ type: 
 
 export const WORKSPACE_MENU_COMMAND_SECTIONS: WorkspaceMenuEntry[][] = [
   [workspaceCommand('new-file'), workspaceCommand('new-folder')],
-  [workspaceCommand('change-vault'), workspaceCommand('refresh-vault'), workspaceCommand('reveal-in-finder')],
+  [
+    workspaceCommand('change-vault'),
+    workspaceCommand('refresh-vault'),
+    workspaceCommand('open-trash'),
+    workspaceCommand('reveal-in-finder'),
+  ],
   [workspaceCommand('quick-open'), workspaceCommand('search-vault'), workspaceCommand('command-palette')],
   [
     { type: 'submenu', id: 'font-size', title: '字体大小', commandIds: ['font-small', 'font-medium', 'font-large', 'font-xlarge'] },

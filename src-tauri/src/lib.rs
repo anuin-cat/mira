@@ -96,6 +96,8 @@ pub fn run() {
                 true,
                 Some("CmdOrCtrl+KeyR"),
             )?;
+            let open_trash =
+                MenuItem::with_id(app, "open_trash", "回收站...", true, None::<&str>)?;
             let rename_entry = MenuItem::with_id(app, "rename_entry", "重命名", true, Some("F2"))?;
             let delete_entry = MenuItem::with_id(
                 app,
@@ -123,6 +125,7 @@ pub fn run() {
                     &file_separator_1,
                     &save_file,
                     &refresh_vault,
+                    &open_trash,
                     &change_vault,
                     &file_separator_2,
                     &rename_entry,
@@ -382,6 +385,7 @@ pub fn run() {
                 "new_folder" => "menu:new-folder",
                 "save_file" => "menu:save-file",
                 "refresh_vault" => "menu:refresh-vault",
+                "open_trash" => "menu:open-trash",
                 "rename_entry" => "menu:rename-entry",
                 "delete_entry" => "menu:delete-entry",
                 "reveal_in_finder" => "menu:reveal-in-finder",

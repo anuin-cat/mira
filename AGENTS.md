@@ -70,6 +70,7 @@
   - `File > 保存当前文件` → `save_file` → `menu:save-file`
   - `File > 更换 Vault...` → `change_vault` → `menu:change-vault`
   - `File > 刷新 Vault` → `refresh_vault` → `menu:refresh-vault`
+  - `File > 回收站...` → `open_trash` → `menu:open-trash`
   - `File > 重命名` → `rename_entry` → `menu:rename-entry`
   - `File > 删除` → `delete_entry` → `menu:delete-entry`
   - `File > 在文件管理器中显示` → `reveal_in_finder` → `menu:reveal-in-finder`
@@ -149,6 +150,7 @@ vault/
     2026/
       05/
         image.png
+  trash/
   .mira/
     state.json
 
@@ -156,6 +158,8 @@ vault/
 
 * 用户可见的目录和 `.md` 文件是唯一主数据，文件名和文件夹名应尽量人类可读
 * 图片附件是用户主数据，默认存放在 vault 根目录 `attachment/YYYY/MM/`，Markdown 正文使用相对路径引用
+* 删除后的文件和文件夹默认移入 vault 根目录 `trash/`，保留 30 天后由 Mira 在运行时清理；`trash/` 内只有带合法 `.mira-trash.json` 元数据的批次参与恢复和过期清理
+* vault 根目录下的 `attachment/`、`trash/`、`.mira/` 是 Mira 保留目录名，用户创建、重命名、移动文件或文件夹时不得占用这些根路径；普通 Markdown 文件名如 `attachment.md`、`trash.md` 不受影响
 * `.mira/` 是应用内部目录，只能存放可丢弃、可重建的状态、索引或缓存
 * `.mira/` 不存放图片等正文附件数据，最多存放可重建的附件索引或缩略图缓存
 * 删除 `.mira/` 后，应用必须能根据 vault 中的 Markdown 文件重新扫描恢复

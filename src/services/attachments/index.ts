@@ -5,12 +5,13 @@ import {
   writeBinaryFile,
 } from '../../tauri/fs'
 import {
+  ATTACHMENTS_ROOT_DIR,
   getBaseName,
   getParentPath,
   joinRelativePath,
 } from '../pathUtils'
 
-export const ATTACHMENTS_ROOT_DIR = 'attachment'
+export { ATTACHMENTS_ROOT_DIR }
 
 const IMAGE_NAME_PREFIX_MAX_LENGTH = 36
 const FALLBACK_IMAGE_NAME = 'image'

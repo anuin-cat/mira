@@ -19,7 +19,7 @@ const PLAIN_TEXT_INPUT_TYPES = new Set([
   'url',
 ])
 
-export type ActiveCommandDialog = 'command-palette' | 'quick-open' | 'vault-search' | null
+export type ActiveCommandDialog = 'command-palette' | 'quick-open' | 'vault-search' | 'trash' | null
 
 interface AppCommandContext {
   vaultPathRef: RefObject<string | null>
@@ -183,6 +183,9 @@ async function executeAppCommand(commandId: CommandId, context: AppCommandContex
       break
     case 'refresh-vault':
       await context.handleRefreshVault()
+      break
+    case 'open-trash':
+      context.setActiveCommandDialog(context.vaultPathRef.current ? 'trash' : null)
       break
     case 'rename-entry':
       context.fileTreeRef.current?.renameActive()

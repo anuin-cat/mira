@@ -10,5 +10,6 @@ export {
   type CommandId,
 } from './commandRegistry'
 export { CommandPalette, QuickOpenDialog, VaultSearchDialog } from './CommandDialogs'
+export { TrashDialog } from './TrashDialog'
 export { useAppCommands, type ActiveCommandDialog } from './useAppCommands'
 export type { VaultSearchMatch } from '../vault/search'

@@ -14,6 +14,15 @@ export interface VaultTreeNode {
   children?: VaultTreeNode[]
 }
 
+/** 回收站条目，内容仍位于 vault/trash 下等待恢复或过期清理 */
+export interface TrashItem {
+  id: string
+  originalPath: string
+  kind: VaultEntryKind
+  deletedAt: string
+  expiresAt: string
+}
+
 /** Markdown 文件元数据，全部可从文件系统和内容重建 */
 export interface NoteMeta {
   path: string

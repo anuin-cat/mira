@@ -1,7 +1,10 @@
 export const MIRA_DIR = '.mira'
+export const ATTACHMENTS_ROOT_DIR = 'attachment'
+export const TRASH_ROOT_DIR = 'trash'
 export const MARKDOWN_EXTENSION = '.md'
 
 const WINDOWS_ABSOLUTE_PATH = /^[A-Za-z]:[\\/]/
+const RESERVED_ROOT_DIR_NAMES = new Set([MIRA_DIR, ATTACHMENTS_ROOT_DIR, TRASH_ROOT_DIR])
 
 /** 将路径片段拼成 vault 内部统一使用的相对路径 */
 export function joinRelativePath(...parts: Array<string | null | undefined>): string {
@@ -76,6 +79,9 @@ export function validateUserRelativePath(path: string, expectedKind: 'file' | 'd
     throw new Error('不能使用绝对路径')
   }
   if (segments.length === 0) throw new Error('名称不能为空')
+  if (RESERVED_ROOT_DIR_NAMES.has(segments[0])) {
+    throw new Error('这是 Mira 保留目录名称，请换一个名称')
+  }
 
   for (const segment of segments) {
     if (segment === '.' || segment === '..') throw new Error('不能使用 . 或 ..')

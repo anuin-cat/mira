@@ -2,12 +2,12 @@ import type { VaultEntryKind, VaultState, VaultTreeNode } from '../../domain/not
 import {
   createFolder,
   createMarkdownFile,
-  deleteEntry,
   moveEntry,
   renameEntry,
   resolvePathAfterEntryRename,
 } from '../../services/noteService'
 import { getParentPath, isPathInsideDirectory } from '../../services/pathUtils'
+import { cleanupExpiredTrash, moveEntryToTrash } from '../../services/trashService'
 import {
   updateTreeOrderAfterDelete,
   updateTreeOrderAfterRename,
@@ -252,7 +252,7 @@ export function createVaultWorkspaceFileActions(context: VaultWorkspaceFileActio
     context.syncActivePathAfterEntryPathChange(nextActivePath, currentActivePath)
   }
 
-  /** 删除文件或文件夹 */
+  /** 将文件或文件夹移入回收站 */
   async function handleDeleteEntry(filePath: string, kind: VaultEntryKind) {
     const path = context.getVaultPath()
     const currentActivePath = context.getActivePath()
@@ -266,7 +266,8 @@ export function createVaultWorkspaceFileActions(context: VaultWorkspaceFileActio
     )
     if (deletesActiveFile) context.clearPendingSave()
 
-    await deleteEntry(path, filePath, kind)
+    await moveEntryToTrash(path, filePath, kind)
+    await cleanupExpiredTrash(path)
     context.persistVaultState({
       treeOrder: updateTreeOrderAfterDelete(context.getVaultState().treeOrder, filePath, kind),
     })

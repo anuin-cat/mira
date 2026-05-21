@@ -12,6 +12,11 @@ import {
   saveNote,
   scanVaultTree,
 } from '../../services/noteService'
+import {
+  cleanupExpiredTrash,
+  deleteTrashItem,
+  restoreTrashItem,
+} from '../../services/trashService'
 import type { AiTextReference } from '../../domain/ai'
 import type { FontSize, Theme, VaultState, VaultTreeNode } from '../../domain/note'
 import type { FileTreeHandle } from '../file-tree/FileTree'
@@ -295,6 +300,7 @@ export function useVaultWorkspace({
     navigationHistoryRef.current = { paths: [], index: -1 }
 
     await ensureVaultSystem(path)
+    await cleanupExpiredTrash(path)
     const state = await readVaultState(path)
     const tree = await scanVaultTree(path, state.treeOrder)
 
@@ -378,6 +384,7 @@ export function useVaultWorkspace({
 
     await flushActiveSave()
     await ensureVaultSystem(path)
+    await cleanupExpiredTrash(path)
     const tree = await scanVaultTree(path, vaultStateRef.current.treeOrder)
     setTreeData(tree)
 
@@ -427,6 +434,23 @@ export function useVaultWorkspace({
     } catch (error) {
       window.alert(getErrorMessage(error))
     }
+  }
+
+  /** 回收站：恢复条目后重新扫描文件树 */
+  async function handleRestoreTrashItem(itemId: string) {
+    const path = vaultPathRef.current
+    if (!path) return
+
+    await restoreTrashItem(path, itemId)
+    await reloadTree(activePathRef.current)
+  }
+
+  /** 回收站：永久删除条目 */
+  async function handleDeleteTrashItem(itemId: string) {
+    const path = vaultPathRef.current
+    if (!path) return
+
+    await deleteTrashItem(path, itemId)
   }
 
   /** agent 写入或回退文件后，同步文件树和当前编辑器内容 */
@@ -496,6 +520,8 @@ export function useVaultWorkspace({
     handleOpenFile,
     handleOpenSearchResult,
     handleRenameEntry: fileActions.handleRenameEntry,
+    handleRestoreTrashItem,
+    handleDeleteTrashItem,
     handleReorderEntry: fileActions.handleReorderEntry,
     initVault,
     isLoading,

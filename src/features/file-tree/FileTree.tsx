@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  Trash2,
   Type,
 } from 'lucide-react'
 import type { VaultEntryKind, VaultTreeNode } from '../../domain/note'
@@ -115,6 +116,8 @@ function getWorkspaceMenuIcon(commandId: CommandId): ReactNode {
       return <FolderOpen />
     case 'refresh-vault':
       return <RefreshCw />
+    case 'open-trash':
+      return <Trash2 />
     case 'quick-open':
     case 'search-vault':
       return <Search />
@@ -410,7 +413,7 @@ export const FileTree = forwardRef<FileTreeHandle, FileTreeProps>(function FileT
     const label = target.kind === 'file'
       ? `${target.name}${MARKDOWN_EXTENSION}`
       : target.name
-    if (!window.confirm(`确认删除「${label}」？`)) return
+    if (!window.confirm(`确认将「${label}」移到回收站？`)) return
 
     onDeleteEntry(target.path, target.kind).catch((error) => {
       window.alert(getErrorMessage(error))

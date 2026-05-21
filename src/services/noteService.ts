@@ -15,14 +15,15 @@ import {
   getParentPath,
   isPathInsideDirectory,
   joinRelativePath,
+  ATTACHMENTS_ROOT_DIR,
   MARKDOWN_EXTENSION,
   normalizeMarkdownFileName,
   normalizeRelativePath,
   replacePathPrefix,
   stripMarkdownExtension,
+  TRASH_ROOT_DIR,
   validateUserRelativePath,
 } from './pathUtils'
-import { ATTACHMENTS_ROOT_DIR } from './attachments'
 import { getTreeOrderParentKey } from './treeOrderService'
 
 const UNTITLED_FILE_BASE = '未命名'
@@ -54,7 +55,10 @@ function toIsoString(value: Date | string | null | undefined): string | null {
 
 /** 判断目录实体是否需要从用户文件树中隐藏 */
 function shouldSkipEntry(relativeDir: string | null, name: string): boolean {
-  return name.startsWith('.') || (!relativeDir && (name === LEGACY_MIRA_MAP_FILE || name === ATTACHMENTS_ROOT_DIR))
+  return name.startsWith('.') || (
+    !relativeDir &&
+    (name === LEGACY_MIRA_MAP_FILE || name === ATTACHMENTS_ROOT_DIR || name === TRASH_ROOT_DIR)
+  )
 }
 
 /** 按人类文件管理器心智排序：文件夹优先，其余按名称排序 */

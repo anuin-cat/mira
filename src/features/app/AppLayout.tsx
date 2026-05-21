@@ -13,6 +13,7 @@ import {
   COMMAND_DEFINITIONS,
   CommandPalette,
   QuickOpenDialog,
+  TrashDialog,
   VaultSearchDialog,
 } from '../commands'
 import { getDisplayName } from '../../services/pathUtils'
@@ -171,6 +172,13 @@ export function AppLayout({ panels, workspace }: AppLayoutProps) {
           onOpenFile={(filePath, match) => {
             void workspace.handleOpenSearchResult(filePath, match)
           }}
+        />
+        <TrashDialog
+          isOpen={workspace.activeCommandDialog === 'trash'}
+          vaultPath={workspace.vaultPath ?? ''}
+          onClose={() => workspace.setActiveCommandDialog(null)}
+          onRestoreItem={workspace.handleRestoreTrashItem}
+          onDeleteItem={workspace.handleDeleteTrashItem}
         />
       </>
     </TooltipProvider>
