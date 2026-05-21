@@ -1,4 +1,4 @@
-import { selectDirectory } from '../tauri/fs'
+import { pickDirectory } from '../tauri/system'
 import { ensureDir, pathExists, readFile, setVaultRoot, writeFile } from '../tauri/vaultFs'
 import type { FontSize, VaultState } from '../domain/note'
 import { MIRA_DIR } from './pathUtils'
@@ -66,7 +66,7 @@ export async function writeVaultState(_vaultPath: string, state: VaultState): Pr
 
 /** 弹出目录选择框，保存路径并初始化内部状态 */
 export async function setupVault(): Promise<string | null> {
-  const path = await selectDirectory('选择 Mira Vault 目录')
+  const path = await pickDirectory('选择 Mira Vault 目录')
   if (!path) return null
   await ensureVaultSystem(path)
   setVaultPath(path)

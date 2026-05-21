@@ -1,0 +1,441 @@
+{
+  "commands": [
+    {
+      "id": "change-vault",
+      "title": "更换 Vault...",
+      "group": "file",
+      "menuEvent": "menu:change-vault",
+      "shortcut": { "mac": "⌘O", "windows": "Ctrl+O" },
+      "native": { "itemId": "change_vault", "label": "更换 Vault...", "accelerator": "CmdOrCtrl+KeyO" }
+    },
+    {
+      "id": "new-file",
+      "title": "新建文件",
+      "group": "file",
+      "menuEvent": "menu:new-file",
+      "shortcut": { "mac": "⌘N", "windows": "Ctrl+N" },
+      "native": { "itemId": "new_file", "label": "新建文件", "accelerator": "CmdOrCtrl+KeyN" }
+    },
+    {
+      "id": "new-folder",
+      "title": "新建文件夹",
+      "group": "file",
+      "menuEvent": "menu:new-folder",
+      "shortcut": { "mac": "⇧⌘N", "windows": "Ctrl+Shift+N" },
+      "native": { "itemId": "new_folder", "label": "新建文件夹", "accelerator": "CmdOrCtrl+Shift+KeyN" }
+    },
+    {
+      "id": "save-file",
+      "title": "保存当前文件",
+      "group": "file",
+      "menuEvent": "menu:save-file",
+      "shortcut": { "mac": "⌘S", "windows": "Ctrl+S" },
+      "native": { "itemId": "save_file", "label": "保存当前文件", "accelerator": "CmdOrCtrl+KeyS" }
+    },
+    {
+      "id": "refresh-vault",
+      "title": "刷新 Vault",
+      "group": "file",
+      "menuEvent": "menu:refresh-vault",
+      "shortcut": { "mac": "⌘R", "windows": "Ctrl+R" },
+      "native": { "itemId": "refresh_vault", "label": "刷新 Vault", "accelerator": "CmdOrCtrl+KeyR" }
+    },
+    {
+      "id": "open-trash",
+      "title": "回收站",
+      "group": "file",
+      "menuEvent": "menu:open-trash",
+      "native": { "itemId": "open_trash", "label": "回收站..." }
+    },
+    {
+      "id": "rename-entry",
+      "title": "重命名",
+      "group": "file",
+      "menuEvent": "menu:rename-entry",
+      "shortcut": { "mac": "F2", "windows": "F2" },
+      "native": { "itemId": "rename_entry", "label": "重命名", "accelerator": "F2" }
+    },
+    {
+      "id": "delete-entry",
+      "title": "删除",
+      "group": "file",
+      "menuEvent": "menu:delete-entry",
+      "shortcut": { "mac": "⌘⌫", "windows": "Ctrl+Backspace" },
+      "native": { "itemId": "delete_entry", "label": "删除", "accelerator": "CmdOrCtrl+Backspace" }
+    },
+    {
+      "id": "reveal-in-finder",
+      "title": "在文件管理器中显示",
+      "group": "file",
+      "menuEvent": "menu:reveal-in-finder",
+      "shortcut": { "mac": "⌥⌘R", "windows": "Ctrl+Alt+R" },
+      "native": { "itemId": "reveal_in_finder", "label": "在文件管理器中显示", "accelerator": "CmdOrCtrl+Alt+KeyR" }
+    },
+    {
+      "id": "paste-and-match-style",
+      "title": "粘贴并匹配样式",
+      "group": "edit",
+      "menuEvent": "menu:paste-and-match-style",
+      "shortcut": { "mac": "⇧⌥⌘V", "windows": "Ctrl+Shift+V" },
+      "native": { "itemId": "paste_and_match_style", "label": "粘贴并匹配样式", "accelerator": "CmdOrCtrl+Alt+Shift+KeyV" }
+    },
+    {
+      "id": "find-in-file",
+      "title": "当前文件内搜索",
+      "group": "search",
+      "menuEvent": "menu:find-in-file",
+      "shortcut": { "mac": "⌘F", "windows": "Ctrl+F" },
+      "native": { "itemId": "find_in_file", "label": "当前文件内搜索", "accelerator": "CmdOrCtrl+KeyF" }
+    },
+    {
+      "id": "find-next-in-file",
+      "title": "查找下一个",
+      "group": "search",
+      "menuEvent": "menu:find-next-in-file",
+      "shortcut": { "mac": "⌘G", "windows": "F3" },
+      "native": { "itemId": "find_next_in_file", "label": "查找下一个", "accelerator": "CmdOrCtrl+KeyG" }
+    },
+    {
+      "id": "find-previous-in-file",
+      "title": "查找上一个",
+      "group": "search",
+      "menuEvent": "menu:find-previous-in-file",
+      "shortcut": { "mac": "⇧⌘G", "windows": "Shift+F3" },
+      "native": { "itemId": "find_previous_in_file", "label": "查找上一个", "accelerator": "CmdOrCtrl+Shift+KeyG" }
+    },
+    {
+      "id": "search-vault",
+      "title": "全 Vault 搜索",
+      "group": "search",
+      "menuEvent": "menu:search-vault",
+      "shortcut": { "mac": "⇧⌘F", "windows": "Ctrl+Shift+F" },
+      "native": { "itemId": "search_vault", "label": "全 Vault 搜索", "accelerator": "CmdOrCtrl+Shift+KeyF" }
+    },
+    {
+      "id": "quick-open",
+      "title": "快速打开文件",
+      "group": "navigate",
+      "menuEvent": "menu:quick-open",
+      "shortcut": { "mac": "⌘P", "windows": "Ctrl+P" },
+      "native": { "itemId": "quick_open", "label": "快速打开文件", "accelerator": "CmdOrCtrl+KeyP" }
+    },
+    {
+      "id": "command-palette",
+      "title": "命令面板",
+      "group": "navigate",
+      "menuEvent": "menu:command-palette",
+      "shortcut": { "mac": "⇧⌘P", "windows": "Ctrl+Shift+P" },
+      "native": { "itemId": "command_palette", "label": "命令面板", "accelerator": "CmdOrCtrl+Shift+KeyP" }
+    },
+    {
+      "id": "history-back",
+      "title": "返回上一个文件",
+      "group": "navigate",
+      "menuEvent": "menu:history-back",
+      "shortcut": { "mac": "⌘[", "windows": "Ctrl+[" },
+      "native": { "itemId": "history_back", "label": "返回上一个文件", "accelerator": "CmdOrCtrl+BracketLeft" }
+    },
+    {
+      "id": "history-forward",
+      "title": "前进到下一个文件",
+      "group": "navigate",
+      "menuEvent": "menu:history-forward",
+      "shortcut": { "mac": "⌘]", "windows": "Ctrl+]" },
+      "native": { "itemId": "history_forward", "label": "前进到下一个文件", "accelerator": "CmdOrCtrl+BracketRight" }
+    },
+    {
+      "id": "toggle-file-sidebar",
+      "title": "显示/隐藏文件侧栏",
+      "group": "view",
+      "menuEvent": "menu:toggle-file-sidebar",
+      "shortcut": { "mac": "⌘\\", "windows": "Ctrl+\\" },
+      "native": { "itemId": "toggle_file_sidebar", "label": "显示/隐藏文件侧栏", "accelerator": "CmdOrCtrl+Backslash" }
+    },
+    {
+      "id": "toggle-ai-sidebar",
+      "title": "显示/隐藏 AI 对话栏",
+      "group": "view",
+      "menuEvent": "menu:toggle-ai-sidebar",
+      "shortcut": { "mac": "⌘L", "windows": "Ctrl+L" },
+      "native": { "itemId": "toggle_ai_sidebar", "label": "显示/隐藏 AI 对话栏", "accelerator": "CmdOrCtrl+KeyL" }
+    },
+    {
+      "id": "font-decrease",
+      "title": "缩小字体",
+      "group": "view",
+      "menuEvent": "menu:font-decrease",
+      "shortcut": { "mac": "⌘-", "windows": "Ctrl+-" },
+      "native": { "itemId": "font_decrease", "label": "缩小字体", "accelerator": "CmdOrCtrl+Minus" }
+    },
+    {
+      "id": "font-increase",
+      "title": "放大字体",
+      "group": "view",
+      "menuEvent": "menu:font-increase",
+      "shortcut": { "mac": "⌘+", "windows": "Ctrl++" },
+      "native": { "itemId": "font_increase", "label": "放大字体", "accelerator": "CmdOrCtrl+Shift+Equal" }
+    },
+    {
+      "id": "font-reset",
+      "title": "重置字体大小",
+      "group": "view",
+      "menuEvent": "menu:font-reset",
+      "shortcut": { "mac": "⌘0", "windows": "Ctrl+0" },
+      "native": { "itemId": "font_reset", "label": "重置字体大小", "accelerator": "CmdOrCtrl+Digit0" }
+    },
+    {
+      "id": "font-small",
+      "title": "字体：小",
+      "group": "view",
+      "menuEvent": "menu:font-size-small",
+      "native": { "itemId": "font_small", "label": "小" }
+    },
+    {
+      "id": "font-medium",
+      "title": "字体：中",
+      "group": "view",
+      "menuEvent": "menu:font-size-medium",
+      "native": { "itemId": "font_medium", "label": "中" }
+    },
+    {
+      "id": "font-large",
+      "title": "字体：大",
+      "group": "view",
+      "menuEvent": "menu:font-size-large",
+      "native": { "itemId": "font_large", "label": "大" }
+    },
+    {
+      "id": "font-xlarge",
+      "title": "字体：特大",
+      "group": "view",
+      "menuEvent": "menu:font-size-xlarge",
+      "native": { "itemId": "font_xlarge", "label": "特大" }
+    },
+    {
+      "id": "theme-default",
+      "title": "主题：默认",
+      "group": "view",
+      "menuEvent": "menu:theme-default",
+      "native": { "itemId": "theme_default", "label": "默认" }
+    },
+    {
+      "id": "theme-warm-paper",
+      "title": "主题：纸质书页",
+      "group": "view",
+      "menuEvent": "menu:theme-warm-paper",
+      "native": { "itemId": "theme_warm_paper", "label": "纸质书页" }
+    },
+    {
+      "id": "theme-twilight",
+      "title": "主题：暮光蓝",
+      "group": "view",
+      "menuEvent": "menu:theme-twilight",
+      "native": { "itemId": "theme_twilight", "label": "暮光蓝" }
+    },
+    {
+      "id": "theme-forest",
+      "title": "主题：森林绿",
+      "group": "view",
+      "menuEvent": "menu:theme-forest",
+      "native": { "itemId": "theme_forest", "label": "森林绿" }
+    },
+    {
+      "id": "theme-dark-classic",
+      "title": "主题：经典深色",
+      "group": "view",
+      "menuEvent": "menu:theme-dark-classic",
+      "native": { "itemId": "theme_dark_classic", "label": "经典深色" }
+    },
+    {
+      "id": "ai-new-chat",
+      "title": "新建 AI 对话",
+      "group": "ai",
+      "menuEvent": "menu:ai-new-chat",
+      "shortcut": { "mac": "⌥⌘N", "windows": "Ctrl+Alt+N" },
+      "native": { "itemId": "ai_new_chat", "label": "新建 AI 对话", "accelerator": "CmdOrCtrl+Alt+KeyN" }
+    },
+    {
+      "id": "ai-ask-current-note",
+      "title": "基于当前笔记提问",
+      "group": "ai",
+      "menuEvent": "menu:ai-ask-current-note",
+      "shortcut": { "mac": "⌥⌘↩", "windows": "Ctrl+Alt+Enter" },
+      "native": { "itemId": "ai_ask_current_note", "label": "基于当前笔记提问", "accelerator": "CmdOrCtrl+Alt+Enter" }
+    },
+    {
+      "id": "ai-stop-generating",
+      "title": "停止 AI 生成",
+      "group": "ai",
+      "shortcut": { "mac": "Esc", "windows": "Esc" }
+    },
+    {
+      "id": "app-settings",
+      "title": "设置",
+      "group": "app",
+      "menuEvent": "menu:app-settings",
+      "shortcut": { "mac": "⌘,", "windows": "Ctrl+," },
+      "native": { "itemId": "app_settings", "label": "设置", "accelerator": "CmdOrCtrl+Comma" }
+    }
+  ],
+  "workspaceMenuSections": [
+    [
+      { "type": "command", "commandId": "new-file" },
+      { "type": "command", "commandId": "new-folder" }
+    ],
+    [
+      { "type": "command", "commandId": "change-vault" },
+      { "type": "command", "commandId": "refresh-vault" },
+      { "type": "command", "commandId": "open-trash" },
+      { "type": "command", "commandId": "reveal-in-finder" }
+    ],
+    [
+      { "type": "command", "commandId": "quick-open" },
+      { "type": "command", "commandId": "search-vault" },
+      { "type": "command", "commandId": "command-palette" }
+    ],
+    [
+      {
+        "type": "submenu",
+        "id": "font-size",
+        "title": "字体大小",
+        "commandIds": ["font-small", "font-medium", "font-large", "font-xlarge"]
+      },
+      {
+        "type": "submenu",
+        "id": "theme",
+        "title": "主题",
+        "commandIds": ["theme-default", "theme-warm-paper", "theme-twilight", "theme-forest", "theme-dark-classic"]
+      }
+    ],
+    [
+      { "type": "command", "commandId": "ai-new-chat" },
+      { "type": "command", "commandId": "ai-ask-current-note" }
+    ],
+    [
+      { "type": "command", "commandId": "app-settings" }
+    ]
+  ],
+  "nativeMenus": [
+    {
+      "title": "Mira",
+      "sections": [
+        [{ "type": "command", "commandId": "app-settings" }],
+        [
+          { "type": "predefined", "value": "hide" },
+          { "type": "predefined", "value": "hideOthers" },
+          { "type": "predefined", "value": "showAll" }
+        ],
+        [{ "type": "predefined", "value": "quit" }]
+      ]
+    },
+    {
+      "title": "File",
+      "sections": [
+        [
+          { "type": "command", "commandId": "new-file" },
+          { "type": "command", "commandId": "new-folder" }
+        ],
+        [
+          { "type": "command", "commandId": "save-file" },
+          { "type": "command", "commandId": "refresh-vault" },
+          { "type": "command", "commandId": "open-trash" },
+          { "type": "command", "commandId": "change-vault" }
+        ],
+        [
+          { "type": "command", "commandId": "rename-entry" },
+          { "type": "command", "commandId": "delete-entry" },
+          { "type": "command", "commandId": "reveal-in-finder" }
+        ]
+      ]
+    },
+    {
+      "title": "Edit",
+      "sections": [
+        [
+          { "type": "predefined", "value": "undo" },
+          { "type": "predefined", "value": "redo" }
+        ],
+        [
+          { "type": "predefined", "value": "cut" },
+          { "type": "predefined", "value": "copy" },
+          { "type": "predefined", "value": "paste" },
+          { "type": "command", "commandId": "paste-and-match-style" }
+        ],
+        [{ "type": "predefined", "value": "selectAll" }]
+      ]
+    },
+    {
+      "title": "Search",
+      "sections": [
+        [
+          { "type": "command", "commandId": "find-in-file" },
+          { "type": "command", "commandId": "find-next-in-file" },
+          { "type": "command", "commandId": "find-previous-in-file" }
+        ],
+        [{ "type": "command", "commandId": "search-vault" }]
+      ]
+    },
+    {
+      "title": "Navigate",
+      "sections": [
+        [
+          { "type": "command", "commandId": "quick-open" },
+          { "type": "command", "commandId": "command-palette" }
+        ],
+        [
+          { "type": "command", "commandId": "history-back" },
+          { "type": "command", "commandId": "history-forward" }
+        ]
+      ]
+    },
+    {
+      "title": "View",
+      "sections": [
+        [
+          { "type": "command", "commandId": "toggle-file-sidebar" },
+          { "type": "command", "commandId": "toggle-ai-sidebar" }
+        ],
+        [
+          { "type": "command", "commandId": "font-decrease" },
+          { "type": "command", "commandId": "font-increase" },
+          { "type": "command", "commandId": "font-reset" },
+          {
+            "type": "submenu",
+            "title": "字体大小",
+            "sections": [[
+              { "type": "command", "commandId": "font-small" },
+              { "type": "command", "commandId": "font-medium" },
+              { "type": "command", "commandId": "font-large" },
+              { "type": "command", "commandId": "font-xlarge" }
+            ]]
+          },
+          {
+            "type": "submenu",
+            "title": "主题",
+            "sections": [[
+              { "type": "command", "commandId": "theme-default" },
+              { "type": "command", "commandId": "theme-warm-paper" },
+              { "type": "command", "commandId": "theme-twilight" },
+              { "type": "command", "commandId": "theme-forest" },
+              { "type": "command", "commandId": "theme-dark-classic" }
+            ]]
+          }
+        ]
+      ]
+    },
+    {
+      "title": "Window",
+      "sections": [[
+        { "type": "predefined", "value": "minimize" },
+        { "type": "predefined", "value": "fullscreen" }
+      ]]
+    },
+    {
+      "title": "AI",
+      "sections": [[
+        { "type": "command", "commandId": "ai-new-chat" },
+        { "type": "command", "commandId": "ai-ask-current-note" }
+      ]]
+    }
+  ]
+}

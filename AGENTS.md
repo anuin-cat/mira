@@ -57,48 +57,12 @@
 - 工作区菜单适合放：更换/刷新 vault、在文件管理器中显示、快速打开、全局搜索、命令面板、字体大小、主题、AI 会话入口和设置
 - 工作区菜单一级只放常用入口；字体大小、主题等集合型操作应使用二级菜单承载，避免一级菜单过长
 - 工作区菜单不放编辑器常驻格式化动作（加粗、列表、链接、图片、表格、代码块等），这些应继续保留在编辑器工具栏、编辑器上下文菜单或 Markdown 快捷输入中
-- 新增快捷键时同步维护 `src/features/commands/commandRegistry.ts`、`src/features/commands/useAppCommands.ts`、macOS 原生菜单注册和本节菜单事件清单；Windows/Linux 的应用级快捷键由前端 `keydown` 统一承接
-- 菜单在 `src-tauri/src/lib.rs` 的 `.setup()` 中用 Tauri 2 `Menu` / `Submenu` / `MenuItem` API 注册
-- 菜单点击通过 `app.emit("menu:<event-id>", ())` 发送事件到前端
-- 前端在 `App.tsx` 的 `useEffect` 中用 `listen("menu:<event-id>", ...)` 监听并响应
+- `src/features/commands/appCommandManifest.json` 是命令、快捷键、工作区菜单和 macOS 原生菜单的唯一清单；新增、删除或调整命令入口时只维护这份清单
+- `src/features/commands/commandRegistry.ts` 只负责从清单导出前端命令数据；`src/features/commands/useAppCommands.ts` 只负责命令执行行为与 Windows/Linux 前端快捷键承接
+- macOS 原生菜单由 `src-tauri/src/app_menu.rs` 从同一份清单构建，菜单点击按清单中的 `menuEvent` 通过 `app.emit("menu:<event-id>", ())` 发送给前端
+- 前端通过 `src/features/commands/useAppCommands.ts` 统一 `listen("menu:<event-id>", ...)` 并响应
 - macOS 必须保留原生 `Edit` 菜单，并优先用系统预定义菜单项承接 `Undo` / `Redo` / `Cut` / `Copy` / `Paste` / `Select All`，避免 WebView 内文本编辑快捷键失效
 - macOS 系统级菜单项优先使用 `PredefinedMenuItem` 承接，如 `Quit` / `Hide` / `Minimize` / `Toggle Full Screen`，这类原生行为不需要前端 `menu:*` 事件
-- 新增菜单项时，同步在此处登记：
-  - `App > 设置` → `app_settings` → `menu:app-settings`
-  - `File > 新建文件` → `new_file` → `menu:new-file`
-  - `File > 新建文件夹` → `new_folder` → `menu:new-folder`
-  - `File > 保存当前文件` → `save_file` → `menu:save-file`
-  - `File > 更换 Vault...` → `change_vault` → `menu:change-vault`
-  - `File > 刷新 Vault` → `refresh_vault` → `menu:refresh-vault`
-  - `File > 回收站...` → `open_trash` → `menu:open-trash`
-  - `File > 重命名` → `rename_entry` → `menu:rename-entry`
-  - `File > 删除` → `delete_entry` → `menu:delete-entry`
-  - `File > 在文件管理器中显示` → `reveal_in_finder` → `menu:reveal-in-finder`
-  - `Edit > 粘贴并匹配样式` → `paste_and_match_style` → `menu:paste-and-match-style`
-  - `Search > 当前文件内搜索` → `find_in_file` → `menu:find-in-file`
-  - `Search > 查找下一个` → `find_next_in_file` → `menu:find-next-in-file`
-  - `Search > 查找上一个` → `find_previous_in_file` → `menu:find-previous-in-file`
-  - `Search > 全 Vault 搜索` → `search_vault` → `menu:search-vault`
-  - `Navigate > 快速打开文件` → `quick_open` → `menu:quick-open`
-  - `Navigate > 命令面板` → `command_palette` → `menu:command-palette`
-  - `Navigate > 返回上一个文件` → `history_back` → `menu:history-back`
-  - `Navigate > 前进到下一个文件` → `history_forward` → `menu:history-forward`
-  - `View > 显示/隐藏文件侧栏` → `toggle_file_sidebar` → `menu:toggle-file-sidebar`
-  - `View > 显示/隐藏 AI 对话栏` → `toggle_ai_sidebar` → `menu:toggle-ai-sidebar`
-  - `View > 缩小字体` → `font_decrease` → `menu:font-decrease`
-  - `View > 放大字体` → `font_increase` → `menu:font-increase`
-  - `View > 重置字体大小` → `font_reset` → `menu:font-reset`
-  - `View > 小` → `font_small` → `menu:font-size-small`
-  - `View > 中` → `font_medium` → `menu:font-size-medium`
-  - `View > 大` → `font_large` → `menu:font-size-large`
-  - `View > 特大` → `font_xlarge` → `menu:font-size-xlarge`
-  - `View > 主题 > 默认` → `theme_default` → `menu:theme-default`
-  - `View > 主题 > 纸质书页` → `theme_warm_paper` → `menu:theme-warm-paper`
-  - `View > 主题 > 暮光蓝` → `theme_twilight` → `menu:theme-twilight`
-  - `View > 主题 > 森林绿` → `theme_forest` → `menu:theme-forest`
-  - `View > 主题 > 经典深色` → `theme_dark_classic` → `menu:theme-dark-classic`
-  - `AI > 新建 AI 对话` → `ai_new_chat` → `menu:ai-new-chat`
-  - `AI > 基于当前笔记提问` → `ai_ask_current_note` → `menu:ai-ask-current-note`
 
 ## 依赖选型原则
 
@@ -132,7 +96,10 @@
 - `src/services/agent`：AI agent 内核；`tools` 放可控工具，`utils` 放工具共享辅助逻辑
 - `src/services/aiCompatibility`：AI provider 兼容层；DeepSeek、KIMI、硅基流动等平台差异必须分文件维护，主流程只调用统一 adapter
 - `src/services/search`：联网搜索服务配置、provider API 调用与搜索结果归一化
+- `src/features/commands/appCommandManifest.json`：应用命令、快捷键、工作区菜单与 macOS 原生菜单的唯一清单，避免多处同步
 - `src-tauri/src/vault_fs.rs` 与 `src/tauri/vaultFs.ts`：vault 文件系统唯一访问入口；前端只能传 vault 相对路径，绝对路径、越界检查、symlink 拒绝、asset 预览放行与 Finder reveal 均由 Rust 统一处理
+- `src-tauri/src/system.rs` 与 `src/tauri/system.ts`：系统目录选择、外部链接打开等桌面系统能力入口；前端不得直接调用 dialog/opener 插件
+- `src-tauri/src/app_menu.rs`：从命令清单构建 macOS 原生菜单，并按清单派发菜单事件
 - `src-tauri/src/search_api.rs` 与 `src/tauri/search.ts`：受限搜索 API 代理，只允许调用内置搜索 provider 的固定 endpoint；需要自定义鉴权头或会被 WebView CORS 拦截的搜索 API 应优先走此代理，禁止扩展成通用任意 URL 代理
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装

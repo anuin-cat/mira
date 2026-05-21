@@ -1,10 +1,10 @@
-import { openUrl } from '@tauri-apps/plugin-opener'
 import 'katex/dist/katex.min.css'
 import rehypeKatex from 'rehype-katex'
 import type { ComponentProps } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
+import { openExternalUrl } from '../../../tauri/system'
 import { remarkAiMarkdownCompat } from './aiMarkdownCompat'
 import './ai-markdown.css'
 
@@ -43,7 +43,7 @@ const MARKDOWN_COMPONENTS: Components = {
         onClick={(event) => {
           event.preventDefault()
           if (!safeHref) return
-          void openUrl(safeHref)
+          void openExternalUrl(safeHref)
         }}
       >
         {children}
