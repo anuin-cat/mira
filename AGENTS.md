@@ -60,7 +60,7 @@
 - `src/features/commands/appCommandManifest.json` 是命令、快捷键、工作区菜单和 macOS 原生菜单的唯一清单；新增、删除或调整命令入口时只维护这份清单
 - `src/features/commands/commandRegistry.ts` 只负责从清单导出前端命令数据；`src/features/commands/useAppCommands.ts` 只负责命令执行行为与 Windows/Linux 前端快捷键承接
 - macOS 原生菜单由 `src-tauri/src/app_menu.rs` 从同一份清单构建，菜单点击按清单中的 `menuEvent` 通过 `app.emit("menu:<event-id>", ())` 发送给前端
-- 前端通过 `src/features/commands/useAppCommands.ts` 统一 `listen("menu:<event-id>", ...)` 并响应
+- 前端通过 `src/tauri/appMenu.ts` 封装 Tauri 菜单事件监听，再由 `src/features/commands/useAppCommands.ts` 统一响应
 - macOS 必须保留原生 `Edit` 菜单，并优先用系统预定义菜单项承接 `Undo` / `Redo` / `Cut` / `Copy` / `Paste` / `Select All`，避免 WebView 内文本编辑快捷键失效
 - macOS 系统级菜单项优先使用 `PredefinedMenuItem` 承接，如 `Quit` / `Hide` / `Minimize` / `Toggle Full Screen`，这类原生行为不需要前端 `menu:*` 事件
 
@@ -99,7 +99,7 @@
 - `src/features/commands/appCommandManifest.json`：应用命令、快捷键、工作区菜单与 macOS 原生菜单的唯一清单，避免多处同步
 - `src-tauri/src/vault_fs.rs` 与 `src/tauri/vaultFs.ts`：vault 文件系统唯一访问入口；前端只能传 vault 相对路径，绝对路径、越界检查、symlink 拒绝、asset 预览放行与 Finder reveal 均由 Rust 统一处理
 - `src-tauri/src/system.rs` 与 `src/tauri/system.ts`：系统目录选择、系统消息/确认、外部链接打开等桌面系统能力入口；前端不得直接调用 dialog/opener 插件或浏览器原生弹窗
-- `src-tauri/src/app_menu.rs`：从命令清单构建 macOS 原生菜单，并按清单派发菜单事件
+- `src-tauri/src/app_menu.rs` 与 `src/tauri/appMenu.ts`：从命令清单构建 macOS 原生菜单，并通过统一前端封装监听菜单事件
 - `src-tauri/src/search_api.rs` 与 `src/tauri/search.ts`：受限搜索 API 代理，只允许调用内置搜索 provider 的固定 endpoint；需要自定义鉴权头或会被 WebView CORS 拦截的搜索 API 应优先走此代理，禁止扩展成通用任意 URL 代理
 - `src/domain`：类型与规则
 - `src/tauri`：Tauri 封装

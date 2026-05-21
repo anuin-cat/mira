@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { listen } from '@tauri-apps/api/event'
 import type { FontSize, Theme } from '../../domain/note'
 import type { AiSidebarHandle } from '../ai/sidebar'
 import type { MdxEditorHandle } from '../editor/MdxEditor'
 import type { FileTreeHandle } from '../file-tree/FileTree'
 import { COMMAND_MENU_EVENTS, getCommandIdByMenuEvent, type CommandId } from './commandRegistry'
 import { isMacOSPlatform } from '../../lib/platform'
+import { listenAppMenuEvent } from '../../tauri/appMenu'
 
 const FONT_SIZE_ORDER: FontSize[] = ['small', 'medium', 'large', 'xlarge']
 const CURRENT_NOTE_PROMPT = '请总结当前笔记，并提出 3 个值得继续追问的问题。'
@@ -312,7 +312,7 @@ export function useAppCommands(context: AppCommandContext) {
     let isDisposed = false
 
     COMMAND_MENU_EVENTS.forEach((menuEvent) => {
-      void listen(menuEvent, () => {
+      void listenAppMenuEvent(menuEvent, () => {
         const commandId = getCommandIdByMenuEvent(menuEvent)
         if (commandId) runCommand(commandId)
       })

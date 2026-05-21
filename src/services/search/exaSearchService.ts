@@ -1,7 +1,6 @@
 import type { AiSearchFreshnessPreset } from '../../domain/ai'
-import { canUseSearchApiProxy, postSearchApiJson } from '../../tauri/search'
+import { postSearchApiJson } from '../../tauri/search'
 
-const EXA_SEARCH_ENDPOINT = 'https://api.exa.ai/search'
 const DEFAULT_SEARCH_COUNT = 10
 const MIN_SEARCH_COUNT = 1
 const MAX_SEARCH_COUNT = 100
@@ -460,30 +459,13 @@ export async function searchExaWeb(options: ExaSearchOptions): Promise<ExaSearch
     ...(outputSchema ? { outputSchema } : {}),
     ...(options.moderation !== undefined ? { moderation: options.moderation } : {}),
   }
-  let responseStatus: number
-  let payload: unknown
-
-  if (canUseSearchApiProxy()) {
-    const result = await postSearchApiJson({
-      providerId: 'exa',
-      apiKey,
-      body: requestBody,
-    })
-    responseStatus = result.status
-    payload = result.body
-  } else {
-    const response = await fetch(EXA_SEARCH_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-      signal: options.signal,
-    })
-    responseStatus = response.status
-    payload = (await response.json().catch(() => null)) as unknown
-  }
+  const result = await postSearchApiJson({
+    providerId: 'exa',
+    apiKey,
+    body: requestBody,
+  })
+  const responseStatus = result.status
+  const payload = result.body
 
   if (!isSuccessfulHttpStatus(responseStatus)) {
     const message = readExaErrorMessage(payload) ?? `Exa 搜索请求失败（HTTP ${responseStatus}）`

@@ -1,7 +1,6 @@
 import type { AiSearchFreshnessPreset } from '../../domain/ai'
-import { canUseSearchApiProxy, postSearchApiJson } from '../../tauri/search'
+import { postSearchApiJson } from '../../tauri/search'
 
-const BOCHA_WEB_SEARCH_ENDPOINT = 'https://api.bocha.cn/v1/web-search'
 const DEFAULT_SEARCH_COUNT = 10
 const MIN_SEARCH_COUNT = 1
 const MAX_SEARCH_COUNT = 50
@@ -209,30 +208,13 @@ export async function searchBochaWeb(options: BochaWebSearchOptions): Promise<Bo
     ...(include ? { include } : {}),
     ...(exclude ? { exclude } : {}),
   }
-  let responseStatus: number
-  let payload: unknown
-
-  if (canUseSearchApiProxy()) {
-    const result = await postSearchApiJson({
-      providerId: 'bocha',
-      apiKey,
-      body: requestBody,
-    })
-    responseStatus = result.status
-    payload = result.body
-  } else {
-    const response = await fetch(BOCHA_WEB_SEARCH_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-      signal: options.signal,
-    })
-    responseStatus = response.status
-    payload = (await response.json().catch(() => null)) as unknown
-  }
+  const result = await postSearchApiJson({
+    providerId: 'bocha',
+    apiKey,
+    body: requestBody,
+  })
+  const responseStatus = result.status
+  const payload = result.body
   const payloadRecord = toRecord(payload)
   const bodyCode = payloadRecord?.code
 
