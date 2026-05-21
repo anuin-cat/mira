@@ -446,6 +446,17 @@
   color: var(--theme-text-secondary);
 }
 
+/* 空引用块只显示视觉提示，不写入 Markdown 原文 */
+.mira-mdx-content [data-mira-empty-quote-placeholder='true']::before {
+  content: '';
+  color: var(--theme-editor-control-placeholder);
+  pointer-events: none;
+}
+
+.mira-mdx-content:focus-within [data-mira-empty-quote-active='true']::before {
+  content: 'Shift + Enter 换行';
+}
+
 .mira-mdx-content blockquote p + p {
   margin-top: 0.58em;
 }

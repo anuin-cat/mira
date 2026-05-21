@@ -1,5 +1,5 @@
 import type { ClipboardEvent as ReactClipboardEvent } from 'react'
-import { looksLikeMarkdown } from './clipboard/markdownPaste'
+import { getMarkdownPasteMode, type MarkdownPasteMode } from './clipboard/markdownPaste'
 
 const EDITOR_SCROLL_CONTAINER_SELECTOR = '.mdxeditor-root-contenteditable'
 const EDITOR_CONTENT_SELECTOR = [
@@ -125,16 +125,18 @@ export function restoreEditorScrollSnapshot(snapshot: EditorScrollSnapshot | nul
   })
 }
 
-/** 判断本次粘贴是否应该走 Markdown 导入，而不是按普通文本插入 */
-export function shouldImportMarkdownFromPaste(event: ReactClipboardEvent<HTMLDivElement>) {
+export type EditorPasteMode = MarkdownPasteMode
+
+/** 判断本次粘贴应由编辑器接管，还是交给原生粘贴链路 */
+export function getEditorPasteMode(event: ReactClipboardEvent<HTMLDivElement>): EditorPasteMode {
   // 1. 表单控件和 CodeMirror 代码块应保留原生粘贴，避免 Markdown 自动导入吞掉文本
   const targetElement = event.target instanceof HTMLElement ? event.target : null
-  if (targetElement?.closest(PASTE_MARKDOWN_IMPORT_IGNORED_TARGET_SELECTOR)) return false
+  if (targetElement?.closest(PASTE_MARKDOWN_IMPORT_IGNORED_TARGET_SELECTOR)) return 'native'
 
   // 2. 文件/图片粘贴交给编辑器现有逻辑处理，不在这里接管
   const clipboardData = event.clipboardData
-  if (!clipboardData || clipboardData.files.length > 0) return false
+  if (!clipboardData || clipboardData.files.length > 0) return 'native'
 
-  // 3. 只有纯文本里出现明显 Markdown 语法时，才触发自动导入
-  return looksLikeMarkdown(clipboardData.getData('text/plain'))
+  // 3. 只有安全 Markdown 才导入；已知不支持的 Markdown 按纯文本接管
+  return getMarkdownPasteMode(clipboardData.getData('text/plain'))
 }

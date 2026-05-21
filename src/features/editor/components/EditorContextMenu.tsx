@@ -1,4 +1,3 @@
-import { type MDXEditorMethods } from '@mdxeditor/editor'
 import {
   Bold,
   ClipboardPaste,
@@ -11,9 +10,8 @@ import {
   Strikethrough,
   Underline,
 } from 'lucide-react'
-import { type ReactNode, type RefObject } from 'react'
+import { type ReactNode } from 'react'
 import { getPlatformShortcut, type PlatformShortcut } from '../../../lib/platform'
-import { sanitizeMarkdownForMdxPaste } from '../clipboard/markdownPaste'
 
 const EDITOR_CONTEXT_MENU_WIDTH = 172
 const EDITOR_CONTEXT_MENU_HEIGHT = 316
@@ -117,19 +115,6 @@ export function clickToolbarButtonByLabel(shellElement: HTMLElement | null, labe
 
   button.click()
   return true
-}
-
-/** 粘贴剪贴板文本，优先复用 Markdown 导入逻辑 */
-export async function pasteClipboardTextIntoEditor(editorRef: RefObject<MDXEditorMethods | null>) {
-  try {
-    const clipboardText = await navigator.clipboard?.readText?.()
-    if (!clipboardText) return false
-
-    editorRef.current?.insertMarkdown(sanitizeMarkdownForMdxPaste(clipboardText))
-    return true
-  } catch {
-    return document.execCommand('paste')
-  }
 }
 
 /** 编辑器选中文本时显示的轻量右键菜单，只保留 Mira 编辑相关操作 */

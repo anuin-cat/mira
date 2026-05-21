@@ -5,19 +5,12 @@ import type { MdxEditorHandle } from '../editor/MdxEditor'
 import type { FileTreeHandle } from '../file-tree/FileTree'
 import { COMMAND_MENU_EVENTS, getCommandIdByMenuEvent, type CommandId } from './commandRegistry'
 import { isMacOSPlatform } from '../../lib/platform'
+import { insertPlainTextIntoFocusedTarget } from '../../lib/plainTextInput'
 import { listenAppMenuEvent } from '../../tauri/appMenu'
 
 const FONT_SIZE_ORDER: FontSize[] = ['small', 'medium', 'large', 'xlarge']
 const CURRENT_NOTE_PROMPT = '请总结当前笔记，并提出 3 个值得继续追问的问题。'
 const TEXT_INPUT_SELECTOR = 'input, textarea, select, [contenteditable="true"]'
-const PLAIN_TEXT_INPUT_TYPES = new Set([
-  'email',
-  'password',
-  'search',
-  'tel',
-  'text',
-  'url',
-])
 
 /** 释放 Tauri 菜单监听；HMR 或窗口销毁时底层监听可能已不存在，清理失败可忽略 */
 function disposeMenuListener(unlisten: () => void | Promise<void>) {
@@ -124,33 +117,6 @@ function handleFontSizeStep(context: AppCommandContext, step: -1 | 1) {
   const currentIndex = FONT_SIZE_ORDER.indexOf(currentSize ?? 'medium')
   const nextIndex = Math.min(Math.max(currentIndex + step, 0), FONT_SIZE_ORDER.length - 1)
   context.handleFontSizeChange(FONT_SIZE_ORDER[nextIndex])
-}
-
-/** 向当前聚焦的输入控件插入纯文本，供粘贴并匹配样式复用 */
-function insertPlainTextIntoFocusedTarget(text: string) {
-  const activeElement = document.activeElement
-
-  if (activeElement instanceof HTMLTextAreaElement) {
-    const selectionStart = activeElement.selectionStart ?? activeElement.value.length
-    const selectionEnd = activeElement.selectionEnd ?? selectionStart
-    activeElement.setRangeText(text, selectionStart, selectionEnd, 'end')
-    activeElement.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }))
-    return true
-  }
-
-  if (activeElement instanceof HTMLInputElement && PLAIN_TEXT_INPUT_TYPES.has(activeElement.type)) {
-    const selectionStart = activeElement.selectionStart ?? activeElement.value.length
-    const selectionEnd = activeElement.selectionEnd ?? selectionStart
-    activeElement.setRangeText(text, selectionStart, selectionEnd, 'end')
-    activeElement.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }))
-    return true
-  }
-
-  if (activeElement instanceof HTMLElement && activeElement.isContentEditable) {
-    return document.execCommand('insertText', false, text)
-  }
-
-  return false
 }
 
 /** 粘贴纯文本，避免把外部富文本样式或 Markdown 结构带入当前输入区 */

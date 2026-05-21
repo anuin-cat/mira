@@ -4,11 +4,18 @@ const MARKDOWN_PASTE_INLINE_RE =
   /(?:!\[[^\]]*]\([^)]+\)|\[[^\]]+\]\([^)]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`)/
 const MARKDOWN_PASTE_DISPLAY_MATH_RE = /(?:^|\n)\s{0,3}\$\$[\s\S]*?\S[\s\S]*?\$\$\s*(?=\n|$)/
 const MARKDOWN_PASTE_INLINE_MATH_RE = /(^|[^\\$])\$((?:\\.|[^$\n])+)\$(?!\$)/
+const MARKDOWN_REFERENCE_LINK_RE = /!?\[(?:\\.|[^\]\\\n])+\]\[(?:\\.|[^\]\\\n])*\]/
+const MARKDOWN_REFERENCE_DEFINITION_RE = /^\s{0,3}\[(?:\\.|[^\]\\\n])+]:/
+const MARKDOWN_FOOTNOTE_REFERENCE_RE = /\[\^(?:\\.|[^\]\\\n])+\]/
+const MARKDOWN_FOOTNOTE_DEFINITION_RE = /^\s{0,3}\[\^(?:\\.|[^\]\\\n])+]:/
 const FENCED_CODE_BLOCK_RE = /^(\s*)(`{3,}|~{3,})(.*)$/
-const MDX_SAFE_HTML_TAGS = new Set(['br', 'img', 'span', 'sub', 'sup', 'u'])
+const MDX_SUPPORTED_HTML_TAGS = new Set(['img', 'sub', 'sup', 'u'])
 const MDX_TAG_NAME_START_RE = /[A-Za-z/$!?]/
+const MARKDOWN_PLAIN_TEXT_ESCAPE_RE = /[\\`*_[\]{}()#+\-.!|<>~$]/g
 const URL_AUTOLINK_RE = /^[A-Za-z][A-Za-z0-9+.-]*:[^\s<>]+$/
 const EMAIL_AUTOLINK_RE = /^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/
+
+export type MarkdownPasteMode = 'markdown' | 'plain-text' | 'native'
 
 /** 归一化剪贴板里的 Markdown 文本，减少 BOM 与换行差异干扰 */
 function normalizeMarkdownPasteText(text: string) {
@@ -19,6 +26,78 @@ function normalizeMarkdownPasteText(text: string) {
 function hasMarkdownMath(text: string) {
   if (MARKDOWN_PASTE_DISPLAY_MATH_RE.test(text)) return true
   return MARKDOWN_PASTE_INLINE_MATH_RE.test(text)
+}
+
+/** 去掉行内代码片段，避免代码里的 Markdown 字面量影响粘贴策略 */
+function stripInlineCodeSpans(line: string) {
+  let result = ''
+  let cursor = 0
+
+  // 1. 顺序扫描整行，只把成对反引号中的内容排除出语法探测
+  while (cursor < line.length) {
+    if (line[cursor] === '`') {
+      const delimiterMatch = /^`+/.exec(line.slice(cursor))
+      const delimiter = delimiterMatch?.[0] ?? '`'
+      const closingIndex = line.indexOf(delimiter, cursor + delimiter.length)
+      if (closingIndex !== -1) {
+        cursor = closingIndex + delimiter.length
+        continue
+      }
+    }
+
+    // 2. 未闭合反引号按普通文本处理，避免误吞掉整行
+    result += line[cursor]
+    cursor += 1
+  }
+
+  return result
+}
+
+/** 判断当前行是否含有 MDXEditor 已知不能稳定导入的 Markdown 结构 */
+function hasKnownUnsupportedMdxSyntaxLine(line: string) {
+  const searchableLine = stripInlineCodeSpans(line)
+
+  return (
+    MARKDOWN_REFERENCE_DEFINITION_RE.test(searchableLine) ||
+    MARKDOWN_REFERENCE_LINK_RE.test(searchableLine) ||
+    MARKDOWN_FOOTNOTE_DEFINITION_RE.test(searchableLine) ||
+    MARKDOWN_FOOTNOTE_REFERENCE_RE.test(searchableLine)
+  )
+}
+
+/** 判断 Markdown 是否包含会让 MDXEditor 部分导入后中断的已知结构 */
+function hasKnownUnsupportedMdxPasteSyntax(text: string) {
+  const normalizedText = normalizeMarkdownPasteText(text)
+  const lines = normalizedText.split('\n')
+  let activeFence: { marker: '`' | '~'; length: number } | null = null
+
+  // 1. 围栏代码块里的内容应按代码保留，不参与 Markdown 结构探测
+  for (const line of lines) {
+    const fenceMatch = matchFence(line)
+    if (activeFence) {
+      if (
+        fenceMatch &&
+        fenceMatch[2][0] === activeFence.marker &&
+        fenceMatch[2].length >= activeFence.length
+      ) {
+        activeFence = null
+      }
+      continue
+    }
+
+    if (fenceMatch) {
+      activeFence = {
+        marker: fenceMatch[2][0] as '`' | '~',
+        length: fenceMatch[2].length,
+      }
+      continue
+    }
+
+    // 2. reference link、definition、footnote 会生成 MDXEditor 无 visitor 的 mdast 节点
+    if (hasKnownUnsupportedMdxSyntaxLine(line)) return true
+  }
+
+  return false
 }
 
 /** 判断一段纯文本是否明显带有 Markdown 语法，避免误伤普通粘贴 */
@@ -37,6 +116,17 @@ export function looksLikeMarkdown(text: string) {
   return MARKDOWN_PASTE_INLINE_RE.test(normalizedText)
 }
 
+/** 判断剪贴板文本应以何种方式进入 MDXEditor */
+export function getMarkdownPasteMode(text: string): MarkdownPasteMode {
+  // 1. 普通纯文本交给浏览器和 Lexical 原生粘贴，减少不必要的接管
+  if (!looksLikeMarkdown(text)) return 'native'
+
+  // 2. MDXEditor 已知不支持的 Markdown 结构按纯文本插入，优先保证内容完整
+  if (hasKnownUnsupportedMdxPasteSyntax(text)) return 'plain-text'
+
+  return 'markdown'
+}
+
 /** 判断当前行是否开启或关闭了围栏代码块 */
 function matchFence(line: string) {
   return FENCED_CODE_BLOCK_RE.exec(line)
@@ -48,12 +138,7 @@ function isSafeMdxHtmlTag(segment: string) {
   const tagNameMatch = /^\/?\s*([A-Za-z_$][A-Za-z0-9_$:-]*)/.exec(inner)
   if (!tagNameMatch) return false
 
-  return MDX_SAFE_HTML_TAGS.has(tagNameMatch[1].toLowerCase())
-}
-
-/** 保留 HTML 注释、声明等编辑器已支持的原始语法 */
-function shouldPreserveRawHtmlSegment(segment: string) {
-  return segment.startsWith('<!--') || segment.startsWith('<!') || segment.startsWith('<?')
+  return MDX_SUPPORTED_HTML_TAGS.has(tagNameMatch[1].toLowerCase())
 }
 
 /** 判断尖括号包裹内容是否是 Markdown 自动链接 */
@@ -113,12 +198,6 @@ function sanitizeMarkdownLine(line: string) {
       }
 
       const segment = line.slice(cursor, closingIndex + 1)
-      if (shouldPreserveRawHtmlSegment(segment)) {
-        result += segment
-        cursor = closingIndex + 1
-        continue
-      }
-
       const autolinkReplacement = getAutolinkReplacement(segment)
       if (autolinkReplacement) {
         result += autolinkReplacement
@@ -177,4 +256,15 @@ export function sanitizeMarkdownForMdxPaste(text: string) {
   }
 
   return sanitizedLines.join('\n')
+}
+
+/** 把任意纯文本转成可被 Markdown 安全解析的字面量文本 */
+export function escapePlainTextForMdxMarkdown(text: string) {
+  const normalizedText = normalizeMarkdownPasteText(text)
+
+  // 1. 反斜杠转义所有常见 Markdown / MDX 触发字符，保证显示内容不被重新解释
+  return normalizedText
+    .split('\n')
+    .map((line) => line.replace(MARKDOWN_PLAIN_TEXT_ESCAPE_RE, '\\$&'))
+    .join('\n')
 }

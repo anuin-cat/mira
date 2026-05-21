@@ -22,7 +22,7 @@ import {
   selectVisibleTextMatch,
 } from './search/currentFileSearch'
 import { getSelectionMarkdownFromDom } from './clipboard/markdownCopy'
-import { sanitizeMarkdownForMdxPaste } from './clipboard/markdownPaste'
+import { useMdxPasteController } from './clipboard/useMdxPasteController'
 import {
   clickToolbarButtonByLabel,
   EditorContextMenu,
@@ -30,7 +30,6 @@ import {
   type EditorContextMenuState,
   getClampedContextMenuPosition,
   hasEditorTextSelection,
-  pasteClipboardTextIntoEditor,
 } from './components/EditorContextMenu'
 import {
   getMarkdownAfterTableCut,
@@ -46,12 +45,12 @@ import { createMdxTableInputLayoutController } from './table/tableInputLayout'
 import {
   captureEditorScrollSnapshot,
   getEditorContentElement,
+  getEditorPasteMode,
   isBlockTypeSelectInteractionTarget,
   isTaskCheckboxPointerTarget,
   isWholeEditorContentSelected,
   isWindowDragIgnoredTarget,
   restoreEditorScrollSnapshot,
-  shouldImportMarkdownFromPaste,
   type EditorScrollSnapshot,
 } from './mdxEditorDom'
 import { createEditorPlugins, translateMdxToolbar } from './mdxEditorPlugins'
@@ -94,6 +93,12 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
   const latestMarkdownRef = useRef(initialContent)
   const [isEditorSearchOpen, setIsEditorSearchOpen] = useState(false)
   const [contextMenu, setContextMenu] = useState<EditorContextMenuState | null>(null)
+  const {
+    insertMarkdownIntoEditor,
+    insertPlainTextIntoEditor,
+    pasteClipboardTextIntoEditor,
+    scheduleMarkdownPasteRecovery,
+  } = useMdxPasteController({ editorRef, latestMarkdownRef, onChange })
   const handleSelectEditorSearchMatch = useCallback((query: string, matchOrdinal: number) => {
     return selectCurrentFileSearchMatch(shellRef.current, query, matchOrdinal)
   }, [])
@@ -445,22 +450,26 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     window.getSelection()?.removeAllRanges()
   }
 
-  /** 捕获粘贴事件，把明显的 Markdown 纯文本按语法导入为富文本块 */
+  /** 捕获粘贴事件，把安全 Markdown 导入为富文本，不支持的结构按纯文本保留 */
   function handleEditorPasteCapture(event: ReactClipboardEvent<HTMLDivElement>) {
     // 1. 先判断当前粘贴是否适合走 Markdown 导入
-    if (!shouldImportMarkdownFromPaste(event)) return
+    const pasteMode = getEditorPasteMode(event)
+    if (pasteMode === 'native') return
 
     // 2. 阻止浏览器与 Lexical 的默认粘贴链路，避免 Markdown 被插入两次
-    const pastedMarkdown = event.clipboardData.getData('text/plain')
-    if (!pastedMarkdown) return
+    const pastedText = event.clipboardData.getData('text/plain')
+    if (!pastedText) return
 
     event.preventDefault()
     event.stopPropagation()
     event.nativeEvent.stopImmediatePropagation?.()
 
-    // 3. 先清洗会把 MDX 解析器卡死的尖括号片段，再交给编辑器按 Markdown 导入
-    const sanitizedMarkdown = sanitizeMarkdownForMdxPaste(pastedMarkdown)
-    editorRef.current?.insertMarkdown(sanitizedMarkdown)
+    // 3. 只有安全 Markdown 走结构化导入，其他已知风险语法按纯文本保留
+    if (pasteMode === 'markdown') {
+      insertMarkdownIntoEditor(pastedText)
+    } else {
+      insertPlainTextIntoEditor(pastedText)
+    }
   }
 
   /** 接管正文选区右键，替换 WebView 的系统级上下文菜单 */
@@ -520,7 +529,7 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
     if (labels && clickToolbarButtonByLabel(shellElement, labels)) return
     if (actionId === 'copy') document.execCommand('copy')
     if (actionId === 'cut') document.execCommand('cut')
-    if (actionId === 'paste') void pasteClipboardTextIntoEditor(editorRef)
+    if (actionId === 'paste') void pasteClipboardTextIntoEditor()
   }
 
   return (
@@ -556,6 +565,10 @@ export const MdxEditor = forwardRef<MdxEditorHandle, Props>(function MdxEditor(
             }
           }}
           onError={({ error, source }) => {
+            if (scheduleMarkdownPasteRecovery(source)) {
+              console.warn('MDXEditor 粘贴 Markdown 失败，已回退为纯文本', { error, source })
+              return
+            }
             console.warn('MDXEditor 解析 Markdown 失败', { error, source })
           }}
         />
