@@ -1,9 +1,9 @@
-import { convertFileSrc } from '@tauri-apps/api/core'
 import {
+  getAssetFileSource,
   ensureDir,
   pathExists,
   writeBinaryFile,
-} from '../../tauri/fs'
+} from '../../tauri/vaultFs'
 import {
   ATTACHMENTS_ROOT_DIR,
   getBaseName,
@@ -50,12 +50,6 @@ const UNSAFE_FILE_NAME_CHAR_RE = /[\/\\:*?"<>|#%&{}$!`'@+=\[\]()]/g
 interface ImageAttachmentContext {
   vaultPath: string
   notePath: string
-}
-
-/** 拼接 vault 绝对路径与相对路径 */
-function absoluteVaultPath(vaultPath: string, relativePath: string | null): string {
-  const rootPath = vaultPath.replace(/\/+$/, '')
-  return relativePath ? `${rootPath}/${relativePath}` : rootPath
 }
 
 /** 使用本地时间生成附件年月目录 */
@@ -117,7 +111,7 @@ function assertImageFile(file: File) {
 }
 
 /** 找到不会覆盖已有图片的附件相对路径 */
-async function resolveAvailableAttachmentPath(vaultPath: string, directoryPath: string, file: File) {
+async function resolveAvailableAttachmentPath(directoryPath: string, file: File) {
   // 1. 根据原始文件名生成基础名称
   const extension = getImageExtension(file)
   const namePrefix = sanitizeImageNamePrefix(file.name, extension)
@@ -128,7 +122,7 @@ async function resolveAvailableAttachmentPath(vaultPath: string, directoryPath: 
     const suffix = index === 1 ? '' : `-${index}`
     const fileName = `${namePrefix}${suffix}${extension}`
     const relativePath = joinRelativePath(directoryPath, fileName)
-    const exists = await pathExists(absoluteVaultPath(vaultPath, relativePath))
+    const exists = await pathExists(relativePath)
     if (!exists) return relativePath
     index += 1
   }
@@ -196,23 +190,23 @@ function resolveVaultRelativeImagePath(src: string, notePath: string) {
 }
 
 /** 保存图片附件，并返回写入 Markdown 的当前笔记相对路径 */
-export async function saveImageAttachment(file: File, { vaultPath, notePath }: ImageAttachmentContext) {
+export async function saveImageAttachment(file: File, { notePath }: ImageAttachmentContext) {
   // 1. 校验图片并准备附件目录
   assertImageFile(file)
   const attachmentDir = getAttachmentMonthPath(new Date())
-  await ensureDir(absoluteVaultPath(vaultPath, attachmentDir))
+  await ensureDir(attachmentDir)
 
   // 2. 写入二进制文件，已有同名文件时自动追加序号
-  const attachmentPath = await resolveAvailableAttachmentPath(vaultPath, attachmentDir, file)
+  const attachmentPath = await resolveAvailableAttachmentPath(attachmentDir, file)
   const content = new Uint8Array(await file.arrayBuffer())
-  await writeBinaryFile(absoluteVaultPath(vaultPath, attachmentPath), content)
+  await writeBinaryFile(attachmentPath, content)
 
   // 3. 返回相对当前笔记的 Markdown 图片路径
   return getMarkdownRelativePath(notePath, attachmentPath)
 }
 
 /** 解析 Markdown 图片源为 WebView 可展示的地址 */
-export async function resolveImagePreviewSource(src: string, { vaultPath, notePath }: ImageAttachmentContext) {
+export async function resolveImagePreviewSource(src: string, { notePath }: ImageAttachmentContext) {
   // 1. 网络、data/blob 等 URL 不做本地路径转换
   if (isUrlLikeImageSource(src)) return src
 
@@ -220,5 +214,5 @@ export async function resolveImagePreviewSource(src: string, { vaultPath, notePa
   const vaultRelativePath = resolveVaultRelativeImagePath(src, notePath)
   if (!vaultRelativePath) throw new Error('图片路径不能指向 vault 外部')
 
-  return convertFileSrc(absoluteVaultPath(vaultPath, vaultRelativePath))
+  return await getAssetFileSource(vaultRelativePath)
 }

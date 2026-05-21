@@ -1,4 +1,5 @@
-import { allowVaultPathAccess, ensureDir, pathExists, readFile, selectDirectory, writeFile } from '../tauri/fs'
+import { selectDirectory } from '../tauri/fs'
+import { ensureDir, pathExists, readFile, setVaultRoot, writeFile } from '../tauri/vaultFs'
 import type { FontSize, VaultState } from '../domain/note'
 import { MIRA_DIR } from './pathUtils'
 import { normalizeTreeOrder } from './treeOrderService'
@@ -31,13 +32,13 @@ export function setVaultPath(path: string): void {
 
 /** 初始化 vault 内部状态目录，用户内容目录不由 Mira 创建 */
 export async function ensureVaultSystem(vaultPath: string): Promise<void> {
-  await allowVaultPathAccess(vaultPath)
-  await ensureDir(`${vaultPath}/${MIRA_DIR}`)
+  await setVaultRoot(vaultPath)
+  await ensureDir(MIRA_DIR)
 }
 
 /** 读取 .mira/state.json，不存在或损坏时返回默认状态 */
-export async function readVaultState(vaultPath: string): Promise<VaultState> {
-  const raw = await readFile(`${vaultPath}/${STATE_FILE}`)
+export async function readVaultState(_vaultPath: string): Promise<VaultState> {
+  const raw = await readFile(STATE_FILE)
   if (!raw) return { ...DEFAULT_VAULT_STATE }
 
   try {
@@ -57,11 +58,10 @@ export async function readVaultState(vaultPath: string): Promise<VaultState> {
 }
 
 /** 写入可丢弃 UI 状态，.mira 被删除时会自动重建 */
-export async function writeVaultState(vaultPath: string, state: VaultState): Promise<void> {
-  const internalDir = `${vaultPath}/${MIRA_DIR}`
-  const dirExists = await pathExists(internalDir)
-  if (!dirExists) await ensureDir(internalDir)
-  await writeFile(`${vaultPath}/${STATE_FILE}`, JSON.stringify(state, null, 2))
+export async function writeVaultState(_vaultPath: string, state: VaultState): Promise<void> {
+  const dirExists = await pathExists(MIRA_DIR)
+  if (!dirExists) await ensureDir(MIRA_DIR)
+  await writeFile(STATE_FILE, JSON.stringify(state, null, 2))
 }
 
 /** 弹出目录选择框，保存路径并初始化内部状态 */

@@ -1,77 +1,29 @@
 mod search_api;
+mod vault_fs;
 mod web_fetch;
 
-use std::path::PathBuf;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{Emitter, Manager};
-use tauri_plugin_fs::FsExt;
-
-const TRASH_ROOT_DIR: &str = "trash";
-const TRASH_METADATA_FILE: &str = ".mira-trash.json";
-
-/** 校验回收站批次 id，只允许路径安全字符 */
-fn is_safe_trash_item_id(item_id: &str) -> bool {
-    !item_id.is_empty()
-        && item_id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
-}
-
-/** 允许前端访问用户选择的 vault 目录及其附件预览资源 */
-#[tauri::command]
-fn allow_vault_path_access(app: tauri::AppHandle, path: String) -> Result<(), String> {
-    let vault_path = PathBuf::from(path);
-    if !vault_path.is_absolute() {
-        return Err("Vault 路径必须是绝对路径".to_string());
-    }
-
-    app.fs_scope()
-        .allow_directory(&vault_path, true)
-        .map_err(|error| error.to_string())?;
-
-    app.asset_protocol_scope()
-        .allow_directory(&vault_path, true)
-        .map_err(|error| error.to_string())?;
-
-    Ok(())
-}
-
-/** 允许前端访问单个回收站元数据文件，覆盖 Unix 点文件默认不匹配通配符的问题 */
-#[tauri::command]
-fn allow_trash_metadata_access(
-    app: tauri::AppHandle,
-    vault_path: String,
-    item_id: String,
-) -> Result<(), String> {
-    let vault_path = PathBuf::from(vault_path);
-    if !vault_path.is_absolute() {
-        return Err("Vault 路径必须是绝对路径".to_string());
-    }
-    if !is_safe_trash_item_id(&item_id) {
-        return Err("回收站条目无效".to_string());
-    }
-
-    let metadata_path = vault_path
-        .join(TRASH_ROOT_DIR)
-        .join(item_id)
-        .join(TRASH_METADATA_FILE);
-
-    app.fs_scope()
-        .allow_file(&metadata_path)
-        .map_err(|error| error.to_string())?;
-
-    Ok(())
-}
+use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(vault_fs::VaultRootState::default())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            allow_trash_metadata_access,
-            allow_vault_path_access,
+            vault_fs::vault_create_dir,
+            vault_fs::vault_exists,
+            vault_fs::vault_get_asset_file_path,
+            vault_fs::vault_read_dir,
+            vault_fs::vault_read_text,
+            vault_fs::vault_remove,
+            vault_fs::vault_rename,
+            vault_fs::vault_reveal_in_finder,
+            vault_fs::vault_set_root,
+            vault_fs::vault_stat,
+            vault_fs::vault_write_binary,
+            vault_fs::vault_write_text,
             search_api::search_api_post_json,
             web_fetch::web_fetch_url,
         ])

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import {
   ensureVaultSystem,
   getVaultPath,
@@ -7,6 +6,7 @@ import {
   setupVault,
   writeVaultState,
 } from '../../services/vaultService'
+import { revealInFinder } from '../../tauri/vaultFs'
 import {
   readNote,
   saveNote,
@@ -428,9 +428,8 @@ export function useVaultWorkspace({
     const path = vaultPathRef.current
     if (!path) return
 
-    const targetPath = activePathRef.current ? `${path}/${activePathRef.current}` : path
     try {
-      await revealItemInDir(targetPath)
+      await revealInFinder(activePathRef.current)
     } catch (error) {
       window.alert(getErrorMessage(error))
     }
