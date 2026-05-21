@@ -1,5 +1,5 @@
 import type { ClipboardEvent as ReactClipboardEvent } from 'react'
-import { looksLikeMarkdown } from './markdownPaste'
+import { looksLikeMarkdown } from './clipboard/markdownPaste'
 
 const EDITOR_SCROLL_CONTAINER_SELECTOR = '.mdxeditor-root-contenteditable'
 const EDITOR_CONTENT_SELECTOR = [

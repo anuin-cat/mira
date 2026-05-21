@@ -18,6 +18,11 @@ export async function allowVaultPathAccess(path: string): Promise<void> {
   await invoke('allow_vault_path_access', { path })
 }
 
+/** 让 Tauri 文件系统放行单个回收站元数据文件 */
+export async function allowTrashMetadataAccess(vaultPath: string, itemId: string): Promise<void> {
+  await invoke('allow_trash_metadata_access', { vaultPath, itemId })
+}
+
 /** 弹出系统目录选择框 */
 export async function selectDirectory(title: string): Promise<string | null> {
   const result = await open({ directory: true, multiple: false, title })

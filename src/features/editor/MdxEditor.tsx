@@ -14,15 +14,15 @@ import {
   useState,
 } from 'react'
 import { startWindowDrag, toggleWindowMaximize } from '../../tauri/window'
-import { type EditorSearchControlsHandle } from './EditorSearchControls'
+import { type EditorSearchControlsHandle } from './search/EditorSearchControls'
 import {
   clearCurrentFileSearchHighlights,
   scrollSelectionIntoView,
   selectCurrentFileSearchMatch,
   selectVisibleTextMatch,
-} from './currentFileSearch'
-import { getSelectionMarkdownFromDom } from './markdownCopy'
-import { sanitizeMarkdownForMdxPaste } from './markdownPaste'
+} from './search/currentFileSearch'
+import { getSelectionMarkdownFromDom } from './clipboard/markdownCopy'
+import { sanitizeMarkdownForMdxPaste } from './clipboard/markdownPaste'
 import {
   clickToolbarButtonByLabel,
   EditorContextMenu,
@@ -31,7 +31,7 @@ import {
   getClampedContextMenuPosition,
   hasEditorTextSelection,
   pasteClipboardTextIntoEditor,
-} from './EditorContextMenu'
+} from './components/EditorContextMenu'
 import {
   getMarkdownAfterTableCut,
   getSelectedTablePayload,

@@ -1,7 +1,7 @@
 import type { AiTextReference } from '../../domain/ai'
 import { getDisplayName } from '../../services/pathUtils'
 import { getEditorContentElement } from './mdxEditorDom'
-import { getSelectionMarkdownFromDom } from './markdownCopy'
+import { getSelectionMarkdownFromDom } from './clipboard/markdownCopy'
 
 interface CreateSelectionReferenceInput {
   shellElement: HTMLElement | null

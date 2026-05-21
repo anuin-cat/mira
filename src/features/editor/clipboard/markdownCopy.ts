@@ -1,6 +1,6 @@
 /** 从编辑器 DOM 选区生成 Markdown 复制文本 */
 
-import { INLINE_MATH_CARET_MARKER } from './math/inlineMathCaret'
+import { INLINE_MATH_CARET_MARKER } from '../math/inlineMathCaret'
 
 const MIRA_MATH_KIND_ATTR = 'data-mira-math-kind'
 const MIRA_MATH_VALUE_ATTR = 'data-mira-math-value'

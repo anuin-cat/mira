@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, Search, X } from 'lucide-react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { isImeComposing } from '../../lib/keyboard'
+import { isImeComposing } from '../../../lib/keyboard'
 import type { EditorSearchSelectionResult } from './currentFileSearch'
 
 const SEARCH_SYNC_DELAY_MS = 160

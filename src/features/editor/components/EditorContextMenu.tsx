@@ -12,8 +12,8 @@ import {
   Underline,
 } from 'lucide-react'
 import { type ReactNode, type RefObject } from 'react'
-import { getPlatformShortcut, type PlatformShortcut } from '../../lib/platform'
-import { sanitizeMarkdownForMdxPaste } from './markdownPaste'
+import { getPlatformShortcut, type PlatformShortcut } from '../../../lib/platform'
+import { sanitizeMarkdownForMdxPaste } from '../clipboard/markdownPaste'
 
 const EDITOR_CONTEXT_MENU_WIDTH = 172
 const EDITOR_CONTEXT_MENU_HEIGHT = 316

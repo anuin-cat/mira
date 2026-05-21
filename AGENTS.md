@@ -123,7 +123,7 @@
 
 - `src/components`：UI 组件
 - `src/features`：功能模块
-- `src/features/editor/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
+- `src/features/editor/search/currentFileSearch.ts`：当前编辑器内搜索、高亮与滚动定位逻辑
 - `src/features/editor/taskListAutoNumber.ts`：编辑器连续待办视觉编号标注逻辑；只增强展示，不把序号写入 Markdown 原文
 - `src/features/editor/math`：编辑器数学公式解析、渲染、原位源码编辑与 Markdown 导出逻辑
 - `src/features/vault/search`：vault 级搜索逻辑；命令弹层只负责展示和调度，不承载搜索算法
@@ -184,7 +184,7 @@ vault/
 
 - 全 Vault 搜索必须按 vault 规模选择策略：小 vault 可构建轻量内存索引，大 vault 或大文件按需逐文件扫描，避免打开搜索面板就把所有正文读入内存
 - 文件树扫描应保留 Markdown 文件 `sizeBytes`，搜索策略用文件数、总字节数和单文件大小判断是否降级
-- 当前文件搜索只扫描已打开编辑器内容；高亮与跳转逻辑集中在 `src/features/editor/currentFileSearch.ts`
+- 当前文件搜索只扫描已打开编辑器内容；高亮与跳转逻辑集中在 `src/features/editor/search/currentFileSearch.ts`
 
 ## 平台限制与解决方案
 

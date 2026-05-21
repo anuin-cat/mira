@@ -1,5 +1,6 @@
 import type { TrashItem, VaultEntryKind } from '../domain/note'
 import {
+  allowTrashMetadataAccess,
   ensureDir,
   getFileInfo,
   listEntries,
@@ -97,7 +98,9 @@ function getTrashExpiresAt(deletedAt: string): string | null {
 /** 读取并校验回收站元数据 */
 async function readTrashMetadata(vaultPath: string, itemId: string): Promise<TrashMetadata | null> {
   if (!SAFE_TRASH_ITEM_ID_RE.test(itemId)) return null
-  const raw = await readFile(absoluteVaultPath(vaultPath, joinRelativePath(TRASH_ROOT_DIR, itemId, TRASH_METADATA_FILE)))
+  const metadataAbsPath = absoluteVaultPath(vaultPath, joinRelativePath(TRASH_ROOT_DIR, itemId, TRASH_METADATA_FILE))
+  await allowTrashMetadataAccess(vaultPath, itemId)
+  const raw = await readFile(metadataAbsPath)
   if (!raw) return null
 
   try {
@@ -159,10 +162,9 @@ export async function moveEntryToTrash(
   if (targetParentPath) await ensureDir(absoluteVaultPath(vaultPath, targetParentPath))
 
   const metadata: TrashMetadata = { id: itemId, originalPath: normalizedPath, kind, deletedAt }
-  await writeFile(
-    absoluteVaultPath(vaultPath, joinRelativePath(itemDir, TRASH_METADATA_FILE)),
-    JSON.stringify(metadata, null, 2)
-  )
+  const metadataAbsPath = absoluteVaultPath(vaultPath, joinRelativePath(itemDir, TRASH_METADATA_FILE))
+  await allowTrashMetadataAccess(vaultPath, itemId)
+  await writeFile(metadataAbsPath, JSON.stringify(metadata, null, 2))
 
   // 3. 移动原始内容；失败时移除空批次，避免留下不可恢复条目
   try {

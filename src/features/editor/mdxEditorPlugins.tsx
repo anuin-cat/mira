@@ -18,14 +18,14 @@ import {
 import { Check, Copy } from 'lucide-react'
 import { useEffect, useState, type MouseEvent, type Ref } from 'react'
 import { getPlatformShortcut, type PlatformShortcut } from '../../lib/platform'
-import { EditorSearchControlsHandle } from './EditorSearchControls'
-import type { EditorSearchSelectionResult } from './currentFileSearch'
-import { MiraLinkDialog } from './MiraLinkDialog'
-import { MiraToolbar } from './MiraToolbar'
-import { miraMarkdownShortcutPlugin } from './miraMarkdownShortcutPlugin'
+import { EditorSearchControlsHandle } from './search/EditorSearchControls'
+import type { EditorSearchSelectionResult } from './search/currentFileSearch'
+import { MiraLinkDialog } from './components/MiraLinkDialog'
+import { MiraToolbar } from './components/MiraToolbar'
+import { miraMarkdownShortcutPlugin } from './plugins/miraMarkdownShortcutPlugin'
 import { mdxMathPlugin } from './math/mdxMathPlugin'
-import { mdxListStartPlugin } from './mdxListStartPlugin'
-import { singleTildeStrikethroughPlugin } from './singleTildeStrikethroughPlugin'
+import { mdxListStartPlugin } from './plugins/mdxListStartPlugin'
+import { singleTildeStrikethroughPlugin } from './plugins/singleTildeStrikethroughPlugin'
 import {
   ATTACHMENTS_ROOT_DIR,
   resolveImagePreviewSource,

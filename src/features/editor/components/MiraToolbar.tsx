@@ -13,9 +13,9 @@ import {
   UndoRedo,
 } from '@mdxeditor/editor'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
-import { getPlatformShortcut, type PlatformShortcut } from '../../lib/platform'
-import { EditorSearchControls, type EditorSearchControlsHandle } from './EditorSearchControls'
-import type { EditorSearchSelectionResult } from './currentFileSearch'
+import { getPlatformShortcut, type PlatformShortcut } from '../../../lib/platform'
+import { EditorSearchControls, type EditorSearchControlsHandle } from '../search/EditorSearchControls'
+import type { EditorSearchSelectionResult } from '../search/currentFileSearch'
 
 const TOOLBAR_ACTION_GAP = 6
 const TOOLBAR_LAYOUT_GAP = 6

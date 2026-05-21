@@ -13,10 +13,10 @@ import {
 } from '@mdxeditor/editor'
 import { Check, Copy, ExternalLink, Link2Off, Pencil } from 'lucide-react'
 import { type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { isImeComposing } from '../../lib/keyboard'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
+import { Label } from '../../../components/ui/label'
+import { isImeComposing } from '../../../lib/keyboard'
 
 const LINK_DIALOG_WIDTH = 340
 const LINK_DIALOG_MARGIN = 12

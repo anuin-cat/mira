@@ -32,8 +32,8 @@ import {
   allowedHeadingLevels$,
   realmPlugin,
 } from '@mdxeditor/editor'
-import { $createMiraMathNode, $isMiraMathNode, MiraMathNode } from './math/mdxMathPlugin'
-import { createInlineMathCaretMarker } from './math/inlineMathCaret'
+import { $createMiraMathNode, $isMiraMathNode, MiraMathNode } from '../math/mdxMathPlugin'
+import { createInlineMathCaretMarker } from '../math/inlineMathCaret'
 
 const LIST_TRANSFORMERS = new Set<Transformer>([ORDERED_LIST, UNORDERED_LIST, CHECK_LIST])
 
