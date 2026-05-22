@@ -4,7 +4,7 @@ import { insertPlainTextIntoFocusedTarget } from '../../../lib/plainTextInput'
 import {
   escapePlainTextForMdxMarkdown,
   getMarkdownPasteMode,
-  sanitizeMarkdownForMdxPaste,
+  prepareMarkdownForMdxPaste,
 } from './markdownPaste'
 
 interface PendingMarkdownPaste {
@@ -100,7 +100,7 @@ export function useMdxPasteController({ editorRef, latestMarkdownRef, onChange }
 
   /** 执行安全 Markdown 导入，并为未知解析失败准备纯文本兜底 */
   function insertMarkdownIntoEditor(markdownText: string) {
-    const sanitizedMarkdown = sanitizeMarkdownForMdxPaste(markdownText)
+    const sanitizedMarkdown = prepareMarkdownForMdxPaste(markdownText)
 
     // 1. MDXEditor 的 insertMarkdown 失败不会抛错，只会触发 onError，因此先记录上下文
     rememberMarkdownPaste(sanitizedMarkdown, markdownText)

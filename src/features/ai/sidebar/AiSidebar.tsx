@@ -350,8 +350,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function Ai
   async function doSendMessage(
     trimmedMessage: string,
     baseSession: AiChatSession,
-    previousSessions: AiChatSession[],
-    restoreComposerParts: AiComposerPart[] | null = null
+    previousSessions: AiChatSession[]
   ) {
     if (isSending) return
 
@@ -474,16 +473,22 @@ export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function Ai
         return
       }
 
-      // 5. 请求失败时回滚 optimistic 结果，并恢复输入框，方便用户修改后重试
-      commitSessions(previousSessions, baseSession.id)
-      if (!composerRef.current?.hasContent()) {
-        if (restoreComposerParts) {
-          composerRef.current?.setParts(restoreComposerParts)
-        } else {
-          composerRef.current?.setPlainText(trimmedMessage)
-        }
+      // 5. 请求失败时保留本轮用户消息和已产生的 assistant 过程，避免丢失 agent transcript
+      const errorText = getAiErrorMessage(error)
+      const failedMessage: AiChatMessage = {
+        ...latestAssistantMessage,
+        content: latestAssistantMessage.content || `请求失败：${errorText}`,
+        isReasoningComplete: true,
       }
-      setErrorMessage(getAiErrorMessage(error))
+      const failedSession = replaceMessageInSession(
+        {
+          ...optimisticSession,
+          updatedAt: new Date().toISOString(),
+        },
+        failedMessage
+      )
+      commitSessions([failedSession, ...remainingSessions], failedSession.id)
+      setErrorMessage(errorText)
     } finally {
       if (activeAbortControllerRef.current === abortController) {
         activeAbortControllerRef.current = null
@@ -505,7 +510,7 @@ export const AiSidebar = forwardRef<AiSidebarHandle, AiSidebarProps>(function Ai
     const previousSessions = currentSession ? sessions : [baseSession, ...sessions]
 
     composerRef.current?.clear()
-    await doSendMessage(trimmedMessage, baseSession, previousSessions, composerParts)
+    await doSendMessage(trimmedMessage, baseSession, previousSessions)
   }
 
   /** 重新生成某条 assistant 消息的回复 */

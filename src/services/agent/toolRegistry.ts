@@ -1,4 +1,5 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions'
+import { jsonrepair } from 'jsonrepair'
 import type {
   AgentTool,
   AgentToolCall,
@@ -8,16 +9,41 @@ import type {
   AgentToolRegistryLike,
 } from './types'
 
-/** 解析模型生成的 JSON 工具入参 */
-function parseToolArguments(argumentsText: string): AgentToolInput {
-  if (!argumentsText.trim()) return {}
-
-  const parsed = JSON.parse(argumentsText) as unknown
+/** 校验已解析的工具入参必须是 JSON object */
+function normalizeParsedToolArguments(parsed: unknown): AgentToolInput {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('工具参数必须是 JSON object')
   }
 
   return parsed as AgentToolInput
+}
+
+/** 提取 JSON 解析错误摘要，避免把超长工具参数重复塞回上下文 */
+function formatJsonParseError(error: unknown): string {
+  return error instanceof Error ? error.message : 'JSON 解析失败'
+}
+
+/** 解析模型生成的 JSON 工具入参；失败时修复常见的未转义引号/换行问题 */
+function parseToolArguments(argumentsText: string): AgentToolInput {
+  const trimmedArguments = argumentsText.trim()
+  if (!trimmedArguments) return {}
+
+  try {
+    return normalizeParsedToolArguments(JSON.parse(trimmedArguments) as unknown)
+  } catch (strictError) {
+    if (!(strictError instanceof SyntaxError)) throw strictError
+
+    try {
+      const repairedArguments = jsonrepair(trimmedArguments)
+      return normalizeParsedToolArguments(JSON.parse(repairedArguments) as unknown)
+    } catch (repairError) {
+      throw new Error(
+        `工具参数无法解析为 JSON object：${formatJsonParseError(
+          repairError instanceof SyntaxError ? strictError : repairError
+        )}。常见原因是字符串内容里的英文双引号没有写成 \\"，或把原始换行直接放进了 JSON 字符串。`
+      )
+    }
+  }
 }
 
 /** 把工具错误稳定编码为 tool message，让模型有机会修正调用 */
