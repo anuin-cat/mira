@@ -16,7 +16,7 @@ import type {
   AgentToolRegistryLike,
 } from './types'
 
-const MAX_AGENT_STEPS = 32
+const MAX_AGENT_STEPS = 96
 
 interface RunChatCompletionAgentOptions {
   client: OpenAI
